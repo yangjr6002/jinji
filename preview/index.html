@@ -233,6 +233,22 @@ button{font-family:inherit;cursor:pointer}
 }
 .asset-col-input:hover{border-color:var(--border);}
 .asset-col-input:focus{outline:none; border-color:var(--accent); background:var(--surface); color:var(--text); text-transform:none;}
+
+/* 基本信息：左右两栏 key-value 列表，不用卡片方框 */
+.kv-list{display:flex; flex-direction:column;}
+.kv-row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border-soft);}
+.kv-row:last-child{border-bottom:none;}
+.kv-label-input{
+  width:120px; flex:none; font-weight:600; font-size:13.5px; color:var(--text);
+  font-family:'IBM Plex Sans',sans-serif; border:1px solid transparent; background:transparent;
+  padding:7px 9px; border-radius:6px;
+}
+.kv-value-input{
+  flex:1; min-width:0; font-size:13.5px; color:var(--text); font-family:'IBM Plex Sans',sans-serif;
+  border:1px solid transparent; background:transparent; padding:7px 9px; border-radius:6px;
+}
+.kv-label-input:hover, .kv-value-input:hover{border-color:var(--border);}
+.kv-label-input:focus, .kv-value-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 table.data{width:100%; border-collapse:collapse; font-size:13.5px;}
 table.data th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
 table.data td{padding:13px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle;}
@@ -465,7 +481,14 @@ var DEFAULT_TL_CATEGORIES = [
 var CATEGORY_COLOR_PALETTE = ["#2F5D50","#4A5A8C","#8C6D3F","#8C4A4A","#A0527A","#3D7A99","#7A9C3D","#9C3D6E","#5C3D9C","#8C8C8C"];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineOrientation:"horizontal", categoryViewMode:"list" },
+  basicInfo:[
+    {id:"bi1", label:"姓名", value:"yo"},
+    {id:"bi2", label:"英文名", value:""},
+    {id:"bi3", label:"日文名", value:""},
+    {id:"bi4", label:"曾用名", value:""},
+    {id:"bi5", label:"生日", value:""}
+  ],
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineOrientation:"horizontal", categoryViewMode:"list" },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -561,6 +584,7 @@ function normalizeData(d){
   }
   d.assets = (d.assets||[]).map(migrateAssetItem);
   d.profile = d.profile || {name:"", avatarUrl:""};
+  d.basicInfo = d.basicInfo || [];
   d.passwords = d.passwords || [];
   d.idPhotos = d.idPhotos || [];
   d.albumPhotos = d.albumPhotos || [];
@@ -614,7 +638,7 @@ function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){r
 
 /* ---- 名称自定义 ---- */
 var DEFAULT_LABELS = {
-  passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
+  basicinfo:"基本信息", passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
   timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离"
 };
 function labelFor(key){
@@ -696,6 +720,7 @@ window.go = function(view){
 };
 
 var MODULES = [
+  {id:"basicinfo", icon:"👤", label:"基本信息", desc:"姓名/称呼等基础身份信息", count:function(){return DATA.basicInfo.length;}},
   {id:"passwords", icon:"🔐", label:"密码管理", desc:"网站账号密码", sensitive:true, count:function(){return DATA.passwords.length;}},
   {id:"assets", icon:"💳", label:"资产信息", desc:"银行卡账户", sensitive:true, count:function(){return DATA.assets.length;}},
   {id:"idphotos", icon:"🪪", label:"证件照管理", desc:"证件照片备份", sensitive:true, count:function(){return DATA.idPhotos.length;}},
@@ -720,6 +745,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
+  else if(VIEW==="basicinfo") app.innerHTML = renderBasicInfo();
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -1829,6 +1855,40 @@ function openModal(title, fieldsHtml, onSave){
   };
 }
 window.closeModal = function(){ document.getElementById("modalRoot").innerHTML=""; };
+
+/* ================= 基本信息：左右两栏，左边字段名/右边内容，都能直接点开编辑，不用卡片框 ================= */
+function renderBasicInfo(){
+  var rows = DATA.basicInfo.map(function(f){
+    return '<div class="kv-row">'+
+      '<input type="text" class="kv-label-input" value="'+esc(f.label)+'" placeholder="字段名" onchange="updateBasicInfoLabel(\''+f.id+'\',this.value)">'+
+      '<input type="text" class="kv-value-input" value="'+esc(f.value)+'" placeholder="内容" onchange="updateBasicInfoValue(\''+f.id+'\',this.value)">'+
+      '<button class="btn small danger" onclick="deleteBasicInfoRow(\''+f.id+'\')" title="删除这一行">✕</button>'+
+    '</div>';
+  }).join('');
+  return moduleShell("basicinfo","👤","basicinfo","姓名、称呼这些最基础的身份信息；左边字段名、右边内容都能直接点开编辑，改完自动保存。",
+    '<button class="btn solid" onclick="addBasicInfoRow()">+ 新增一行</button>',
+    '<div class="kv-list">'+rows+'</div>'+
+    (DATA.basicInfo.length ? '' : emptyState("👤","还没有添加基本信息","点击右上角「新增一行」添加"))
+  );
+}
+window.updateBasicInfoLabel = function(id, value){
+  var f = DATA.basicInfo.filter(function(x){return x.id===id;})[0]; if(!f) return;
+  f.label = value; save();
+};
+window.updateBasicInfoValue = function(id, value){
+  var f = DATA.basicInfo.filter(function(x){return x.id===id;})[0]; if(!f) return;
+  f.value = value; save();
+};
+window.addBasicInfoRow = function(){
+  DATA.basicInfo.push({id:uid(), label:"", value:""});
+  save(); render();
+};
+window.deleteBasicInfoRow = function(id){
+  confirmDelete("确定删除这一行吗？", function(){
+    DATA.basicInfo = DATA.basicInfo.filter(function(x){return x.id!==id;});
+    save(); render(); toast("已删除");
+  });
+};
 
 /* ================= 密码管理 ================= */
 var revealed = {};
