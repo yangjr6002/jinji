@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Private Space</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{
+  --bg:#FFFFFF;
+  --surface:#FFFFFF;
+  --surface-2:#FAFAF8;
+  --border:#E7E5E0;
+  --border-soft:#F0EEE9;
+  --text:#1C1C1A;
+  --text-dim:#8C897E;
+  --text-faint:#B7B4AA;
+  --accent:#2F5D50;
+  --accent-soft:#EAF1EE;
+  --danger:#B3483C;
+  --danger-soft:#FBEEEC;
+  --shadow: 0 1px 2px rgba(20,20,15,.04), 0 8px 24px rgba(20,20,15,.05);
+  --shadow-lg: 0 4px 10px rgba(20,20,15,.06), 0 18px 40px rgba(20,20,15,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Sans',sans-serif;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.serif{font-family:'Fraunces',serif;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+::selection{background:var(--accent-soft);color:var(--accent)}
+
+/* ---- layout shell ---- */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 28px;
+  background:rgba(255,255,255,.9);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(6px);
+}
+.brand{display:flex; align-items:center; gap:9px; font-family:'Fraunces',serif; font-size:17px; font-weight:600; letter-spacing:.01em;}
+.brand .mark{
+  width:24px;height:24px;border:1.5px solid var(--text);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text);
+  font-family:'IBM Plex Mono',monospace;
+}
+.crumb{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;cursor:pointer}
+.crumb:hover{color:var(--accent)}
+.warn-banner{
+  background:var(--surface-2); color:var(--text-dim); border-bottom:1px solid var(--border);
+  font-size:11.5px; padding:7px 28px; display:flex; gap:8px; align-items:center;
+}
+.warn-banner b{color:var(--text)}
+.toptabs{
+  position:sticky; top:53px; z-index:49;
+  display:flex; gap:6px; padding:9px 28px;
+  background:rgba(255,255,255,.9); border-bottom:1px solid var(--border); backdrop-filter:blur(6px);
+  overflow-x:auto; flex-wrap:nowrap;
+}
+.toptab{
+  flex:none;
+  font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:600;
+  padding:6px 14px; border-radius:20px; border:1px solid var(--border);
+  background:transparent; color:var(--text-dim); transition:.15s; white-space:nowrap;
+}
+.toptab:hover{border-color:var(--text-faint); color:var(--text);}
+.toptab.active{background:var(--text); color:#fff; border-color:var(--text);}
+.toptab-dyn{
+  flex:none; display:inline-flex; align-items:center; gap:6px;
+  font-family:'IBM Plex Sans',sans-serif; font-size:12px; font-weight:600;
+  padding:6px 8px 6px 14px; border-radius:20px; border:1px solid var(--border);
+  background:transparent; color:var(--text-dim); transition:.15s; white-space:nowrap; cursor:pointer;
+}
+.toptab-dyn:hover{border-color:var(--text-faint); color:var(--text);}
+.toptab-dyn.active{background:var(--text); color:#fff; border-color:var(--text);}
+.toptab-dyn .tclose{
+  width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:9px; background:var(--surface-2); color:var(--text-dim); flex:none;
+}
+.toptab-dyn.active .tclose{background:rgba(255,255,255,.25); color:#fff;}
+.toptab-dyn .tclose:hover{background:var(--danger); color:#fff;}
+
+.wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
+
+/* ---- home / dossier ---- */
+.dossier-head{margin-bottom:48px;}
+.id-block{padding-top:4px;}
+.name-row{display:flex; align-items:center; gap:10px;}
+.id-block h1{font-size:40px; margin:0; font-weight:600; letter-spacing:.005em; line-height:1.1; cursor:pointer; transition:opacity .12s;}
+.id-block h1:hover{opacity:.7;}
+.name-edit-btn{
+  border:1px solid var(--border); background:var(--surface); color:var(--text-dim);
+  width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:13px; flex:none; transition:.15s;
+}
+.name-edit-btn:hover{border-color:var(--accent); color:var(--accent);}
+.id-block .sub-hint{display:none;}
+.quick-access-inline{margin-top:18px;}
+
+.avatar-preview-box{width:100%; aspect-ratio:3/4; border-radius:12px; overflow:hidden; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;}
+.avatar-preview-box img{width:100%; height:100%; object-fit:cover; display:block;}
+.avatar-preview-placeholder{font-family:'Fraunces',serif; font-size:64px; color:var(--text-faint);}
+.avatar-upload-btn{display:block; text-align:center; margin-top:14px; cursor:pointer;}
+.avatar-upload-btn input{display:none;}
+
+/* ---- home sections ---- */
+.home-section{margin-bottom:52px; position:relative; padding-left:22px; transition:opacity .12s;}
+.home-section:last-child{margin-bottom:0;}
+.home-section.dragging{opacity:.4;}
+.drag-handle{
+  position:absolute; left:-2px; top:2px; width:20px; height:20px; border-radius:5px;
+  display:flex; align-items:center; justify-content:center; cursor:grab;
+  color:var(--text-faint); font-size:13px; letter-spacing:-2px; user-select:none; transition:.15s;
+}
+.drag-handle:hover{color:var(--text-dim); background:var(--surface-2);}
+.drag-handle:active{cursor:grabbing;}
+.quick-link[draggable="true"], .folder[draggable="true"]{cursor:grab;}
+.section-header-row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+.cat-back-bar{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+.cat-folder-list{display:flex; flex-direction:column;}
+.cat-folder-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-soft); cursor:pointer; transition:background .12s;}
+.cat-folder-row:last-child{border-bottom:none;}
+.cat-folder-row:hover{background:var(--surface-2);}
+.cat-folder-row:hover .cflabel{color:var(--accent);}
+.cat-folder-row .cflabel{font-size:13.5px; font-weight:600; color:var(--text);}
+.cat-folder-row .cfcount{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-dim); flex:none;}
+.cat-back-label{font-size:13px; font-weight:600; color:var(--text); flex:1;}
+.section-label{
+  font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text-dim); margin:0; padding-bottom:8px; border-bottom:1px solid var(--border); flex:1;
+}
+.gear-btn{
+  width:26px;height:26px;border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text-dim);
+  display:flex;align-items:center;justify-content:center; font-size:12px; flex:none; transition:.15s;
+}
+.gear-btn:hover{border-color:var(--text-faint); color:var(--text);}
+
+/* ---- quick access: list / grid ---- */
+.quick-access-box{position:relative; width:100%; padding-right:30px;}
+.quick-links{display:flex; flex-wrap:nowrap; align-items:baseline; font-size:13px; overflow-x:auto; max-width:100%; padding-bottom:2px;}
+.quick-link{flex:none; white-space:nowrap; color:var(--text); font-weight:600; cursor:pointer; transition:color .12s;}
+.quick-link:hover{color:var(--accent);}
+.quick-link.sensitive:hover{color:var(--danger);}
+.quick-link .qn{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-faint); margin-left:3px; font-weight:400;}
+.quick-sep{flex:none; color:var(--text-faint); margin:0 9px; font-size:12px;}
+.quick-links-empty{font-size:12.5px; color:var(--text-faint);}
+.mod-icon{font-size:14px; flex:none; width:18px; text-align:center;}
+.mod-visible-check{flex:none; width:15px; height:15px; cursor:pointer;}
+.gear-float{position:absolute; top:-9px; right:0; background:var(--surface); box-shadow:var(--shadow);}
+
+.tab-grid{display:flex; flex-wrap:wrap; gap:7px; max-width:100%;}
+.folder{
+  position:relative; background:var(--surface); color:var(--text);
+  border-radius:9px; padding:9px 10px 8px; width:96px; flex:0 0 auto;
+  box-shadow:var(--shadow); cursor:pointer; overflow:hidden;
+  transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+  border:1px solid var(--border);
+}
+.folder:hover{transform:translateY(-2px); box-shadow:var(--shadow-lg); border-color:var(--text-faint);}
+.folder .ftop{display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;}
+.folder .ficon{font-size:13px; line-height:1;}
+.folder .count{font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text-dim);}
+.folder.sensitive .count{color:var(--danger);}
+.folder h3{margin:0; font-size:11.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+/* ---- module pages (sub pages) ---- */
+.module-head{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap;}
+.module-head h2{font-size:20px; margin:0;}
+.title-row{display:flex; align-items:center; gap:7px; margin-bottom:6px;}
+.title-edit-btn{
+  border:1px solid var(--border); background:var(--surface); color:var(--text-dim);
+  width:21px; height:21px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:10px; flex:none; transition:.15s; cursor:pointer;
+}
+.title-edit-btn:hover{border-color:var(--accent); color:var(--accent);}
+.module-head .sub{display:none;}
+.btn{
+  font-family:'IBM Plex Sans',sans-serif; font-weight:600; font-size:13px;
+  padding:9px 15px; border-radius:7px; border:1px solid var(--text);
+  background:transparent; color:var(--text); transition:.15s;
+}
+.btn:hover{background:var(--text); color:#fff;}
+.btn.solid{background:var(--text); color:#fff;}
+.btn.solid:hover{background:#000; border-color:#000;}
+.btn.ghost{border-color:var(--border); color:var(--text-dim);}
+.btn.ghost:hover{border-color:var(--text-dim); color:var(--text); background:transparent;}
+.btn.danger{border-color:var(--danger); color:var(--danger);}
+.btn.danger:hover{background:var(--danger); color:#fff;}
+.btn.small{padding:5px 10px; font-size:11.5px; border-radius:6px;}
+.tl-orient-btn{width:30px; height:30px; padding:0; font-size:15px; display:flex; align-items:center; justify-content:center; flex:none; border-radius:8px;}
+
+/* password table */
+.card-panel{background:var(--surface); color:var(--text); border-radius:12px; box-shadow:var(--shadow); overflow:hidden; border:1px solid var(--border);}
+.asset-table-wrap{
+  max-height:66vh; overflow:auto; border:1px solid var(--border); border-radius:12px;
+  box-shadow:var(--shadow); background:var(--surface); cursor:grab;
+}
+.asset-table-wrap.grabbing{cursor:grabbing;}
+.asset-table{border-collapse:collapse; width:max-content; min-width:100%; font-size:13px;}
+.asset-table th{
+  position:sticky; top:0; z-index:2; text-align:left; white-space:nowrap;
+  padding:11px 16px; background:var(--surface-2); color:var(--text-dim);
+  font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
+  border-bottom:1px solid var(--border);
+}
+.asset-table td{padding:11px 16px; white-space:nowrap; border-bottom:1px solid var(--border-soft); color:var(--text);}
+.asset-table tr:last-child td{border-bottom:none;}
+.asset-table tr:hover td{background:var(--surface-2);}
+.asset-table td .row-actions{display:flex; gap:6px;}
+table.data{width:100%; border-collapse:collapse; font-size:13.5px;}
+table.data th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
+table.data td{padding:13px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle;}
+table.data tr:last-child td{border-bottom:none}
+table.data tr:hover{background:var(--surface-2)}
+.pw-mask{font-family:'IBM Plex Mono',monospace; letter-spacing:.1em;}
+.reveal-btn{background:none;border:none;color:var(--accent); font-size:12px; margin-left:8px; text-decoration:underline; padding:0;}
+.row-actions{display:flex; gap:8px;}
+.empty-state{padding:56px 20px; text-align:center; color:var(--text-dim);}
+.empty-state .big{font-size:30px; margin-bottom:10px; opacity:.5}
+
+/* asset / card grid */
+.asset-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px;}
+.bank-card{
+  border-radius:12px; padding:18px 20px; color:var(--text); position:relative; overflow:hidden;
+  min-height:120px; display:flex; flex-direction:column; justify-content:space-between;
+  box-shadow:var(--shadow); background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent-bar, var(--accent));
+}
+.bank-card .type{font-size:10.5px; font-family:'IBM Plex Mono',monospace; letter-spacing:.06em; color:var(--text-dim)}
+.bank-card .num{font-family:'IBM Plex Mono',monospace; font-size:16px; letter-spacing:.08em; margin:12px 0 5px;}
+.bank-card .holder{font-size:12px; color:var(--text-dim)}
+.bank-card .bankname{font-family:'Fraunces',serif; font-size:15px; font-weight:600;}
+.bank-card .card-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.card-actions{position:absolute; top:12px; right:12px; display:flex; gap:6px;}
+.card-actions button{background:var(--surface-2); border:1px solid var(--border); color:var(--text-dim); width:24px;height:24px;border-radius:50%; font-size:11px;}
+.card-actions button:hover{color:var(--text); border-color:var(--text-faint);}
+
+/* photo grid */
+.photo-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px;}
+.photo-card{background:var(--surface); border-radius:10px; overflow:hidden; box-shadow:var(--shadow); border:1px solid var(--border);}
+.photo-card .thumb{width:100%; aspect-ratio:4/3; object-fit:cover; display:block; background:var(--surface-2);}
+.photo-card .thumb.placeholder{display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--text-faint);}
+.photo-card .cap{padding:9px 11px; font-size:12px; color:var(--text); display:flex; justify-content:space-between; align-items:center; gap:6px;}
+.photo-card .cap .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.upload-tile{
+  border:1.5px dashed var(--border); border-radius:10px; aspect-ratio:4/3;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  color:var(--text-dim); font-size:12px; cursor:pointer; background:var(--surface-2);
+}
+.upload-tile:hover{border-color:var(--text-faint); color:var(--text)}
+.upload-tile input{display:none}
+
+/* timeline (life experience) */
+.tl-filter-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;}
+.tl-filter-row .gear-btn{margin-left:auto;}
+.cat-manage-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px; max-height:280px; overflow-y:auto;}
+.cat-manage-row{display:flex; align-items:center; gap:9px;}
+.cat-fixed-hint{font-size:10px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; flex:none; white-space:nowrap;}
+.cat-dot{width:12px; height:12px; border-radius:50%; flex:none;}
+.cat-name-input{flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
+.cat-name-input:focus{outline:none; border-color:var(--accent);}
+.cat-add-row{display:flex; gap:8px; padding-top:10px; border-top:1px solid var(--border-soft);}
+.cat-add-row input, .cat-add-row select{flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
+.cat-add-row input:focus, .cat-add-row select:focus{outline:none; border-color:var(--accent);}
+.tl-fields-list{display:flex; flex-direction:column; gap:8px;}
+.tl-field-row{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-soft); border-radius:10px; background:var(--surface-2);}
+.tl-field-top{display:flex; gap:8px; align-items:center;}
+.tl-field-label{flex:1; padding:8px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-weight:600; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
+.tl-field-value{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text); min-height:120px; resize:vertical; line-height:1.6; box-sizing:border-box;}
+.tl-field-label:focus, .tl-field-value:focus{outline:none; border-color:var(--accent);}
+.geo-pick-list{display:flex; flex-direction:column; gap:6px; max-height:320px; overflow-y:auto; margin-bottom:6px;}
+.geo-pick-row{text-align:left; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:13px; line-height:1.5; cursor:pointer; transition:.15s;}
+.geo-pick-row:hover{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
+.tl-filter-chip{
+  font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 10px; border-radius:20px;
+  border:1px solid var(--border); color:var(--text-dim); cursor:pointer; transition:.15s; background:var(--surface);
+}
+.tl-filter-chip:hover{border-color:var(--text-faint); color:var(--text);}
+.tl-filter-chip.active{background:var(--chip-color, var(--text)); border-color:var(--chip-color, var(--text)); color:#fff;}
+.tl-map-cta{margin-top:12px;}
+.hz-timeline-wrap{padding:6px 4px 20px; overflow:hidden;}
+.hz-timeline{position:relative; height:76px; overflow-x:auto; overflow-y:hidden; cursor:grab; -webkit-overflow-scrolling:touch; transition:height .15s ease;}
+.hz-timeline.grabbing{cursor:grabbing;}
+.hz-timeline::-webkit-scrollbar{height:4px;}
+.hz-timeline::-webkit-scrollbar-thumb{background:var(--border); border-radius:3px;}
+.hz-line{position:absolute; top:6px; left:0; height:2px; background:var(--border-soft);}
+.hz-point{position:absolute; top:0; display:flex; flex-direction:column; align-items:center; user-select:none; transform:translateX(-50%); width:130px;}
+.hz-dot{width:13px;height:13px;border-radius:50%; background:var(--text); border:2px solid var(--surface); box-shadow:0 0 0 1.5px var(--text); flex:none; transition:.15s;}
+.hz-dot-add{display:flex; align-items:center; justify-content:center; font-size:11px; line-height:1; color:var(--text-faint); background:transparent; border:2px dashed var(--text-faint); box-shadow:none;}
+.hz-point.add:hover .hz-dot-add{border-color:var(--accent); color:var(--accent);}
+.hz-point[data-year]{cursor:pointer;}
+.hz-point[data-year]:hover .hz-year-dot{transform:scale(1.2);}
+.hz-point.open .hz-year-dot{background:var(--accent); box-shadow:0 0 0 1.5px var(--accent);}
+.hz-point.open .hz-year-label{color:var(--accent);}
+.hz-year-count{
+  display:inline-flex; align-items:center; justify-content:center; margin-left:4px;
+  min-width:14px; height:14px; padding:0 3px; border-radius:8px;
+  background:var(--accent-soft); color:var(--accent); font-size:9px; font-family:'IBM Plex Mono',monospace;
+  vertical-align:middle;
+}
+.hz-point.open .hz-year-count{background:var(--accent); color:#fff;}
+.hz-date{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dim); white-space:nowrap; margin-top:6px;}
+.hz-year-label{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; color:var(--text); margin-top:6px;}
+.hz-point.add .hz-date{color:var(--text-faint);}
+.hz-point.add:hover .hz-date{color:var(--accent);}
+.hz-year-branches{
+  display:flex; flex-direction:column; align-items:flex-start; gap:5px;
+  margin-top:9px; padding-left:12px; border-left:1.5px solid var(--border-soft); max-width:150px;
+}
+.hz-leaf{
+  position:relative; font-size:10.5px; color:var(--text); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:140px;
+  cursor:pointer; padding:2px 6px; border-radius:4px; border:1px solid transparent; transition:.12s;
+}
+.hz-leaf::before{content:""; position:absolute; left:-12px; top:10px; width:9px; height:1.5px; background:var(--border-soft);}
+.hz-leaf:hover{background:var(--accent-soft); color:var(--accent); border-color:transparent;}
+.hz-leaf-dot{display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; vertical-align:middle; flex:none;}
+.hz-leaf-date{font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--text-dim); margin-right:4px;}
+.hz-leaf:hover .hz-leaf-date{color:var(--accent);}
+.hz-detail{margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow);}
+.hz-detail-table{width:100%; border-collapse:collapse; font-size:13px;}
+.hz-detail-table th{width:56px; text-align:left; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500; padding:6px 10px 6px 0; vertical-align:top; white-space:nowrap;}
+.hz-detail-table td{padding:6px 0; color:var(--text); line-height:1.6; border-bottom:1px solid var(--border-soft);}
+.hz-detail-table tr:last-child td{border-bottom:none}
+.hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
+.hz-detail-hint{margin-top:14px; padding:22px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:12px;}
+
+/* vertical timeline */
+.tl-vertical{position:relative; padding-left:24px;}
+.tl-vertical::before{content:""; position:absolute; left:5px; top:6px; bottom:20px; width:1.5px; background:var(--border-soft);}
+.tlv-year-row{position:relative; cursor:pointer; padding:6px 0; user-select:none;}
+.tlv-year-row:hover .tlv-year-label{color:var(--accent);}
+.tlv-year-row::before{
+  content:""; position:absolute; left:-24px; top:9px; width:11px; height:11px; border-radius:50%;
+  background:var(--text); border:2px solid var(--surface); box-shadow:0 0 0 1.5px var(--text);
+}
+.tlv-year-row.open::before{background:var(--accent); box-shadow:0 0 0 1.5px var(--accent);}
+.tlv-year-row.add::before{background:transparent; border:2px dashed var(--text-faint); box-shadow:none;}
+.tlv-year-label{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px; color:var(--text);}
+.tlv-year-row.open .tlv-year-label{color:var(--accent);}
+.tlv-year-row.add .tlv-year-label{font-weight:600; color:var(--text-faint); font-family:'IBM Plex Sans',sans-serif; font-size:13px;}
+.tlv-branches{display:flex; flex-direction:column; gap:5px; margin:4px 0 10px; padding-left:14px; border-left:1.5px solid var(--border-soft);}
+.tlv-leaf{
+  position:relative; font-size:12px; color:var(--text); cursor:pointer;
+  padding:4px 8px; border-radius:6px; border:1px solid transparent; transition:.12s;
+}
+.tlv-leaf::before{content:""; position:absolute; left:-14px; top:12px; width:11px; height:1.5px; background:var(--border-soft);}
+.tlv-leaf:hover{background:var(--accent-soft); color:var(--accent);}
+.tlv-leaf:hover .hz-leaf-date{color:var(--accent);}
+
+/* world map (真实的 Leaflet + OpenStreetMap 地图) */
+.map-wrap{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--shadow); position:relative;}
+.leaflet-map-el{width:100%; height:420px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); z-index:1;}
+.geo-pin-icon{background:transparent; border:none;}
+.map-fallback{padding:40px 20px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:10px;}
+.map-legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+.map-chip{font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 10px; border-radius:20px; background:var(--accent-soft); color:var(--accent); cursor:pointer;}
+.map-chip.unmapped{background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); cursor:default;}
+.map-note{font-size:11px; color:var(--text-faint); margin-top:12px; line-height:1.6;}
+.map-popup-btn{font-size:11.5px; color:var(--accent); text-decoration:underline; cursor:pointer; border:none; background:none; padding:0; font-family:'IBM Plex Sans',sans-serif;}
+
+/* memorial events */
+.memorial-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px;}
+.memorial-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:15px 16px; box-shadow:var(--shadow); position:relative;}
+.memorial-card .mname{font-size:14.5px; font-weight:600; margin-bottom:4px; padding-right:50px;}
+.memorial-card .mdate{font-size:11px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; margin-bottom:10px;}
+.memorial-card .mcountdown{font-size:13px; color:var(--accent); font-weight:600;}
+.memorial-card .mnote{font-size:12px; color:var(--text-dim); margin-top:8px; line-height:1.5;}
+.memorial-card .row-actions{position:absolute; top:13px; right:13px;}
+
+/* declutter */
+.declutter-list{display:flex; flex-direction:column; gap:8px;}
+.declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
+.declutter-row .dname{font-size:13.5px; font-weight:600;}
+.row-open-link{cursor:pointer;}
+.row-open-link:hover{color:var(--accent);}
+.declutter-row .dnote{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+.status-badge{font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 10px; border-radius:20px; border:1px solid var(--border); cursor:pointer; white-space:nowrap; flex:none;}
+.status-badge.s0{background:var(--surface-2); color:var(--text-dim);}
+.status-badge.s1{background:var(--accent-soft); color:var(--accent); border-color:transparent;}
+.status-badge.s2{background:var(--border-soft); color:var(--text-faint); text-decoration:line-through; border-color:transparent;}
+
+/* contacts */
+.contact-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px;}
+.contact-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; box-shadow:var(--shadow); position:relative;}
+.contact-card .initial{width:34px;height:34px;border-radius:50%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:600;margin-bottom:10px;font-size:14px;}
+.contact-card h4{margin:0 0 2px; font-size:14.5px;}
+.contact-card .rel{font-size:11px; color:var(--accent); font-family:'IBM Plex Mono',monospace; margin-bottom:8px;}
+.contact-card .phone{font-size:13px; font-family:'IBM Plex Mono',monospace; color:var(--text);}
+.contact-card .note{font-size:12px; color:var(--text-dim); margin-top:6px; line-height:1.5}
+.contact-card .row-actions{position:absolute; top:14px; right:14px;}
+
+/* modal */
+.modal-mask{position:fixed; inset:0; background:rgba(20,20,15,.35); display:flex; align-items:center; justify-content:center; z-index:200; padding:20px;}
+.modal{background:var(--surface); color:var(--text); border-radius:14px; width:100%; max-width:440px; padding:26px 26px 22px; box-shadow:0 24px 60px rgba(0,0,0,.16); max-height:88vh; overflow:auto; border:1px solid var(--border);}
+.modal h3{margin:0 0 18px; font-size:18px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:11.5px; font-family:'IBM Plex Mono',monospace; letter-spacing:.03em; color:var(--text-dim); margin-bottom:5px;}
+.field input, .field textarea, .field select{
+  width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:7px; font-size:13.5px;
+  font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);
+}
+.field input:focus, .field textarea:focus, .field select:focus{outline:none; border-color:var(--accent);}
+.field textarea{resize:vertical; min-height:64px;}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+
+/* toast */
+.toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:10px 18px; border-radius:14px; font-size:12.5px; box-shadow:var(--shadow-lg); z-index:300; opacity:0; transition:opacity .25s; max-width:min(90vw,420px); line-height:1.6; text-align:center;}
+.toast.show{opacity:1;}
+
+.muted{color:var(--text-dim)}
+</style>
+</head>
+<body>
+<div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
+<div class="topbar">
+  <div class="brand"><span class="mark">P</span>Private Space</div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+    <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
+  </div>
+</div>
+<div class="toptabs" id="topTabs"></div>
+<div class="wrap" id="app"></div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 数据层 ================= */
+var STORE_KEY = "pw_dossier_data_v6";
+var DEFAULT_TL_CATEGORIES = [
+  {key:"growth", label:"成长", color:"#2F5D50"},
+  {key:"school", label:"学校", color:"#4A5A8C"},
+  {key:"work", label:"工作", color:"#8C6D3F"},
+  {key:"travel", label:"旅游", color:"#8C4A4A"},
+  {key:"love", label:"情感", color:"#A0527A"},
+  {key:"other", label:"其他", color:"#8C8C8C"}
+];
+var CATEGORY_COLOR_PALETTE = ["#2F5D50","#4A5A8C","#8C6D3F","#8C4A4A","#A0527A","#3D7A99","#7A9C3D","#9C3D6E","#5C3D9C","#8C8C8C"];
+var DEFAULT_DATA = {
+  profile:{ name:"yo", avatarUrl:"" },
+  settings:{ moduleView:"list", quickAccessIds:["passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineOrientation:"horizontal", categoryViewMode:"list" },
+  labels:{},
+  timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
+  passwords:[
+    {id:"p1", site:"Gmail", username:"lu.jin@gmail.com", password:"Xk9#mPz2Lw", note:"常用邮箱，已开双重验证"},
+    {id:"p2", site:"公司 VPN", username:"lu.jin", password:"Vpn@2026Shanghai", note:""},
+    {id:"p3", site:"淘宝", username:"yo", password:"Tb!8827qWe", note:"绑定的是备用手机号"}
+  ],
+  assets:[
+    {id:"a1", title:"招商银行储蓄卡", location:"", assetType:"bankcard_physical", fields:[
+      {id:"af1", label:"卡号", value:"6225 88** **** 1234"},
+      {id:"af2", label:"持有人", value:"yo"},
+      {id:"af3", label:"备注", value:"工资卡"}
+    ]},
+    {id:"a2", title:"建设银行信用卡", location:"", assetType:"bankcard_physical", fields:[
+      {id:"af4", label:"卡号", value:"4367 42** **** 5678"},
+      {id:"af5", label:"持有人", value:"yo"},
+      {id:"af6", label:"备注", value:"额度 5 万，账单日 8 号"}
+    ]}
+  ],
+  idPhotos:[
+    {id:"i1", label:"身份证 · 正面", dataUrl:""},
+    {id:"i2", label:"护照", dataUrl:""}
+  ],
+  albumPhotos:[
+    {id:"al1", album:"2025 云南", caption:"洱海边", dataUrl:""},
+    {id:"al2", album:"2025 云南", caption:"苍山日出", dataUrl:""},
+    {id:"al3", album:"日常", caption:"新养的猫", dataUrl:""}
+  ],
+  contacts:[
+    {id:"c1", name:"yo", relation:"直属主管", phone:"139-xxxx-2201", note:"周三下午一般在开会，急事发消息"},
+    {id:"c2", name:"yo", relation:"大学室友", phone:"186-xxxx-0093", note:"生日 3 月 12 日"},
+    {id:"c3", name:"yo", relation:"家人", phone:"135-xxxx-7710", note:""}
+  ],
+  lifeTimeline:[
+    {id:"t1", date:"2024-03", keyword:"入职星野科技", category:"work", fields:[
+      {id:"f1", label:"地点", value:"上海"},
+      {id:"f2", label:"人物", value:"设计团队"},
+      {id:"f3", label:"备注", value:"从 0 到 1 搭建了设计系统"}
+    ]},
+    {id:"t2", date:"2023-10", keyword:"洱海", category:"travel", fields:[
+      {id:"f9", label:"时间段", value:"2023-10-03 至 2023-10-07"},
+      {id:"f5", label:"人物", value:"yo、yo"},
+      {id:"f6", label:"备注", value:"环洱海骑行，看了苍山日出"}
+    ]},
+    {id:"t3", date:"2020-07", keyword:"第一份工作", category:"work", fields:[
+      {id:"f7", label:"地点", value:"上海"},
+      {id:"f8", label:"备注", value:"入职云帆网络"}
+    ]}
+  ],
+  memorialEvents:[
+    {id:"m1", name:"yo的生日", date:"1990-03-12", repeatYearly:true, note:"提前订蛋糕"},
+    {id:"m2", name:"来上海的第一天", date:"2020-07-01", repeatYearly:false, note:""}
+  ],
+  declutterItems:[
+    {id:"d1", name:"旧手机 · iPhone 8", status:"想清理", note:"考虑以旧换新或转卖"},
+    {id:"d2", name:"和前同事的旧矛盾", status:"进行中", note:""}
+  ],
+  customBoards:[],
+  moduleCategories:{
+    assets_type:[
+      {key:"bankcard_physical", label:"银行实体卡"},
+      {key:"credit_electronic", label:"电子卡"},
+      {key:"othercard", label:"功能卡"},
+      {key:"realestate", label:"不动产"}
+    ]
+  }
+};
+
+/* 优先用 Claude Artifacts 的持久化存储（window.storage），这是发布/分享场景下官方支持、真正可靠的持久化方式；
+   本地直接打开这个 html 文件时 window.storage 不存在，自动回退到浏览器 localStorage */
+var hasArtifactStorage = (typeof window!=="undefined" && window.storage && typeof window.storage.get==="function");
+var storageAvailable = true;
+function normalizeData(d){
+  d.settings = d.settings || {};
+  d.settings.moduleView = d.settings.moduleView || "list";
+  d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline"];
+  d.settings.timelineOrientation = d.settings.timelineOrientation || "horizontal";
+  d.settings.categoryViewMode = d.settings.categoryViewMode || "list";
+  if(!d.settings.quickAccessIds){
+    var hidden = d.settings.hiddenModules || [];
+    d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
+  }
+  delete d.settings.hiddenModules;
+  d.labels = d.labels || {};
+  d.timelineCategories = (d.timelineCategories && d.timelineCategories.length) ? d.timelineCategories : JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES));
+  d.lifeTimeline = d.lifeTimeline || [];
+  d.memorialEvents = d.memorialEvents || [];
+  d.declutterItems = d.declutterItems || [];
+  d.customBoards = d.customBoards || [];
+  d.moduleCategories = d.moduleCategories || {};
+  if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
+    d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
+  }
+  d.assets = (d.assets||[]).map(migrateAssetItem);
+  d.profile = d.profile || {name:"", avatarUrl:""};
+  d.passwords = d.passwords || [];
+  d.idPhotos = d.idPhotos || [];
+  d.albumPhotos = d.albumPhotos || [];
+  d.contacts = d.contacts || [];
+  return d;
+}
+/* 把旧版资产字段（bank/type/holder/number/note）自动迁移成新的"标题+自定义字段"结构，不丢数据 */
+function migrateAssetItem(a){
+  if(a.fields && a.title!==undefined) return a;
+  var fields = [];
+  if(a.bank){ fields.push({id:uid(), label:"银行/机构", value:a.bank}); }
+  if(a.type){ fields.push({id:uid(), label:"细分类型", value:a.type}); }
+  if(a.holder){ fields.push({id:uid(), label:"持有人", value:a.holder}); }
+  if(a.number){ fields.push({id:uid(), label:"卡号", value:a.number}); }
+  if(a.note){ fields.push({id:uid(), label:"备注", value:a.note}); }
+  return {
+    id:a.id, title:a.bank||a.holder||"未命名资产",
+    location:a.location||"", assetType:a.assetType||"",
+    fields: fields
+  };
+}
+var DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
+function warnStorageOnce(){
+  if(!storageAvailable) return;
+  storageAvailable = false;
+  toast("当前环境无法保存数据，改动只在这次打开期间有效，刷新或关闭后会丢失", 7000);
+}
+async function loadDataAsync(){
+  var raw = null;
+  if(hasArtifactStorage){
+    try{
+      var res = await window.storage.get(STORE_KEY, false);
+      raw = res ? res.value : null;
+    }catch(e){ raw = null; }
+  } else {
+    try{ raw = localStorage.getItem(STORE_KEY); }catch(e){ raw = null; }
+  }
+  if(!raw){ return null; }
+  try{ return normalizeData(JSON.parse(raw)); }catch(e){ return null; }
+}
+function save(){
+  var payload = JSON.stringify(DATA);
+  if(hasArtifactStorage){
+    window.storage.set(STORE_KEY, payload, false).catch(function(){ warnStorageOnce(); });
+  } else {
+    try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(); }
+  }
+}
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+
+/* ---- 名称自定义 ---- */
+var DEFAULT_LABELS = {
+  passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
+  timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离"
+};
+function labelFor(key){
+  return (DATA.labels && DATA.labels[key]) || DEFAULT_LABELS[key] || key;
+}
+window.editSectionLabel = function(key){
+  openModal("重命名",
+    field("label","名称","text",labelFor(key),true),
+    function(data){
+      DATA.labels = DATA.labels || {};
+      DATA.labels[key] = data.label;
+      save(); render(); toast("已更新");
+    });
+};
+function toast(msg, duration){
+  var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
+}
+
+/* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
+window.openBackupModal = function(){
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>备份与恢复</h3>'+
+    '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
+    '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
+    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
+      '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
+    '</label>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.exportBackup = function(){
+  var payload = JSON.stringify(DATA, null, 2);
+  var blob = new Blob([payload], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  var stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = "private-space-backup-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("已导出备份文件");
+};
+window.importBackupFile = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var parsed;
+    try{ parsed = JSON.parse(e.target.result); }catch(err){ toast("这不是一个有效的 JSON 文件"); return; }
+    if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)){ toast("文件内容格式不对，不像是这个网页导出的备份"); return; }
+    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等），确定要用这份备份恢复吗？", function(){
+      DATA = normalizeData(parsed);
+      save(); render(); toast("已恢复备份");
+    }, "确认导入备份", "确定恢复");
+  };
+  reader.readAsText(file);
+  input.value = "";
+};
+
+/* ================= 路由 ================= */
+var VIEW = "home";
+window.go = function(view){
+  VIEW = view;
+  if(view==="home"){
+    document.getElementById("crumb").textContent = "首页";
+    document.getElementById("crumb").onclick = null;
+    document.getElementById("crumb").style.cursor = "default";
+  } else {
+    var key = "module:"+view;
+    if(!findTab(key)){ openTabs.push({key:key, type:"module", id:view}); }
+    activeTabKey = key;
+    document.getElementById("crumb").textContent = "首页 / " + labelFor(view);
+    document.getElementById("crumb").onclick = function(){ go("home"); };
+    document.getElementById("crumb").style.cursor = "pointer";
+  }
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+};
+
+var MODULES = [
+  {id:"passwords", icon:"🔐", label:"密码管理", desc:"网站账号密码", sensitive:true, count:function(){return DATA.passwords.length;}},
+  {id:"assets", icon:"💳", label:"资产信息", desc:"银行卡账户", sensitive:true, count:function(){return DATA.assets.length;}},
+  {id:"idphotos", icon:"🪪", label:"证件照管理", desc:"证件照片备份", sensitive:true, count:function(){return DATA.idPhotos.length;}},
+  {id:"album", icon:"📷", label:"相册管理", desc:"生活照片回忆", count:function(){return DATA.albumPhotos.length;}},
+  {id:"contacts", icon:"👥", label:"人物关系", desc:"联系人与备注", count:function(){return DATA.contacts.length;}}
+];
+var ALL_DESTINATIONS = MODULES;
+function destinationById(id){
+  var builtin = ALL_DESTINATIONS.filter(function(x){return x.id===id;})[0];
+  if(builtin) return builtin;
+  var board = (DATA.customBoards||[]).filter(function(b){return b.id===id;})[0];
+  if(board) return {id:board.id, icon:"📌", sensitive:false, count:function(){return board.items.length;}};
+  return null;
+}
+
+function render(){
+  var app=document.getElementById("app");
+  document.getElementById("topTabs").innerHTML = renderTopTabsBar();
+  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); }
+  else if(VIEW==="itemDetail"){
+    app.innerHTML = renderItemDetailPage();
+    var __tab = findTab(activeTabKey);
+    if(__tab && __tab.type==="worldmap") setupLeafletMap();
+  }
+  else if(VIEW==="passwords") app.innerHTML = renderPasswords();
+  else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
+  else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
+  else if(VIEW==="album") app.innerHTML = renderPhotoModule("album","albumPhotos","📷","album","按相册整理的生活瞬间。","caption","album");
+  else if(VIEW==="contacts") app.innerHTML = renderContacts();
+  else if(DATA.customBoards && DATA.customBoards.some(function(b){return b.id===VIEW;})) app.innerHTML = renderCustomBoardPage(VIEW);
+}
+function renderTopTabsBar(){
+  var homeActive = VIEW==="home";
+  var html = '<button class="toptab'+(homeActive?" active":"")+'" onclick="go(\'home\')">个人主页</button>';
+  html += openTabs.map(function(tab){
+    var active = tab.type==="module" ? (VIEW===tab.id) : (VIEW==="itemDetail" && activeTabKey===tab.key);
+    var raw = tabTitle(tab);
+    var label = raw.length>10 ? (raw.slice(0,10)+"…") : raw;
+    var onClickCall = tab.type==="module" ? ("go('"+tab.id+"')") : ("switchToItemTab('"+tab.key+"')");
+    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+tabIcon(tab)+' '+esc(label)+
+      '<span class="tclose" onclick="closeItemTab(event,\''+tab.key+'\')" title="关闭">✕</span></span>';
+  }).join('');
+  return html;
+}
+/* 通用横向拖动滚动：给任意容器加上鼠标按住拖动横向滚动的能力（触屏本身就能左右滑动） */
+function setupDragScroll(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var isDown=false, startX=0, startScroll=0;
+  el.addEventListener("pointerdown", function(e){
+    isDown=true; startX=e.clientX; startScroll=el.scrollLeft; el.classList.add("grabbing");
+  });
+  el.addEventListener("pointermove", function(e){
+    if(!isDown) return;
+    el.scrollLeft = startScroll - (e.clientX - startX);
+  });
+  function endDrag(){ isDown=false; el.classList.remove("grabbing"); }
+  el.addEventListener("pointerup", endDrag);
+  el.addEventListener("pointerleave", endDrag);
+  el.addEventListener("pointercancel", endDrag);
+}
+function setupHzDrag(){
+  var el = document.getElementById("hzTimeline");
+  if(!el) return;
+  var isDown=false, startX=0, startScroll=0, moved=false;
+  el.addEventListener("pointerdown", function(e){
+    isDown=true; moved=false; startX=e.clientX; startScroll=el.scrollLeft;
+    el.classList.add("grabbing");
+  });
+  el.addEventListener("pointermove", function(e){
+    if(!isDown) return;
+    var dx = e.clientX-startX;
+    if(Math.abs(dx)>4) moved=true;
+    el.scrollLeft = startScroll - dx;
+  });
+  function endDrag(){ isDown=false; el.classList.remove("grabbing"); }
+  el.addEventListener("pointerup", endDrag);
+  el.addEventListener("pointerleave", endDrag);
+  el.addEventListener("pointercancel", endDrag);
+  el.addEventListener("click", function(e){
+    if(moved) return;
+    var leaf = e.target.closest ? e.target.closest(".hz-leaf") : null;
+    if(leaf){ openTimelineEntry(leaf.getAttribute("data-id")); return; }
+    var addPt = e.target.closest ? e.target.closest(".hz-point.add") : null;
+    if(addPt){ editTimelineEntry(); return; }
+    var yearPt = e.target.closest ? e.target.closest(".hz-point[data-year]") : null;
+    if(yearPt){ toggleYearExpand(yearPt.getAttribute("data-year")); }
+  });
+}
+
+/* ================= 首页 ================= */
+function renderHome(){
+  var p=DATA.profile;
+  var html = '';
+  html += '<div class="dossier-head">'+
+    '<div class="id-block">'+
+      '<div class="name-row">'+
+        '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
+        '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+
+  var sectionContent = {
+    quickaccess: renderQuickAccess(),
+    timeline: renderTimelineSection()
+  };
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["quickaccess","timeline"];
+  order.forEach(function(key){
+    if(!sectionContent[key]) return;
+    html += '<div class="home-section" data-home-id="'+key+'" ondragover="homeDragOver(event)" ondrop="homeDrop(event,\''+key+'\')">'+
+      '<span class="drag-handle" draggable="true" ondragstart="homeDragStart(event,\''+key+'\')" ondragend="homeDragEnd(event)" title="拖动调整顺序">⠿</span>'+
+      sectionContent[key]+
+    '</div>';
+  });
+  return html;
+}
+var __homeDragId = null;
+window.homeDragStart = function(e, key){
+  __homeDragId = key;
+  e.dataTransfer.effectAllowed = "move";
+  try{ e.dataTransfer.setData("text/plain", key); }catch(err){}
+  var el = e.target.closest ? e.target.closest(".home-section") : null;
+  if(el) el.classList.add("dragging");
+};
+window.homeDragOver = function(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+};
+window.homeDrop = function(e, targetKey){
+  e.preventDefault();
+  if(!__homeDragId || __homeDragId===targetKey) return;
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder.slice() : ["quickaccess","timeline"];
+  var from = order.indexOf(__homeDragId);
+  if(from===-1) return;
+  order.splice(from,1);
+  var to = order.indexOf(targetKey);
+  if(to===-1) to = order.length;
+  order.splice(to,0,__homeDragId);
+  DATA.settings.homeOrder = order;
+  __homeDragId = null;
+  save(); render();
+};
+window.homeDragEnd = function(){ __homeDragId = null; };
+window.previewAvatar = function(){
+  var p = DATA.profile;
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:340px">'+
+    '<h3>'+esc(p.name)+' 的头像</h3>'+
+    '<div class="avatar-preview-box">'+
+      (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<div class="avatar-preview-placeholder">'+esc((p.name||"?").slice(0,1))+'</div>')+
+    '</div>'+
+    '<label class="btn solid avatar-upload-btn">📤 更换头像<input type="file" accept="image/*" onchange="uploadAvatar(this)"></label>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.uploadAvatar = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    DATA.profile.avatarUrl = e.target.result;
+    try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); return; }
+    render(); toast("头像已更新");
+    if(document.querySelector(".avatar-preview-box")){ previewAvatar(); }
+  };
+  reader.readAsDataURL(file);
+};
+window.editName = function(){
+  openModal("编辑姓名",
+    field("name","姓名","text",DATA.profile.name,true),
+    function(data){ DATA.profile.name = data.name; save(); render(); toast("已更新"); });
+};
+
+/* ---- 常用功能：内容可自定义增删，展示方式可切换 列表/列图 ---- */
+function quickAccessList(){
+  return (DATA.settings.quickAccessIds||[]).map(destinationById).filter(Boolean);
+}
+function renderQuickAccess(){
+  var view = DATA.settings.moduleView || "list";
+  var mods = quickAccessList();
+  var body;
+  if(!mods.length){
+    body = '<div class="quick-links-empty">还没有添加任何常用功能，点右侧 ⚙ 添加</div>';
+  } else if(view==="grid"){
+    body = '<div class="tab-grid">'+mods.map(function(m){
+      return '<div class="folder'+(m.sensitive?" sensitive":"")+'" draggable="true" ondragstart="qaDragStart(event,\''+m.id+'\')" ondragover="qaDragOver(event)" ondrop="qaDrop(event,\''+m.id+'\')" ondragend="qaDragEnd(event)" onclick="go(\''+m.id+'\')">'+
+        '<div class="ftop"><span class="ficon">'+m.icon+'</span><span class="count">'+m.count()+'</span></div>'+
+        '<h3>'+esc(labelFor(m.id))+'</h3></div>';
+    }).join('')+'</div>';
+  } else {
+    body = '<div class="quick-links">'+mods.map(function(m,i){
+      return (i>0?'<span class="quick-sep">·</span>':'')+
+        '<span class="quick-link'+(m.sensitive?" sensitive":"")+'" draggable="true" ondragstart="qaDragStart(event,\''+m.id+'\')" ondragover="qaDragOver(event)" ondrop="qaDrop(event,\''+m.id+'\')" ondragend="qaDragEnd(event)" onclick="go(\''+m.id+'\')">'+esc(labelFor(m.id))+'<span class="qn">'+m.count()+'</span></span>';
+    }).join('')+'</div>';
+  }
+  return '<div class="quick-access-box">'+body+'<button class="gear-btn gear-float" onclick="openViewSettings()" title="常用功能设置">⚙</button></div>';
+}
+window.openViewSettings = function(){
+  var v = DATA.settings.moduleView || "list";
+  var current = quickAccessList();
+  var currentIds = current.map(function(m){return m.id;});
+  var availableBuiltins = ALL_DESTINATIONS.filter(function(d){ return currentIds.indexOf(d.id)===-1; });
+  var availableCustom = (DATA.customBoards||[]).filter(function(b){ return currentIds.indexOf(b.id)===-1; }).map(function(b){ return destinationById(b.id); });
+  var available = availableBuiltins.concat(availableCustom);
+  var root=document.getElementById("modalRoot");
+  var itemRows = current.map(function(m){
+    return '<div class="cat-manage-row">'+
+      '<span class="mod-icon">'+m.icon+'</span>'+
+      '<input type="text" class="cat-name-input" value="'+esc(labelFor(m.id))+'" onchange="renameModuleInline(\''+m.id+'\', this.value)">'+
+      '<button type="button" class="btn small danger" onclick="removeQuickAccess(\''+m.id+'\')">删除</button>'+
+    '</div>';
+  }).join('') || '<div class="sub">还没有内容</div>';
+  var addRow = available.length ? (
+    '<div class="cat-add-row">'+
+      '<select id="qaAddSelect">'+available.map(function(d){ return '<option value="'+d.id+'">'+d.icon+' '+esc(labelFor(d.id))+'</option>'; }).join('')+'</select>'+
+      '<button type="button" class="btn small solid" onclick="addQuickAccess()">+ 找回</button>'+
+    '</div>'
+  ) : '';
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:360px">'+
+    '<h3>常用功能设置</h3>'+
+    '<div class="sub" style="margin-bottom:10px">展示方式</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">'+
+    '<button type="button" class="btn '+(v==="list"?"solid":"ghost")+'" style="width:100%;text-align:left" onclick="setModuleView(\'list\')">· 文字链接 — 纯文字并排，无卡片感</button>'+
+    '<button type="button" class="btn '+(v==="grid"?"solid":"ghost")+'" style="width:100%;text-align:left" onclick="setModuleView(\'grid\')">▦ 图标网格 — 小卡片图标</button>'+
+    '</div>'+
+    '<div class="sub" style="margin-bottom:10px">内容（可以增删、改名）</div>'+
+    '<div class="cat-manage-list">'+itemRows+'</div>'+
+    '<div class="sub" style="margin:14px 0 8px">新建自定义板块</div>'+
+    '<div class="cat-add-row"><input type="text" id="newBoardName" placeholder="板块名称，比如「读书清单」" maxlength="10"><button type="button" class="btn small solid" onclick="createCustomBoard()">+ 新建</button></div>'+
+    (available.length ? ('<div class="sub" style="margin:14px 0 8px">找回之前删除的</div>'+addRow) : '')+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.createCustomBoard = function(){
+  var input = document.getElementById("newBoardName");
+  var name = input ? (input.value||"").trim() : "";
+  if(!name){ toast("先填个板块名称"); return; }
+  var id = "custom_"+uid();
+  DATA.customBoards = DATA.customBoards || [];
+  DATA.customBoards.push({id:id, items:[]});
+  DATA.labels = DATA.labels || {};
+  DATA.labels[id] = name;
+  DATA.settings.quickAccessIds.push(id);
+  save(); render(); openViewSettings(); toast("已新建「"+name+"」");
+};
+window.removeQuickAccess = function(id){
+  DATA.settings.quickAccessIds = DATA.settings.quickAccessIds.filter(function(x){return x!==id;});
+  save(); render(); openViewSettings();
+};
+window.addQuickAccess = function(){
+  var sel = document.getElementById("qaAddSelect");
+  if(!sel || !sel.value) return;
+  DATA.settings.quickAccessIds.push(sel.value);
+  save(); render(); openViewSettings();
+};
+window.renameModuleInline = function(id, value){
+  value = (value||"").trim();
+  DATA.labels = DATA.labels || {};
+  DATA.labels[id] = value || DEFAULT_LABELS[id];
+  save(); render(); openViewSettings();
+};
+window.setModuleView = function(mode){
+  DATA.settings.moduleView = mode; save(); render(); openViewSettings();
+};
+var __qaDragId = null;
+window.qaDragStart = function(e, id){
+  __qaDragId = id;
+  e.dataTransfer.effectAllowed = "move";
+  try{ e.dataTransfer.setData("text/plain", id); }catch(err){}
+};
+window.qaDragOver = function(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+};
+window.qaDrop = function(e, targetId){
+  e.preventDefault();
+  if(!__qaDragId || __qaDragId===targetId) return;
+  var order = DATA.settings.quickAccessIds.slice();
+  var from = order.indexOf(__qaDragId);
+  if(from===-1) return;
+  order.splice(from,1);
+  var to = order.indexOf(targetId);
+  if(to===-1) to = order.length;
+  order.splice(to,0,__qaDragId);
+  DATA.settings.quickAccessIds = order;
+  __qaDragId = null;
+  save(); render();
+};
+window.qaDragEnd = function(){ __qaDragId = null; };
+
+/* ---- 时间经历：横向可拖动时间轴 ---- */
+var openTabs = [];
+var activeTabKey = null;
+var timelineFilter = "all";
+
+var HZ_SPACING = 132;
+
+/* 灵活识别各种写法的日期，比如 97/6/10、1997-6-10、2024年3月、19970610、2024，
+   统一换算成 {y,m,d,precision} 用来排序和按年分组；识别不了就返回 null（这条经历会被归到"未知年份"，排在最后，不会丢） */
+function normYear(y){
+  y = parseInt(y,10);
+  if(isNaN(y)) return null;
+  if(y<100){ y = (y<=30) ? 2000+y : 1900+y; }
+  return y;
+}
+function parseFlexibleDate(str){
+  if(!str) return null;
+  var s = String(str).trim();
+  var m;
+  m = /^(\d{2,4})\s*年\s*(\d{1,2})?\s*月?\s*(\d{1,2})?\s*日?$/.exec(s);
+  if(m && m[1]){
+    var y=normYear(m[1]); if(y===null) return null;
+    return {y:y, m:m[2]?parseInt(m[2],10):1, d:m[3]?parseInt(m[3],10):1, precision:m[3]?"day":(m[2]?"month":"year")};
+  }
+  m = /^(\d{1,4})[\/\-\.](\d{1,2})(?:[\/\-\.](\d{1,2}))?$/.exec(s);
+  if(m){
+    var y=normYear(m[1]); if(y===null) return null;
+    return {y:y, m:parseInt(m[2],10), d:m[3]?parseInt(m[3],10):1, precision:m[3]?"day":"month"};
+  }
+  m = /^(\d{4})(\d{2})(\d{2})$/.exec(s);
+  if(m) return {y:parseInt(m[1],10), m:parseInt(m[2],10), d:parseInt(m[3],10), precision:"day"};
+  m = /^(\d{4})(\d{2})$/.exec(s);
+  if(m) return {y:parseInt(m[1],10), m:parseInt(m[2],10), d:1, precision:"month"};
+  m = /^(\d{4})$/.exec(s);
+  if(m) return {y:parseInt(m[1],10), m:1, d:1, precision:"year"};
+  var t = Date.parse(s);
+  if(!isNaN(t)){ var dt=new Date(t); return {y:dt.getFullYear(), m:dt.getMonth()+1, d:dt.getDate(), precision:"day"}; }
+  return null;
+}
+function pad2(n){ n=String(n); return n.length<2 ? "0"+n : n; }
+function dateSortKey(str){
+  var p = parseFlexibleDate(str);
+  if(!p) return "99999999";
+  return String(p.y)+pad2(p.m)+pad2(p.d);
+}
+
+/* ================= 通用模块分类（给密码/资产/联系人/自定义板块用的"中间大分类"层） =================
+   每个板块可以自己开启：没有分类时就是原来的平铺列表；一旦加了分类，就会先看到分类文件夹，点进去才是列表。
+   分类内容完全自定义，跟时间经历的类别管理是同一套思路。 */
+var moduleCatView = {};
+function getModuleCategories(moduleId){ return DATA.moduleCategories[moduleId] || []; }
+function uncategorizedLabel(moduleId){ return (DATA.labels && DATA.labels[moduleId+"__none__"]) || "未分类"; }
+window.renameUncategorized = function(moduleId, value, titleOverride){
+  value = (value||"").trim();
+  DATA.labels = DATA.labels || {};
+  DATA.labels[moduleId+"__none__"] = value || "未分类";
+  save(); render(); manageModuleCategories(moduleId, titleOverride);
+};
+window.enterModuleCategory = function(moduleId, key){ moduleCatView[moduleId] = key; render(); };
+window.exitModuleCategory = function(moduleId){ moduleCatView[moduleId] = null; render(); };
+window.manageModuleCategories = function(moduleId, titleOverride){
+  var root=document.getElementById("modalRoot");
+  var v = DATA.settings.categoryViewMode || "list";
+  var cats = getModuleCategories(moduleId);
+  var rows = cats.map(function(c){
+    return '<div class="cat-manage-row">'+
+      '<span class="mod-icon">📁</span>'+
+      '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameModuleCategory(\''+moduleId+'\',\''+c.key+'\', this.value, \''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
+      '<button type="button" class="btn small danger" onclick="deleteModuleCategory(\''+moduleId+'\',\''+c.key+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">删除</button>'+
+    '</div>';
+  }).join('');
+  var noneRow = '<div class="cat-manage-row">'+
+    '<span class="mod-icon">📄</span>'+
+    '<input type="text" class="cat-name-input" value="'+esc(uncategorizedLabel(moduleId))+'" onchange="renameUncategorized(\''+moduleId+'\', this.value, \''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
+    '<span class="cat-fixed-hint">固定分组</span>'+
+  '</div>';
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>'+esc(titleOverride||(labelFor(moduleId)+" · 分类管理"))+'</h3>'+
+    '<div class="sub" style="margin-bottom:10px">展示方式</div>'+
+    '<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">'+
+    '<button type="button" class="btn '+(v==="list"?"solid":"ghost")+'" style="width:100%;text-align:left" onclick="setCategoryViewMode(\'list\',\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">· 文字链接 — 纯文字并排，无卡片感</button>'+
+    '<button type="button" class="btn '+(v==="grid"?"solid":"ghost")+'" style="width:100%;text-align:left" onclick="setCategoryViewMode(\'grid\',\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">▦ 图标网格 — 小卡片图标</button>'+
+    '</div>'+
+    '<div class="sub" style="margin-bottom:10px">分类内容（可以增删、改名）</div>'+
+    '<div class="cat-manage-list">'+noneRow+rows+'</div>'+
+    '<div class="cat-add-row">'+
+      '<input type="text" id="newModCatName" placeholder="新分类名称" maxlength="10">'+
+      '<button type="button" class="btn small solid" onclick="addModuleCategory(\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">+ 添加</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.setCategoryViewMode = function(mode, moduleId, titleOverride){
+  DATA.settings.categoryViewMode = mode;
+  save(); render(); manageModuleCategories(moduleId, titleOverride);
+};
+window.addModuleCategory = function(moduleId, titleOverride){
+  var input = document.getElementById("newModCatName");
+  var value = input ? (input.value||"").trim() : "";
+  if(!value){ return; }
+  DATA.moduleCategories[moduleId] = DATA.moduleCategories[moduleId] || [];
+  DATA.moduleCategories[moduleId].push({key:uid(), label:value});
+  save(); render(); manageModuleCategories(moduleId, titleOverride);
+};
+window.renameModuleCategory = function(moduleId, key, value, titleOverride){
+  value = (value||"").trim(); if(!value){ render(); manageModuleCategories(moduleId, titleOverride); return; }
+  var c = getModuleCategories(moduleId).filter(function(x){return x.key===key;})[0];
+  if(c){ c.label = value; save(); }
+  render(); manageModuleCategories(moduleId, titleOverride);
+};
+window.deleteModuleCategory = function(moduleId, key, titleOverride){
+  confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
+    DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
+    if(moduleCatView[moduleId]===key) moduleCatView[moduleId]=null;
+    save(); render(); manageModuleCategories(moduleId, titleOverride);
+  });
+};
+function moduleCategorySelectField(moduleId, currentKey, fieldName, labelText){
+  var cats = getModuleCategories(moduleId);
+  if(!cats.length) return "";
+  var options = [{value:"",label:uncategorizedLabel(moduleId)}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
+  return fieldSelect(fieldName||"category", labelText||"分类", options, currentKey||"");
+}
+/* 渲染分类文件夹；items 是这个板块的全部数据，getCatKey(item) 返回该条数据的分类key（没有就返回空字符串） */
+function renderCategoryFolders(moduleId, items, getCatKey, opts){
+  opts = opts || {};
+  var clickFn = opts.clickFn || "enterModuleCategory";
+  var sectionLabel = opts.sectionLabel || "选择分类";
+  var manageTitle = opts.manageTitle;
+  var manageTitleEsc = manageTitle ? manageTitle.replace(/'/g,"") : "";
+  var cats = getModuleCategories(moduleId);
+  var counts = {};
+  items.forEach(function(it){ var k=getCatKey(it)||""; counts[k]=(counts[k]||0)+1; });
+  var allEntries = cats.map(function(c){ return {key:c.key, label:c.label, count:counts[c.key]||0}; });
+  allEntries.push({key:"", label:uncategorizedLabel(moduleId), count:counts[""]||0});
+
+  var view = DATA.settings.categoryViewMode || "list";
+  var body;
+  if(view==="list"){
+    body = '<div class="cat-folder-list">'+allEntries.map(function(c){
+      return '<div class="cat-folder-row" onclick="'+clickFn+'(\''+moduleId+'\',\''+c.key+'\')">'+
+        '<span class="cflabel">'+esc(c.label)+'</span><span class="cfcount">'+c.count+'</span>'+
+      '</div>';
+    }).join('')+'</div>';
+  } else {
+    body = '<div class="tab-grid">'+allEntries.map(function(c){
+      var icon = c.key==="" ? "📄" : "📁";
+      return '<div class="folder" onclick="'+clickFn+'(\''+moduleId+'\',\''+c.key+'\')">'+
+        '<div class="ftop"><span class="ficon">'+icon+'</span><span class="count">'+c.count+'</span></div>'+
+        '<h3>'+esc(c.label)+'</h3></div>';
+    }).join('')+'</div>';
+  }
+  return '<div class="section-header-row"><div class="section-label">'+esc(sectionLabel)+'</div><button class="gear-btn" onclick="manageModuleCategories(\''+moduleId+'\',\''+manageTitleEsc+'\')" title="管理分类">⚙</button></div>'+
+    body;
+}
+function categoryBackBar(moduleId, onBackFn, manageTitle){
+  var cats = getModuleCategories(moduleId);
+  var current = cats.filter(function(c){return c.key===moduleCatView[moduleId];})[0];
+  var label = current ? current.label : uncategorizedLabel(moduleId);
+  return '<div class="cat-back-bar"><button class="btn ghost small" onclick="'+(onBackFn||("exitModuleCategory('"+moduleId+"')"))+'">‹ 返回</button><span class="cat-back-label">'+esc(label)+'</span>'+
+    '<button class="gear-btn" onclick="manageModuleCategories(\''+moduleId+'\',\''+(manageTitle?manageTitle.replace(/'/g,""):"")+'\')" title="管理分类">⚙</button></div>';
+}
+
+function tlCategory(key){
+  var list = DATA.timelineCategories;
+  var found = list.filter(function(c){return c.key===key;})[0];
+  return found || list[list.length-1];
+}
+window.setTimelineFilter = function(key){
+  timelineFilter = key; render();
+};
+window.openCategoryManager = function(){
+  var root=document.getElementById("modalRoot");
+  var rows = DATA.timelineCategories.map(function(c){
+    return '<div class="cat-manage-row">'+
+      '<span class="cat-dot" style="background:'+c.color+'"></span>'+
+      '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
+      '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+'>删除</button>'+
+    '</div>';
+  }).join('');
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>时间经历 · 类别管理</h3>'+
+    '<div class="cat-manage-list">'+rows+'</div>'+
+    '<div class="cat-add-row">'+
+      '<input type="text" id="newCatName" placeholder="新类别名称" maxlength="8">'+
+      '<button type="button" class="btn small solid" onclick="addCategory()">+ 添加</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.renameCategory = function(key, value){
+  value = (value||"").trim(); if(!value) { render(); openCategoryManager(); return; }
+  var c = DATA.timelineCategories.filter(function(x){return x.key===key;})[0];
+  if(c){ c.label = value; save(); }
+  render(); openCategoryManager();
+};
+window.deleteCategory = function(key){
+  if(DATA.timelineCategories.length<=1) return;
+  confirmDelete("确定删除这个类别吗？原本用这个类别的经历会归到其他类别下。", function(){
+    DATA.timelineCategories = DATA.timelineCategories.filter(function(x){return x.key!==key;});
+    if(timelineFilter===key) timelineFilter="all";
+    save(); render(); openCategoryManager();
+  });
+};
+window.addCategory = function(){
+  var input = document.getElementById("newCatName");
+  var value = (input.value||"").trim();
+  if(!value){ return; }
+  var color = CATEGORY_COLOR_PALETTE[DATA.timelineCategories.length % CATEGORY_COLOR_PALETTE.length];
+  DATA.timelineCategories.push({key:uid(), label:value, color:color});
+  save(); render(); openCategoryManager();
+};
+function groupTimelineByYear(items){
+  var yearGroups = {}; var yearOrder = [];
+  items.forEach(function(t){
+    var p = parseFlexibleDate(t.date);
+    var yKey = p ? String(p.y) : "未知";
+    if(!yearGroups[yKey]){ yearGroups[yKey] = []; yearOrder.push(yKey); }
+    yearGroups[yKey].push(t);
+  });
+  // items 本身已严格按时间排序，所以 yearOrder 天然从早到晚；"未知"排序键最大，自然落在最后
+  return {yearGroups:yearGroups, yearOrder:yearOrder};
+}
+function timelineLeafHtml(t, tagClass, directClick){
+  var cat = tlCategory(t.category||"other");
+  var p = parseFlexibleDate(t.date);
+  var shortDate = p ? (p.precision==="day" ? (pad2(p.m)+"-"+pad2(p.d)) : (p.precision==="month" ? (pad2(p.m)+"月") : "")) : esc(t.date||"");
+  var attrs = directClick ? (' onclick="openTimelineEntry(\''+t.id+'\')"') : (' data-id="'+t.id+'"');
+  return '<div class="'+tagClass+'"'+attrs+'>'+
+    '<span class="hz-leaf-dot" style="background:'+cat.color+'"></span>'+
+    (shortDate?('<span class="hz-leaf-date">'+shortDate+'</span>'):'')+
+    esc(t.keyword||"未命名")+
+  '</div>';
+}
+window.toggleTimelineOrientation = function(){
+  DATA.settings.timelineOrientation = (DATA.settings.timelineOrientation==="vertical") ? "horizontal" : "vertical";
+  save(); render();
+};
+var expandedYears = {};
+window.toggleYearExpand = function(yKey){
+  expandedYears[yKey] = !expandedYears[yKey];
+  render();
+};
+function renderTimelineAxisHorizontal(yearGroups, yearOrder){
+  var maxLeaves = 0;
+  yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, yearGroups[yk].length); });
+
+  var nodes = yearOrder.map(function(yk, i){
+    var group = yearGroups[yk];
+    var isOpen = !!expandedYears[yk];
+    var branches = "";
+    if(isOpen){
+      var leaves = group.map(function(t){ return timelineLeafHtml(t,"hz-leaf"); }).join('');
+      branches = '<div class="hz-year-branches">'+leaves+'</div>';
+    }
+    var badge = '<span class="hz-year-count">'+group.length+'</span>';
+    return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+(i*HZ_SPACING+40)+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
+      '<div class="hz-dot hz-year-dot"></div>'+
+      '<div class="hz-date hz-year-label">'+esc(yk)+badge+'</div>'+
+      branches+
+    '</div>';
+  }).join('');
+
+  var addLeft = yearOrder.length*HZ_SPACING+40;
+  nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px" title="添加经历">'+
+    '<div class="hz-dot hz-dot-add">+</div><div class="hz-date">添加</div></div>';
+  var trackWidth = Math.max(addLeft+40, 280);
+  var containerHeight = Math.max(60, 40 + maxLeaves*24 + 16);
+  return '<div class="hz-timeline-wrap"><div class="hz-timeline" id="hzTimeline" style="height:'+containerHeight+'px">'+
+    '<div class="hz-line" style="width:'+trackWidth+'px"></div>'+nodes+
+    '</div></div>';
+}
+function renderTimelineAxisVertical(yearGroups, yearOrder){
+  var rows = yearOrder.map(function(yk){
+    var group = yearGroups[yk];
+    var isOpen = !!expandedYears[yk];
+    var badge = '<span class="hz-year-count">'+group.length+'</span>';
+    var row = '<div class="tlv-year-row'+(isOpen?" open":"")+'" onclick="toggleYearExpand(\''+yk+'\')" title="点击'+(isOpen?"收起":"展开")+'">'+
+      '<span class="tlv-year-label">'+esc(yk)+badge+'</span>'+
+    '</div>';
+    var branches = "";
+    if(isOpen){
+      var leaves = group.map(function(t){ return timelineLeafHtml(t,"tlv-leaf",true); }).join('');
+      branches = '<div class="tlv-branches">'+leaves+'</div>';
+    }
+    return row + branches;
+  }).join('');
+  rows += '<div class="tlv-year-row add" onclick="editTimelineEntry()"><span class="tlv-year-label">+ 添加经历</span></div>';
+  return '<div class="tl-vertical">'+rows+'</div>';
+}
+function renderTimelineSection(){
+  var all = DATA.lifeTimeline.slice().sort(function(a,b){ return dateSortKey(a.date).localeCompare(dateSortKey(b.date)); });
+  var items = timelineFilter==="all" ? all : all.filter(function(t){ return (t.category||"other")===timelineFilter; });
+  var orientation = DATA.settings.timelineOrientation || "horizontal";
+
+  var head = '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("timeline"))+'</h2>'+
+    '<button class="title-edit-btn" onclick="editSectionLabel(\'timeline\')" title="重命名">✎</button></div>'+
+    '<div class="sub">按年份排列，同一年有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子进入详情页。</div></div>'+
+    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向">'+(orientation==="vertical"?"↔":"↕")+'</button>'+
+  '</div>';
+
+  var filterRow = '<div class="tl-filter-row">'+
+    '<span class="tl-filter-chip'+(timelineFilter==="all"?" active":"")+'" onclick="setTimelineFilter(\'all\')">全部</span>'+
+    DATA.timelineCategories.map(function(c){
+      return '<span class="tl-filter-chip'+(timelineFilter===c.key?" active":"")+'" style="--chip-color:'+c.color+'" onclick="setTimelineFilter(\''+c.key+'\')">'+esc(c.label)+'</span>';
+    }).join('')+
+    '<button class="gear-btn" onclick="openCategoryManager()" title="管理类别">⚙</button>'+
+  '</div>';
+
+  var grouped = groupTimelineByYear(items);
+  var axis = orientation==="vertical"
+    ? renderTimelineAxisVertical(grouped.yearGroups, grouped.yearOrder)
+    : renderTimelineAxisHorizontal(grouped.yearGroups, grouped.yearOrder);
+
+  var hint = items.length
+    ? ''
+    : '<div class="hz-detail-hint">还没有记录，点击'+(orientation==="vertical"?'下方':'时间轴上')+'的「+」添加第一段经历</div>';
+
+  var mapCta = "";
+  if(timelineFilter==="travel"){
+    mapCta = '<div class="tl-map-cta"><button class="btn small ghost" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>';
+  }
+
+  return head + filterRow + axis + hint + mapCta;
+}
+/* ================= 通用标签页系统：任意板块的条目都可以点开变成顶部可关闭的标签页 ================= */
+function findTab(key){ return openTabs.filter(function(t){return t.key===key;})[0]; }
+/* 删除某条数据时，如果它当前正开着标签页，顺带关掉标签页（返回true表示已经处理了跳转/渲染，调用方不用再render） */
+function closeTabAndMaybeGoHome(type, id){
+  var key = type+":"+id;
+  var had = openTabs.some(function(t){return t.key===key;});
+  openTabs = openTabs.filter(function(t){return t.key!==key;});
+  var wasActive = (VIEW==="itemDetail" && activeTabKey===key);
+  if(wasActive){
+    if(openTabs.length){ switchToItemTab(openTabs[openTabs.length-1].key); }
+    else { go("home"); }
+    return true;
+  }
+  if(had) render();
+  return had;
+}
+function tabTitle(tab){
+  if(!tab) return "详情";
+  if(tab.type==="module") return labelFor(tab.id);
+  if(tab.type==="worldmap") return labelFor("worldmap");
+  if(tab.type==="timeline"){ var t=DATA.lifeTimeline.filter(function(x){return x.id===tab.id;})[0]; return t?(t.keyword||t.date||"经历"):"经历"; }
+  if(tab.type==="password"){ var p=DATA.passwords.filter(function(x){return x.id===tab.id;})[0]; return p?p.site:"密码"; }
+  if(tab.type==="asset"){ var a=DATA.assets.filter(function(x){return x.id===tab.id;})[0]; return a?a.title:"资产"; }
+  if(tab.type==="contact"){ var c=DATA.contacts.filter(function(x){return x.id===tab.id;})[0]; return c?c.name:"联系人"; }
+  if(tab.type==="customitem"){
+    var b=(DATA.customBoards||[]).filter(function(x){return x.id===(tab.extra&&tab.extra.boardId);})[0];
+    var it=b?b.items.filter(function(x){return x.id===tab.id;})[0]:null;
+    return it?it.title:"内容";
+  }
+  return "详情";
+}
+function tabIcon(tab){
+  if(tab && tab.type==="module"){
+    var dest = destinationById(tab.id);
+    return dest ? dest.icon : "📄";
+  }
+  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌"};
+  return (tab && map[tab.type]) || "📄";
+}
+window.openItemTab = function(type, id, extra){
+  var key = type+":"+id;
+  if(!findTab(key)){ openTabs.push({key:key, type:type, id:id, extra:extra||{}}); }
+  switchToItemTab(key);
+};
+window.switchToItemTab = function(key){
+  var tab = findTab(key);
+  if(!tab) return;
+  activeTabKey = key;
+  VIEW = "itemDetail";
+  document.getElementById("crumb").textContent = "首页 / "+tabTitle(tab);
+  document.getElementById("crumb").onclick = function(){ go("home"); };
+  document.getElementById("crumb").style.cursor = "pointer";
+  render();
+  window.scrollTo({top:0,behavior:"smooth"});
+};
+window.closeItemTab = function(e, key){
+  if(e && e.stopPropagation) e.stopPropagation();
+  var tab = findTab(key);
+  openTabs = openTabs.filter(function(t){return t.key!==key;});
+  var wasActive = tab && (tab.type==="module" ? (VIEW===tab.id) : (VIEW==="itemDetail" && activeTabKey===key));
+  if(wasActive){
+    if(openTabs.length){
+      var last = openTabs[openTabs.length-1];
+      if(last.type==="module"){ go(last.id); } else { switchToItemTab(last.key); }
+    } else { go("home"); }
+  } else {
+    render();
+  }
+};
+/* 旧接口保留兼容：时间经历/世界版图继续用这两个名字打开，内部转发到通用系统 */
+window.openTimelineEntry = function(id){ openItemTab("timeline", id); };
+window.openWorldMapTab = function(){ openItemTab("worldmap", "map"); };
+
+function renderItemDetailPage(){
+  var tab = findTab(activeTabKey);
+  if(!tab){
+    return '<div class="module-head"><div><h2>没找到这个内容</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  if(tab.type==="worldmap") return renderWorldMapPage();
+  if(tab.type==="timeline") return renderTimelineDetailPage(tab.id);
+  if(tab.type==="password") return renderPasswordDetailPage(tab.id);
+  if(tab.type==="asset") return renderAssetDetailPage(tab.id);
+  if(tab.type==="contact") return renderContactDetailPage(tab.id);
+  if(tab.type==="customitem") return renderCustomItemDetailPage(tab.extra.boardId, tab.id);
+  return '<div class="module-head"><div><h2>未知内容</h2></div></div>';
+}
+function renderTimelineDetailPage(id){
+  var sel = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!sel){
+    return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  var cat = tlCategory(sel.category||"other");
+  var fieldRows = (sel.fields||[]).map(function(f){
+    return '<tr><th>'+esc(f.label||"—")+'</th><td>'+esc(f.value||"—")+'</td></tr>';
+  }).join('');
+  return '<div class="module-head"><div>'+
+    '<h2>'+esc(sel.keyword||"未命名经历")+'</h2>'+
+    '<div class="sub">'+esc(sel.date||"—")+' · <span style="color:'+cat.color+'">'+esc(cat.label)+'</span></div>'+
+    '</div><div class="row-actions">'+
+    '<button class="btn ghost" onclick="editTimelineEntry(\''+sel.id+'\')">编辑</button>'+
+    '<button class="btn danger" onclick="deleteTimelineEntry(\''+sel.id+'\')">删除</button>'+
+    '</div></div>'+
+    '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>时间</th><td>'+esc(sel.date||"—")+'</td></tr>'+
+      '<tr><th>类别</th><td>'+esc(cat.label)+'</td></tr>'+
+      '<tr><th>关键词</th><td>'+esc(sel.keyword||"—")+'</td></tr>'+
+      fieldRows+
+    '</table></div>';
+}
+
+/* ---- 添加/编辑经历：时间与关键词必填，其余字段完全自定义 ---- */
+/* 旅游类别下，"关键词"本身既显示在时间轴上，也直接用来在世界版图上定位地点 */
+var timelineDraft = null;
+function isTimeRangeLabel(label){
+  return !!label && (label.indexOf("时间段")!==-1 || label.indexOf("时间范围")!==-1 || label.indexOf("区间")!==-1 || label.toLowerCase().indexOf("period")!==-1 || label.toLowerCase().indexOf("range")!==-1);
+}
+function extractSpecialField(fieldsArr, matcher){
+  var idx = -1;
+  for(var i=0;i<fieldsArr.length;i++){ if(matcher(fieldsArr[i].label)){ idx=i; break; } }
+  if(idx===-1) return {value:"", rest:fieldsArr};
+  var value = fieldsArr[idx].value||"";
+  var rest = fieldsArr.slice(0,idx).concat(fieldsArr.slice(idx+1));
+  return {value:value, rest:rest};
+}
+window.editTimelineEntry = function(id){
+  var item = id ? DATA.lifeTimeline.filter(function(x){return x.id===id;})[0] : null;
+  if(item){
+    var fieldsCopy = (item.fields||[]).map(function(f){ return {id:f.id||uid(), label:f.label||"", value:f.value||""}; });
+    var trExtract = extractSpecialField(fieldsCopy, isTimeRangeLabel);
+    timelineDraft = {
+      id: item.id, date: item.date||"", keyword: item.keyword||"", category: item.category||"other",
+      timeRange: trExtract.value,
+      fields: trExtract.rest
+    };
+  } else {
+    timelineDraft = {id:null, date:"", keyword:"", category:(timelineFilter!=="all"?timelineFilter:"other"), timeRange:"", fields:[]};
+  }
+  renderTimelineEditModal();
+};
+function renderTimelineEditModal(){
+  var d = timelineDraft;
+  var root = document.getElementById("modalRoot");
+  var rows = d.fields.map(function(f){
+    return '<div class="tl-field-row">'+
+      '<div class="tl-field-top">'+
+        '<input type="text" class="tl-field-label" placeholder="小标题，如：心情" value="'+esc(f.label)+'" onchange="updateDraftField(\''+f.id+'\',\'label\',this.value)">'+
+        '<button type="button" class="btn small danger" onclick="removeDraftField(\''+f.id+'\')" title="删除这个字段">✕</button>'+
+      '</div>'+
+      '<textarea class="tl-field-value" placeholder="内容" onchange="updateDraftField(\''+f.id+'\',\'value\',this.value)">'+esc(f.value)+'</textarea>'+
+    '</div>';
+  }).join('');
+  var travelFieldsHtml = "";
+  if(d.category==="travel"){
+    travelFieldsHtml =
+      '<div class="field"><label>时间段（可选，如：2023-10-03 至 2023-10-07）</label><input type="text" value="'+esc(d.timeRange)+'" onchange="updateDraftBasic(\'timeRange\',this.value)"></div>';
+  }
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
+    '<h3>'+(d.id?"编辑经历":"添加经历")+'</h3>'+
+    '<div class="field"><label>时间（必填，如 1997-06-10 或 2024-03）</label><input type="text" value="'+esc(d.date)+'" onchange="updateDraftBasic(\'date\',this.value)"></div>'+
+    '<div class="field"><label>关键词（必填，会直接显示在时间轴上'+(d.category==="travel"?"；旅游类别下也会用它去世界版图上定位":"")+'）</label><input type="text" value="'+esc(d.keyword)+'" onchange="updateDraftBasic(\'keyword\',this.value)"></div>'+
+    '<div class="field"><label>类别</label><select onchange="updateDraftCategory(this.value)">'+
+      DATA.timelineCategories.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===d.category?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
+    '</select></div>'+
+    travelFieldsHtml+
+    '<div class="field"><label>补充内容（可选，自己定义字段名和内容，比如人物/心情……随便加）</label>'+
+    '<div class="tl-fields-list">'+rows+'</div>'+
+    '<button type="button" class="btn small ghost" onclick="addDraftField()" style="margin-top:6px">+ 添加字段</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveTimelineDraft()">保存</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+}
+window.updateDraftBasic = function(key, value){ if(timelineDraft) timelineDraft[key] = value; };
+window.updateDraftCategory = function(value){
+  timelineDraft.category = value;
+  renderTimelineEditModal();
+};
+window.addDraftField = function(){
+  timelineDraft.fields.push({id:uid(), label:"", value:""});
+  renderTimelineEditModal();
+};
+window.removeDraftField = function(fid){
+  timelineDraft.fields = timelineDraft.fields.filter(function(f){return f.id!==fid;});
+  renderTimelineEditModal();
+};
+window.updateDraftField = function(fid, key, value){
+  var f = timelineDraft.fields.filter(function(x){return x.id===fid;})[0];
+  if(f) f[key] = value;
+};
+window.saveTimelineDraft = async function(){
+  var d = timelineDraft;
+  if(!d.date || !d.date.trim()){ toast("时间是必填的"); return; }
+  if(!d.keyword || !d.keyword.trim()){ toast("关键词是必填的"); return; }
+  var cleanFields = d.fields.filter(function(f){ return (f.label&&f.label.trim()) || (f.value&&f.value.trim()); });
+  if(d.category==="travel" && d.timeRange && d.timeRange.trim()){
+    cleanFields = cleanFields.concat([{id:uid(), label:"时间段", value:d.timeRange.trim()}]);
+  }
+  var locText = d.keyword.trim();
+
+  var geo = undefined; // undefined = don't touch existing geo; null = clear geo; object = set geo
+  if(d.category==="travel" && locText){
+    closeModal();
+    toast("正在定位「"+locText+"」…");
+    var results = await geocodeLocation(locText);
+    if(results===null){
+      toast("定位失败："+lastGeocodeError+"（如果是用双击直接打开的 html 文件，浏览器可能会拦截这个请求，试试用本地服务器打开）", 6000);
+      geo = undefined;
+    } else if(results.length===0){
+      toast("没找到「"+locText+"」，这条经历暂时不会出现在地图上");
+      geo = null;
+    } else if(results.length===1){
+      geo = results[0];
+    } else {
+      geo = await pickGeoFromList(results, locText);
+      if(geo===null){ toast("已跳过定位"); }
+    }
+  } else {
+    geo = null;
+  }
+
+  if(d.id){
+    var item = DATA.lifeTimeline.filter(function(x){return x.id===d.id;})[0];
+    if(item){
+      item.date = d.date.trim(); item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.fields = cleanFields;
+      if(geo===null){ delete item.geo; } else if(geo){ item.geo = geo; }
+    }
+  } else {
+    var newItem = {id:uid(), date:d.date.trim(), keyword:d.keyword.trim(), category:d.category||"other", fields:cleanFields};
+    if(geo && geo!==null){ newItem.geo = geo; }
+    DATA.lifeTimeline.push(newItem);
+  }
+  var wasAdd = !d.id;
+  timelineDraft = null;
+  save(); closeModal(); render(); toast(wasAdd?"已添加":"已更新");
+};
+window.deleteTimelineEntry = function(id){
+  confirmDelete("确定删除这段经历吗？", function(){
+    var key = "timeline:"+id;
+    var wasActive = (VIEW==="itemDetail" && activeTabKey===key);
+    DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
+    openTabs = openTabs.filter(function(t){return t.key!==key;});
+    save();
+    if(wasActive){
+      if(openTabs.length){ switchToItemTab(openTabs[openTabs.length-1].key); }
+      else { go("home"); }
+    } else {
+      render();
+    }
+    toast("已删除");
+  });
+};
+
+/* ---- 世界版图：基于真实地理编码的全球地点搜索（OpenStreetMap Nominatim，免费无需 key） ---- */
+/* 地图本身用 Leaflet + OpenStreetMap 真实地图瓦片渲染，不再是手绘示意图 */
+var lastGeocodeError = "";
+async function geocodeLocation(query){
+  try{
+    var url = "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&accept-language=zh-CN&q=" + encodeURIComponent(query);
+    var res = await fetch(url);
+    if(!res.ok){ lastGeocodeError = "HTTP "+res.status; return null; }
+    var data = await res.json();
+    return data.map(function(r){ return {lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name}; });
+  }catch(e){
+    lastGeocodeError = (e && e.message) ? e.message : String(e);
+    return null;
+  }
+}
+function pickGeoFromList(results, query){
+  return new Promise(function(resolve){
+    var root = document.getElementById("modalRoot");
+    window.__geoPickResults = results;
+    window.__resolveGeoPick = function(i){
+      var chosen = i>=0 ? window.__geoPickResults[i] : null;
+      root.innerHTML = "";
+      resolve(chosen);
+    };
+    var rows = results.map(function(r,i){
+      return '<button type="button" class="geo-pick-row" onclick="window.__resolveGeoPick('+i+')">'+esc(r.name)+'</button>';
+    }).join('');
+    root.innerHTML = '<div class="modal-mask" id="gmask"><div class="modal">'+
+      '<h3>找到多个叫「'+esc(query)+'」的地方</h3>'+
+      '<div class="sub" style="margin-bottom:10px">选择具体是哪一个：</div>'+
+      '<div class="geo-pick-list">'+rows+'</div>'+
+      '<div class="modal-actions"><button type="button" class="btn ghost" onclick="window.__resolveGeoPick(-1)">跳过，不标记地图</button></div>'+
+      '</div></div>';
+    document.getElementById("gmask").addEventListener("click", function(e){
+      if(e.target.id==="gmask"){ root.innerHTML=""; resolve(null); }
+    });
+  });
+}
+function entryTimeRange(t){
+  var f = (t.fields||[]).filter(function(x){
+    return x.label && (x.label.indexOf("时间段")!==-1 || x.label.indexOf("时间范围")!==-1 || x.label.indexOf("区间")!==-1 || x.label.toLowerCase().indexOf("period")!==-1 || x.label.toLowerCase().indexOf("range")!==-1);
+  })[0];
+  return f && f.value ? f.value : (t.date||"");
+}
+function buildMapData(){
+  var travelEntries = DATA.lifeTimeline.filter(function(t){ return (t.category||"other")==="travel"; });
+  var groups = {}, unresolved = [];
+  travelEntries.forEach(function(t){
+    if(t.geo && typeof t.geo.lat==="number" && typeof t.geo.lon==="number"){
+      var gk = t.geo.lat.toFixed(2)+","+t.geo.lon.toFixed(2);
+      groups[gk] = groups[gk] || {coords:[t.geo.lat,t.geo.lon], name:t.geo.name, list:[]};
+      groups[gk].list.push(t);
+    } else if(t.keyword){
+      unresolved.push(t.keyword);
+    }
+  });
+  return {groups:groups, unresolved:unresolved};
+}
+function renderWorldMapPage(){
+  var d = buildMapData();
+  var legend = Object.keys(d.groups).map(function(gk){
+    var g = d.groups[gk];
+    var shortName = g.name.split("，")[0].split(",")[0];
+    return '<span class="map-chip" onclick="focusMapGroup(\''+gk+'\')">'+esc(shortName)+' · '+g.list.length+'</span>';
+  }).join('') + d.unresolved.map(function(u){
+    return '<span class="map-chip unmapped">'+esc(u)+' · 未定位</span>';
+  }).join('');
+  var body = '<div class="map-wrap"><div id="leafletMap" class="leaflet-map-el"></div>'+
+    (legend ? ('<div class="map-legend">'+legend+'</div>') : '<div class="map-note">还没有可点亮的地点，去「时间经历」里加一条旅游类别的经历，关键词填地名试试（需要联网才能定位）。</div>')+
+    '<div class="map-note">地图由 OpenStreetMap 提供，地点坐标来自 OpenStreetMap 的免费公共搜索，保存经历时自动定位；「未定位」的可能是网络问题或没搜到，重新编辑保存一次即可再试。以上均需要联网。</div>'+
+  '</div>';
+  return moduleShell("worldmap","🗺️","worldmap","只读取「时间经历」里「旅游」类别下的经历——保存时会自动用 OpenStreetMap 全球搜索地点（需要联网），遇到同名地点会让你手动选择；点击地图上的标记可以进入这条经历的详情页。","",
+    body);
+}
+var __leafletMapInstance = null;
+var __leafletMarkerLayers = {};
+function setupLeafletMap(){
+  var el = document.getElementById("leafletMap");
+  if(!el) return;
+  if(__leafletMapInstance){
+    try{ __leafletMapInstance.remove(); }catch(e){}
+    __leafletMapInstance = null;
+  }
+  if(typeof L === "undefined"){
+    el.outerHTML = '<div class="map-fallback">地图库没能加载出来（可能是网络问题，或者当前环境限制了外部资源加载）。地点数据还在，换个环境或者刷新一下这一页可能就好了。</div>';
+    return;
+  }
+  var pinIcon = L.divIcon({
+    className: "geo-pin-icon",
+    html: '<svg width="26" height="36" viewBox="0 0 22 32" xmlns="http://www.w3.org/2000/svg">'+
+      '<path d="M11 0C5 0 0 5 0 11c0 8 11 21 11 21s11-13 11-21C22 5 17 0 11 0z" fill="#B3483C" stroke="#fff" stroke-width="1"/>'+
+      '<circle cx="11" cy="11" r="4.5" fill="#fff"/>'+
+    '</svg>',
+    iconSize: [26,36],
+    iconAnchor: [13,36],
+    popupAnchor: [0,-32]
+  });
+  /* 初始固定为世界全览（最小缩放），只有手动缩放/双指才会放大，不自动对着标记点放大 */
+  var map = L.map("leafletMap", {scrollWheelZoom:true, minZoom:2}).setView([20,10], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+  }).addTo(map);
+  __leafletMapInstance = map;
+  __leafletMarkerLayers = {};
+
+  var d = buildMapData();
+  Object.keys(d.groups).forEach(function(gk){
+    var g = d.groups[gk];
+    var shortName = g.name.split("，")[0].split(",")[0];
+    var marker = L.marker([g.coords[0], g.coords[1]], {icon:pinIcon}).addTo(map);
+    var popupHtml = '<div style="font-family:IBM Plex Sans,sans-serif;font-size:13px;min-width:140px">'+
+      '<div style="font-weight:600;margin-bottom:4px">'+esc(shortName)+'</div>'+
+      g.list.map(function(t){
+        return '<div style="margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #eee">'+
+          '<div style="color:#8C897E;font-size:11px">'+esc(entryTimeRange(t))+'</div>'+
+          '<button class="map-popup-btn" onclick="openTimelineEntry(\''+t.id+'\')">'+esc(t.keyword||"查看详情")+' →</button>'+
+        '</div>';
+      }).join('')+
+    '</div>';
+    marker.bindPopup(popupHtml);
+    __leafletMarkerLayers[gk] = marker;
+  });
+}
+window.focusMapGroup = function(gk){
+  var marker = __leafletMarkerLayers[gk];
+  if(!marker || !__leafletMapInstance) return;
+  __leafletMapInstance.setView(marker.getLatLng(), 10);
+  marker.openPopup();
+};
+
+/* ---- 纪念事件 ---- */
+function daysInfo(dateStr, repeatYearly){
+  if(!dateStr) return "";
+  var today = new Date(); today.setHours(0,0,0,0);
+  var d = new Date(dateStr); if(isNaN(d.getTime())) return "";
+  if(repeatYearly){
+    var next = new Date(today.getFullYear(), d.getMonth(), d.getDate());
+    if(next < today) next.setFullYear(next.getFullYear()+1);
+    var diff = Math.round((next-today)/86400000);
+    return diff===0 ? "就是今天 🎉" : ("还有 "+diff+" 天");
+  } else {
+    var diff2 = Math.round((today-d)/86400000);
+    return diff2>=0 ? ("已经过去 "+diff2+" 天") : ("还有 "+Math.abs(diff2)+" 天");
+  }
+}
+function renderMemorialSection(){
+  var items = DATA.memorialEvents;
+  var cards = items.map(function(m){
+    return '<div class="memorial-card"><div class="row-actions"><button class="btn small ghost" onclick="editMemorial(\''+m.id+'\')">✎</button><button class="btn small danger" onclick="deleteMemorial(\''+m.id+'\')">✕</button></div>'+
+      '<div class="mname">'+esc(m.name)+'</div>'+
+      '<div class="mdate">'+esc(m.date)+(m.repeatYearly?" · 每年":"")+'</div>'+
+      '<div class="mcountdown">'+daysInfo(m.date, m.repeatYearly)+'</div>'+
+      (m.note?('<div class="mnote">'+esc(m.note)+'</div>'):'')+
+    '</div>';
+  }).join('');
+  return '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("memorial"))+'</h2>'+
+    '<button class="title-edit-btn" onclick="editSectionLabel(\'memorial\')" title="重命名">✎</button></div>'+
+    '<div class="sub">重要的日子和纪念日，自动计算倒计时 / 已过天数（框架，可继续扩展提醒等功能）。</div></div><button class="btn solid" onclick="editMemorial()">+ 添加纪念日</button></div>'+
+    (items.length ? ('<div class="memorial-grid">'+cards+'</div>') : emptyState("🎉","还没有添加纪念事件","点击右上角「添加纪念日」"));
+}
+window.editMemorial = function(id){
+  var item = id ? DATA.memorialEvents.filter(function(x){return x.id===id;})[0] : {name:"",date:"",repeatYearly:false,note:""};
+  openModal(id?"编辑纪念日":"添加纪念日",
+    field("name","名称","text",item.name,true)+
+    fieldDate("date","日期",item.date,true)+
+    fieldSelect("repeatYearly","类型",[{value:"0",label:"仅这一次"},{value:"1",label:"每年重复"}], item.repeatYearly?"1":"0")+
+    field("note","备注","textarea",item.note,false),
+    function(data){
+      data.repeatYearly = data.repeatYearly === "1";
+      if(id){ Object.assign(item,data); }
+      else{ data.id=uid(); DATA.memorialEvents.push(data); }
+      save(); render(); toast(id?"已更新":"已添加");
+    });
+};
+window.deleteMemorial = function(id){
+  confirmDelete("确定删除这个纪念事件吗？", function(){
+    DATA.memorialEvents = DATA.memorialEvents.filter(function(x){return x.id!==id;});
+    save(); render(); toast("已删除");
+  });
+};
+
+/* ---- 断舍离 ---- */
+var DECLUTTER_STATUSES = ["想清理","进行中","已放下"];
+function renderDeclutterSection(){
+  var items = DATA.declutterItems;
+  var rows = items.map(function(it){
+    var idx = DECLUTTER_STATUSES.indexOf(it.status); if(idx<0) idx=0;
+    return '<div class="declutter-row"><div style="flex:1"><div class="dname">'+esc(it.name)+'</div>'+(it.note?('<div class="dnote">'+esc(it.note)+'</div>'):'')+'</div>'+
+      '<span class="status-badge s'+idx+'" onclick="cycleDeclutter(\''+it.id+'\')" title="点击切换进度">'+esc(DECLUTTER_STATUSES[idx])+'</span>'+
+      '<div class="row-actions"><button class="btn small ghost" onclick="editDeclutter(\''+it.id+'\')">✎</button><button class="btn small danger" onclick="deleteDeclutter(\''+it.id+'\')">✕</button></div>'+
+    '</div>';
+  }).join('');
+  return '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("declutter"))+'</h2>'+
+    '<button class="title-edit-btn" onclick="editSectionLabel(\'declutter\')" title="重命名">✎</button></div>'+
+    '<div class="sub">想放下的人、事、物，先搭个简单框架：点状态标签可循环切换进度，具体玩法之后再慢慢加。</div></div><button class="btn solid" onclick="editDeclutter()">+ 添加事项</button></div>'+
+    (items.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("🧹","还没有添加断舍离事项","点击右上角「添加事项」"));
+}
+window.cycleDeclutter = function(id){
+  var it = DATA.declutterItems.filter(function(x){return x.id===id;})[0]; if(!it) return;
+  var idx = DECLUTTER_STATUSES.indexOf(it.status); if(idx<0) idx=0;
+  it.status = DECLUTTER_STATUSES[(idx+1)%DECLUTTER_STATUSES.length];
+  save(); render();
+};
+window.editDeclutter = function(id){
+  var item = id ? DATA.declutterItems.filter(function(x){return x.id===id;})[0] : {name:"",status:"想清理",note:""};
+  openModal(id?"编辑事项":"添加事项",
+    field("name","名称","text",item.name,true)+
+    fieldSelect("status","状态",DECLUTTER_STATUSES.map(function(s){return {value:s,label:s};}), item.status)+
+    field("note","备注","textarea",item.note,false),
+    function(data){
+      if(id){ Object.assign(item,data); }
+      else{ data.id=uid(); DATA.declutterItems.push(data); }
+      save(); render(); toast(id?"已更新":"已添加");
+    });
+};
+window.deleteDeclutter = function(id){
+  confirmDelete("确定删除这条记录吗？", function(){
+    DATA.declutterItems = DATA.declutterItems.filter(function(x){return x.id!==id;});
+    save(); render(); toast("已删除");
+  });
+};
+
+/* ================= 通用：删除确认 =================
+   不用原生 confirm()：发布后的沙盒环境可能会禁用浏览器原生弹窗，改成自己画的确认弹窗 */
+function confirmDelete(msg, onYes, title, confirmLabel){
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="cmask"><div class="modal" style="max-width:340px">'+
+    '<h3>'+esc(title||"确认删除")+'</h3>'+
+    '<div class="sub" style="margin-bottom:4px">'+esc(msg)+'</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">'+esc(confirmLabel||"确定删除")+'</button></div>'+
+    '</div></div>';
+  document.getElementById("cmask").addEventListener("click", function(e){ if(e.target.id==="cmask") closeModal(); });
+  window.__confirmDeleteYes = function(){ closeModal(); onYes(); };
+}
+
+/* ================= 通用：Modal 表单 =================
+   不用真正的 <form>/submit：发布后的沙盒环境可能会禁用表单提交，改成纯按钮点击 + 手动读取输入框的值 */
+function openModal(title, fieldsHtml, onSave){
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
+    '<h3>'+esc(title)+'</h3>'+
+    '<div id="mform">'+fieldsHtml+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="__submitModal()">保存</button></div>'+
+    '</div></div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+  window.__submitModal = function(){
+    var container = document.getElementById("mform");
+    var data = {};
+    var els = container.querySelectorAll("[name]");
+    for(var i=0;i<els.length;i++){
+      var el = els[i];
+      if(el.required && !el.value.trim()){ toast((el.previousElementSibling?el.previousElementSibling.textContent:"这一项")+"是必填的"); return; }
+      data[el.name] = el.value;
+    }
+    onSave(data);
+    closeModal();
+  };
+}
+window.closeModal = function(){ document.getElementById("modalRoot").innerHTML=""; };
+
+/* ================= 密码管理 ================= */
+var revealed = {};
+function renderPasswords(){
+  var cats = getModuleCategories("passwords");
+  if(cats.length && !moduleCatView.passwords && moduleCatView.passwords!==""){
+    return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码。",
+      '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
+      renderCategoryFolders("passwords", DATA.passwords, function(it){return it.category||"";})
+    );
+  }
+  var scoped = cats.length ? DATA.passwords.filter(function(r){ return (r.category||"")===moduleCatView.passwords; }) : DATA.passwords;
+  var rows = scoped.map(function(r){
+    var show = revealed[r.id];
+    return '<tr><td><span class="row-open-link" onclick="openItemTab(\'password\',\''+r.id+'\')">'+esc(r.site)+'</span></td><td class="mono">'+esc(r.username)+'</td>'+
+      '<td><span class="pw-mask">'+(show?esc(r.password):"••••••••••")+'</span>'+
+      '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td>'+
+      '<td class="muted">'+esc(r.note||"—")+'</td>'+
+      '<td class="row-actions"><button class="btn small ghost" onclick="editPassword(\''+r.id+'\')">编辑</button><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
+  }).join('');
+  var backBar = cats.length ? categoryBackBar("passwords") : "";
+  return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码，点击「显示」可查看明文（仅本机可见）。",
+    '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
+    backBar + (scoped.length ? ('<div class="card-panel"><table class="data"><thead><tr><th>网站/应用</th><th>账号</th><th>密码</th><th>备注</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>')
+      : emptyState("🔐","这里还没有密码","点击右上角「新增密码」添加"))
+  );
+}
+window.togglePw = function(id){ revealed[id]=!revealed[id]; render(); };
+window.editPassword = function(id){
+  var item = id ? DATA.passwords.filter(function(x){return x.id===id;})[0] : {site:"",username:"",password:"",note:"",category:moduleCatView.passwords||""};
+  openModal(id?"编辑密码":"新增密码",
+    field("site","网站 / 应用","text",item.site,true)+
+    field("username","账号","text",item.username,true)+
+    field("password","密码","text",item.password,true)+
+    moduleCategorySelectField("passwords", item.category)+
+    field("note","备注","textarea",item.note,false),
+    function(data){
+      if(id){ Object.assign(item,data); }
+      else{ data.id=uid(); DATA.passwords.push(data); }
+      save(); render(); toast(id?"已更新":"已新增");
+    });
+};
+window.deletePassword = function(id){
+  confirmDelete("确定删除这条密码记录吗？", function(){
+    DATA.passwords = DATA.passwords.filter(function(x){return x.id!==id;});
+    save();
+    if(!closeTabAndMaybeGoHome("password", id)) render();
+    toast("已删除");
+  });
+};
+function renderPasswordDetailPage(id){
+  var r = DATA.passwords.filter(function(x){return x.id===id;})[0];
+  if(!r){
+    return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  var show = revealed[r.id];
+  return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码</div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editPassword(\''+r.id+'\')">编辑</button><button class="btn danger" onclick="deletePassword(\''+r.id+'\')">删除</button></div></div>'+
+    '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>网站/应用</th><td>'+esc(r.site)+'</td></tr>'+
+      '<tr><th>账号</th><td>'+esc(r.username)+'</td></tr>'+
+      '<tr><th>密码</th><td><span class="pw-mask">'+(show?esc(r.password):"••••••••••")+'</span><button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>'+
+      '<tr><th>备注</th><td>'+esc(r.note||"—")+'</td></tr>'+
+    '</table></div>';
+}
+
+/* ================= 资产信息：地点 → 类型 → 一行行的列表 ================= */
+window.assetEnterLocation = function(moduleId, key){ moduleCatView.assets_location = key; moduleCatView.assets_type = null; render(); };
+window.assetBackToLocations = function(){ moduleCatView.assets_location = null; moduleCatView.assets_type = null; render(); };
+window.assetEnterType = function(moduleId, key){ moduleCatView.assets_type = key; render(); };
+window.assetBackToTypes = function(){ moduleCatView.assets_type = null; render(); };
+
+function renderAssets(){
+  var locKey = moduleCatView.assets_location;
+
+  // 第一层：地点
+  if(locKey===null || locKey===undefined){
+    return moduleShell("assets","💳","assets","按地点整理银行卡、账户等资产信息。",
+      '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+      renderCategoryFolders("assets_location", DATA.assets, function(it){return it.location||"";},
+        {clickFn:"assetEnterLocation", sectionLabel:"选择地点", manageTitle:"资产信息 · 地点管理"})
+    );
+  }
+
+  var byLoc = DATA.assets.filter(function(a){ return (a.location||"")===locKey; });
+  var typeKey = moduleCatView.assets_type;
+
+  // 第二层：类型（银行卡实体 / 电子信用 / 不动产 / 其他功能卡……可自定义增删）
+  if(typeKey===null || typeKey===undefined){
+    return moduleShell("assets","💳","assets","选择这个地点下的资产类型。",
+      '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+      categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 地点管理") +
+      renderCategoryFolders("assets_type", byLoc, function(it){return it.assetType||"";},
+        {clickFn:"assetEnterType", sectionLabel:"选择类型", manageTitle:"资产信息 · 类型管理"})
+    );
+  }
+
+  // 第三层：具体的卡/账户/会员卡……表格形式展现，列头按实际出现过的字段名动态生成
+  var scoped = byLoc.filter(function(a){ return (a.assetType||"")===typeKey; });
+  var columns = [];
+  scoped.forEach(function(a){
+    (a.fields||[]).forEach(function(f){
+      if(f.label && columns.indexOf(f.label)===-1){ columns.push(f.label); }
+    });
+  });
+  var theadCells = '<th>名称</th>'+columns.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'<th></th>';
+  var bodyRows = scoped.map(function(a){
+    var fieldMap = {};
+    (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
+    var cells = '<td><span class="row-open-link" onclick="openItemTab(\'asset\',\''+a.id+'\')">'+esc(a.title||"未命名")+'</span></td>'+
+      columns.map(function(c){ return '<td>'+esc(fieldMap[c]!==undefined ? fieldMap[c] : "—")+'</td>'; }).join('')+
+      '<td class="row-actions"><button class="btn small ghost" onclick="editAsset(\''+a.id+'\')">✎</button><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
+    return '<tr>'+cells+'</tr>';
+  }).join('');
+  var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table"><thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+  return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，可左右拖动查看更多字段。",
+    '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+    categoryBackBar("assets_type","assetBackToTypes()","资产信息 · 类型管理") +
+    (scoped.length ? tableHtml : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
+  );
+}
+
+/* 新增/编辑资产：名称必填，其余字段完全自定义（跟时间经历的补充内容是同一套逻辑） */
+var assetDraft = null;
+window.editAsset = function(id){
+  var item = id ? DATA.assets.filter(function(x){return x.id===id;})[0] : null;
+  if(item){
+    assetDraft = {
+      id:item.id, title:item.title||"", location:item.location||"", assetType:item.assetType||"",
+      fields:(item.fields||[]).map(function(f){ return {id:f.id||uid(), label:f.label||"", value:f.value||""}; })
+    };
+  } else {
+    assetDraft = {id:null, title:"", location:moduleCatView.assets_location||"", assetType:moduleCatView.assets_type||"", fields:[]};
+  }
+  renderAssetEditModal();
+};
+function inlineCategorySelect(moduleId, currentVal, onchangeCall, labelText){
+  var cats = getModuleCategories(moduleId);
+  if(!cats.length) return "";
+  var opts = [{value:"",label:uncategorizedLabel(moduleId)}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
+  return '<div class="field"><label>'+esc(labelText)+'</label><select onchange="'+onchangeCall+'">'+
+    opts.map(function(o){ return '<option value="'+esc(o.value)+'"'+(o.value===currentVal?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')+
+  '</select></div>';
+}
+function renderAssetEditModal(){
+  var d = assetDraft;
+  var root = document.getElementById("modalRoot");
+  var rows = d.fields.map(function(f){
+    return '<div class="tl-field-row">'+
+      '<div class="tl-field-top">'+
+        '<input type="text" class="tl-field-label" placeholder="小标题，如：卡号 / 会员号" value="'+esc(f.label)+'" onchange="updateAssetDraftField(\''+f.id+'\',\'label\',this.value)">'+
+        '<button type="button" class="btn small danger" onclick="removeAssetDraftField(\''+f.id+'\')" title="删除这个字段">✕</button>'+
+      '</div>'+
+      '<textarea class="tl-field-value" placeholder="内容" onchange="updateAssetDraftField(\''+f.id+'\',\'value\',this.value)">'+esc(f.value)+'</textarea>'+
+    '</div>';
+  }).join('');
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
+    '<h3>'+(d.id?"编辑资产":"新增资产")+'</h3>'+
+    '<div class="field"><label>名称（必填，会显示在列表里）</label><input type="text" value="'+esc(d.title)+'" onchange="updateAssetDraftBasic(\'title\',this.value)"></div>'+
+    inlineCategorySelect("assets_location", d.location, "updateAssetDraftBasic('location',this.value)", "地点")+
+    inlineCategorySelect("assets_type", d.assetType, "updateAssetDraftBasic('assetType',this.value)", "类型")+
+    '<div class="field"><label>补充内容（可选，自己定义字段名和内容，比如卡号/会员号/持有人……随便加）</label>'+
+    '<div class="tl-fields-list">'+rows+'</div>'+
+    '<button type="button" class="btn small ghost" onclick="addAssetDraftField()" style="margin-top:6px">+ 添加字段</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveAssetDraft()">保存</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+}
+window.updateAssetDraftBasic = function(key, value){ if(assetDraft) assetDraft[key] = value; };
+window.addAssetDraftField = function(){
+  assetDraft.fields.push({id:uid(), label:"", value:""});
+  renderAssetEditModal();
+};
+window.removeAssetDraftField = function(fid){
+  assetDraft.fields = assetDraft.fields.filter(function(f){return f.id!==fid;});
+  renderAssetEditModal();
+};
+window.updateAssetDraftField = function(fid, key, value){
+  var f = assetDraft.fields.filter(function(x){return x.id===fid;})[0];
+  if(f) f[key] = value;
+};
+window.saveAssetDraft = function(){
+  var d = assetDraft;
+  if(!d.title || !d.title.trim()){ toast("名称是必填的"); return; }
+  var cleanFields = d.fields.filter(function(f){ return (f.label&&f.label.trim()) || (f.value&&f.value.trim()); });
+  if(d.id){
+    var item = DATA.assets.filter(function(x){return x.id===d.id;})[0];
+    if(item){ item.title=d.title.trim(); item.location=d.location||""; item.assetType=d.assetType||""; item.fields=cleanFields; }
+  } else {
+    DATA.assets.push({id:uid(), title:d.title.trim(), location:d.location||"", assetType:d.assetType||"", fields:cleanFields});
+  }
+  var wasAdd = !d.id;
+  assetDraft = null;
+  save(); closeModal(); render(); toast(wasAdd?"已新增":"已更新");
+};
+window.deleteAsset = function(id){
+  confirmDelete("确定删除这条资产记录吗？", function(){
+    DATA.assets = DATA.assets.filter(function(x){return x.id!==id;});
+    save();
+    if(!closeTabAndMaybeGoHome("asset", id)) render();
+    toast("已删除");
+  });
+};
+function renderAssetDetailPage(id){
+  var a = DATA.assets.filter(function(x){return x.id===id;})[0];
+  if(!a){
+    return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  var locLabel = a.location ? ((getModuleCategories("assets_location").filter(function(c){return c.key===a.location;})[0]||{}).label||uncategorizedLabel("assets_location")) : uncategorizedLabel("assets_location");
+  var typeLabel = a.assetType ? ((getModuleCategories("assets_type").filter(function(c){return c.key===a.assetType;})[0]||{}).label||uncategorizedLabel("assets_type")) : uncategorizedLabel("assets_type");
+  var fieldRows = (a.fields||[]).map(function(f){
+    return '<tr><th>'+esc(f.label||"—")+'</th><td>'+esc(f.value||"—")+'</td></tr>';
+  }).join('');
+  return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'</div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editAsset(\''+a.id+'\')">编辑</button><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
+    '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
+      '<tr><th>类型</th><td>'+esc(typeLabel)+'</td></tr>'+
+      fieldRows+
+    '</table></div>';
+}
+
+/* ================= 证件照 / 相册（共用） ================= */
+function renderPhotoModule(viewId, dataKey, icon, key, sub, captionField, albumField){
+  var list = DATA[dataKey];
+  var groups = {};
+  if(albumField){
+    list.forEach(function(x){ var g=x[albumField]||"未分组"; (groups[g]=groups[g]||[]).push(x); });
+  } else { groups["__all"] = list; }
+
+  var html = "";
+  Object.keys(groups).forEach(function(g){
+    if(albumField) html += '<div class="section-label" style="margin-top:26px">'+esc(g)+'</div>';
+    html += '<div class="photo-grid">';
+    groups[g].forEach(function(ph){
+      html += '<div class="photo-card">'+
+        (ph.dataUrl ? '<img class="thumb" src="'+ph.dataUrl+'">' : '<div class="thumb placeholder">🖼️</div>')+
+        '<div class="cap"><span class="lbl">'+esc(ph[captionField]||"未命名")+'</span>'+
+        '<span class="row-actions"><button class="btn small ghost" onclick="editPhoto(\''+dataKey+'\',\''+ph.id+'\',\''+captionField+'\',\''+(albumField||"")+'\')">✎</button><button class="btn small danger" onclick="deletePhoto(\''+dataKey+'\',\''+ph.id+'\')">✕</button></span>'+
+        '</div></div>';
+    });
+    html += '<label class="upload-tile">📤 上传照片<input type="file" accept="image/*" onchange="uploadPhoto(this,\''+dataKey+'\',\''+captionField+'\',\''+(albumField||"")+'\')"></label>';
+    html += '</div>';
+  });
+  if(!list.length){
+    html = emptyState("📷","还没有照片","点击下方上传第一张")+'<div class="photo-grid" style="margin-top:14px"><label class="upload-tile">📤 上传照片<input type="file" accept="image/*" onchange="uploadPhoto(this,\''+dataKey+'\',\''+captionField+'\',\''+(albumField||"")+'\')"></label></div>';
+  }
+  return moduleShell(viewId, icon, key, sub, "", html);
+}
+window.uploadPhoto = function(input, dataKey, captionField, albumField){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var item = {id:uid(), dataUrl:e.target.result};
+    item[captionField] = "新照片";
+    if(albumField) item[albumField] = "未分组";
+    DATA[dataKey].push(item);
+    try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); DATA[dataKey].pop(); return; }
+    render(); toast("已上传");
+  };
+  reader.readAsDataURL(file);
+};
+window.editPhoto = function(dataKey, id, captionField, albumField){
+  var item = DATA[dataKey].filter(function(x){return x.id===id;})[0];
+  openModal("编辑信息",
+    field(captionField, captionField==="label"?"名称":"说明", "text", item[captionField], true)+
+    (albumField ? field(albumField,"所属相册","text",item[albumField],false) : ""),
+    function(data){ Object.assign(item,data); save(); render(); toast("已更新"); });
+};
+window.deletePhoto = function(dataKey, id){
+  confirmDelete("确定删除这张照片吗？", function(){
+    DATA[dataKey] = DATA[dataKey].filter(function(x){return x.id!==id;});
+    save(); render(); toast("已删除");
+  });
+};
+
+/* ================= 人物关系 ================= */
+/* ================= 自定义板块（用户自己新建的通用小板块） ================= */
+function renderCustomBoardPage(boardId){
+  var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
+  if(!board){
+    return '<div class="module-head"><div><h2>没找到这个板块</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  var cats = getModuleCategories(boardId);
+  if(cats.length && !moduleCatView[boardId] && moduleCatView[boardId]!==""){
+    return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。",
+      '<button class="btn solid" onclick="editCustomBoardItem(\''+boardId+'\')">+ 新增</button>',
+      renderCategoryFolders(boardId, board.items, function(it){return it.category||"";})
+    );
+  }
+  var scoped = cats.length ? board.items.filter(function(it){ return (it.category||"")===moduleCatView[boardId]; }) : board.items;
+  var rows = scoped.map(function(it){
+    return '<div class="declutter-row"><div style="flex:1"><div class="dname row-open-link" onclick="openItemTab(\'customitem\',\''+it.id+'\',{boardId:\''+boardId+'\'})">'+esc(it.title)+'</div>'+(it.note?('<div class="dnote">'+esc(it.note)+'</div>'):'')+'</div>'+
+      '<div class="row-actions"><button class="btn small ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✎</button><button class="btn small danger" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✕</button></div>'+
+    '</div>';
+  }).join('');
+  var backBar = cats.length ? categoryBackBar(boardId) : "";
+  return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。",
+    '<button class="btn solid" onclick="editCustomBoardItem(\''+boardId+'\')">+ 新增</button>',
+    backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容","点击右上角「新增」"))
+  );
+}
+window.editCustomBoardItem = function(boardId, itemId){
+  var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
+  if(!board) return;
+  var item = itemId ? board.items.filter(function(x){return x.id===itemId;})[0] : {title:"",note:"",category:moduleCatView[boardId]||""};
+  openModal(itemId?"编辑":"新增",
+    field("title","标题","text",item.title,true)+
+    moduleCategorySelectField(boardId, item.category)+
+    field("note","内容","textarea",item.note,false),
+    function(data){
+      if(itemId){ Object.assign(item,data); }
+      else{ data.id=uid(); board.items.push(data); }
+      save(); render(); toast(itemId?"已更新":"已添加");
+    });
+};
+window.deleteCustomBoardItem = function(boardId, itemId){
+  confirmDelete("确定删除这条记录吗？", function(){
+    var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
+    if(board){ board.items = board.items.filter(function(x){return x.id!==itemId;}); save(); }
+    if(!closeTabAndMaybeGoHome("customitem", itemId)) render();
+    toast("已删除");
+  });
+};
+function renderCustomItemDetailPage(boardId, itemId){
+  var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
+  var it = board ? board.items.filter(function(x){return x.id===itemId;})[0] : null;
+  if(!it){
+    return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  return '<div class="module-head"><div><h2>📌 '+esc(it.title)+'</h2><div class="sub">'+esc(labelFor(boardId))+'</div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">编辑</button><button class="btn danger" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">删除</button></div></div>'+
+    '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>内容</th><td>'+esc(it.note||"—")+'</td></tr>'+
+    '</table></div>';
+}
+
+function renderContacts(){
+  var cats = getModuleCategories("contacts");
+  if(cats.length && !moduleCatView.contacts && moduleCatView.contacts!==""){
+    return moduleShell("contacts","👥","contacts","重要联系人和关系备注。",
+      '<button class="btn solid" onclick="editContact()">+ 新增联系人</button>',
+      renderCategoryFolders("contacts", DATA.contacts, function(it){return it.category||"";})
+    );
+  }
+  var scoped = cats.length ? DATA.contacts.filter(function(c){ return (c.category||"")===moduleCatView.contacts; }) : DATA.contacts;
+  var cards = scoped.map(function(c){
+    return '<div class="contact-card"><div class="row-actions"><button class="btn small ghost" onclick="editContact(\''+c.id+'\')">✎</button><button class="btn small danger" onclick="deleteContact(\''+c.id+'\')">✕</button></div>'+
+      '<div class="initial">'+esc((c.name||"?").slice(0,1))+'</div>'+
+      '<h4 class="row-open-link" onclick="openItemTab(\'contact\',\''+c.id+'\')">'+esc(c.name)+'</h4>'+
+      '<div class="rel">'+esc(c.relation||"未分类")+'</div>'+
+      '<div class="phone">'+esc(c.phone||"—")+'</div>'+
+      (c.note?('<div class="note">'+esc(c.note)+'</div>'):'')+
+    '</div>';
+  }).join('');
+  var backBar = cats.length ? categoryBackBar("contacts") : "";
+  return moduleShell("contacts","👥","contacts","重要联系人和关系备注。",
+    '<button class="btn solid" onclick="editContact()">+ 新增联系人</button>',
+    backBar + (scoped.length ? ('<div class="contact-grid">'+cards+'</div>') : emptyState("👥","这里还没有联系人","点击右上角「新增联系人」"))
+  );
+}
+window.editContact = function(id){
+  var item = id ? DATA.contacts.filter(function(x){return x.id===id;})[0] : {name:"",relation:"",phone:"",note:"",category:moduleCatView.contacts||""};
+  openModal(id?"编辑联系人":"新增联系人",
+    field("name","姓名","text",item.name,true)+
+    field("relation","关系（如：同事/家人/朋友）","text",item.relation,false)+
+    moduleCategorySelectField("contacts", item.category)+
+    field("phone","电话","text",item.phone,false)+
+    field("note","备注","textarea",item.note,false),
+    function(data){
+      if(id){ Object.assign(item,data); }
+      else{ data.id=uid(); DATA.contacts.push(data); }
+      save(); render(); toast(id?"已更新":"已新增");
+    });
+};
+window.deleteContact = function(id){
+  confirmDelete("确定删除这位联系人吗？", function(){
+    DATA.contacts = DATA.contacts.filter(function(x){return x.id!==id;});
+    save();
+    if(!closeTabAndMaybeGoHome("contact", id)) render();
+    toast("已删除");
+  });
+};
+function renderContactDetailPage(id){
+  var c = DATA.contacts.filter(function(x){return x.id===id;})[0];
+  if(!c){
+    return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  return '<div class="module-head"><div><h2>👥 '+esc(c.name)+'</h2><div class="sub">'+esc(c.relation||"未分类")+'</div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editContact(\''+c.id+'\')">编辑</button><button class="btn danger" onclick="deleteContact(\''+c.id+'\')">删除</button></div></div>'+
+    '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>关系</th><td>'+esc(c.relation||"—")+'</td></tr>'+
+      '<tr><th>电话</th><td>'+esc(c.phone||"—")+'</td></tr>'+
+      '<tr><th>备注</th><td>'+esc(c.note||"—")+'</td></tr>'+
+    '</table></div>';
+}
+
+/* ================= 公共小组件 ================= */
+function moduleShell(id, icon, key, sub, actionHtml, bodyHtml){
+  var label = labelFor(key);
+  return '<div class="module-head"><div>'+
+    '<div class="title-row"><h2>'+icon+' '+esc(label)+'</h2>'+
+    '<button class="title-edit-btn" onclick="editSectionLabel(\''+key+'\')" title="重命名">✎</button></div>'+
+    '<div class="sub">'+sub+'</div></div>'+actionHtml+'</div>'+bodyHtml;
+}
+function emptyState(icon,title,sub){
+  return '<div class="card-panel"><div class="empty-state"><div class="big">'+icon+'</div><div style="font-size:15px;margin-bottom:4px">'+title+'</div><div style="font-size:12.5px">'+sub+'</div></div></div>';
+}
+function field(name,label,type,value,required){
+  if(type==="textarea"){
+    return '<div class="field"><label>'+esc(label)+'</label><textarea name="'+name+'">'+esc(value||"")+'</textarea></div>';
+  }
+  return '<div class="field"><label>'+esc(label)+'</label><input name="'+name+'" type="text" value="'+esc(value||"")+'" '+(required?"required":"")+'></div>';
+}
+function fieldDate(name,label,value,required){
+  return '<div class="field"><label>'+esc(label)+'</label><input name="'+name+'" type="date" value="'+esc(value||"")+'" '+(required?"required":"")+'></div>';
+}
+function fieldSelect(name,label,options,value){
+  return '<div class="field"><label>'+esc(label)+'</label><select name="'+name+'">'+options.map(function(o){
+    return '<option value="'+esc(o.value)+'"'+(o.value===value?' selected':'')+'>'+esc(o.label)+'</option>';
+  }).join('')+'</select></div>';
+}
+
+async function boot(){
+  var loaded = await loadDataAsync();
+  if(loaded){
+    DATA = loaded;
+  } else {
+    save();
+  }
+  render();
+}
+boot();
+</script>
+</body>
+</html>
