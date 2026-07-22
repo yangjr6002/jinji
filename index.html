@@ -127,6 +127,15 @@ button{font-family:inherit;cursor:pointer}
 }
 .drag-handle:hover{color:var(--text-dim); background:var(--surface-2);}
 .drag-handle:active{cursor:grabbing;}
+.drag-handle-sm{
+  display:inline-flex; align-items:center; justify-content:center; width:16px; height:20px;
+  cursor:grab; color:var(--text-faint); font-size:11px; letter-spacing:-2px; user-select:none;
+  opacity:0; transition:.15s;
+}
+tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
+.bi-row:hover .drag-handle-sm, .cat-manage-row:hover .drag-handle-sm{opacity:1;}
+.drag-handle-sm:hover{color:var(--text-dim);}
+.drag-handle-sm:active{cursor:grabbing;}
 .quick-link[draggable="true"], .folder[draggable="true"]{cursor:grab;}
 .section-header-row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
 .cat-back-bar{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
@@ -315,6 +324,21 @@ table.data tr:hover{background:var(--surface-2)}
 .hz-year-label{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; color:var(--text); margin-top:6px;}
 .hz-point.add .hz-date{color:var(--text-faint);}
 .hz-point.add:hover .hz-date{color:var(--accent);}
+.tl-period{position:absolute; top:4px; height:24px; cursor:pointer; transform:translateX(0);}
+.tl-period-bracket{position:absolute; bottom:0; left:0; right:0; height:9px; border-left:2px solid var(--period-color); border-right:2px solid var(--period-color); border-top:2px solid var(--period-color); border-radius:4px 4px 0 0; transition:.12s;}
+.tl-period:hover .tl-period-bracket{border-width:2.5px;}
+.tl-period-label{
+  position:absolute; top:-4px; left:50%; transform:translateX(-50%);
+  font-size:10px; font-weight:600; white-space:nowrap; color:var(--period-color);
+  background:var(--surface); padding:0 5px; max-width:150px; overflow:hidden; text-overflow:ellipsis;
+}
+.tl-period:hover .tl-period-label{text-decoration:underline;}
+.tlv-period{
+  display:flex; align-items:baseline; gap:6px; padding:3px 0 3px 2px; cursor:pointer; font-size:12px;
+}
+.tlv-period-bracket{color:var(--period-color); font-weight:700; font-size:13px;}
+.tlv-period-label{color:var(--period-color); font-weight:600;}
+.tlv-period:hover .tlv-period-label{text-decoration:underline;}
 .hz-year-branches{
   display:flex; flex-direction:column; align-items:flex-start; gap:5px;
   margin-top:9px; padding-left:12px; border-left:1.5px solid var(--border-soft); max-width:150px;
@@ -334,6 +358,26 @@ table.data tr:hover{background:var(--surface-2)}
 .hz-detail-table th{width:56px; text-align:left; color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:500; padding:6px 10px 6px 0; vertical-align:top; white-space:nowrap;}
 .hz-detail-table td{padding:6px 0; color:var(--text); line-height:1.6; border-bottom:1px solid var(--border-soft);}
 .hz-detail-table tr:last-child td{border-bottom:none}
+.bi-edit-table{width:auto; border-collapse:collapse; font-size:13px; text-align:left;}
+.bi-edit-table .bi-row th, .bi-edit-table .bi-row td{padding:2px 4px; border-bottom:1px solid var(--border-soft); vertical-align:middle; text-align:left;}
+.bi-edit-table .bi-row:last-of-type th, .bi-edit-table .bi-row:last-of-type td{border-bottom:none;}
+.bi-handle-cell{width:18px; padding:0 !important;}
+.bi-input{
+  width:100%; border:1px solid transparent; background:transparent; font:inherit; color:inherit;
+  padding:5px 6px; border-radius:5px; transition:.12s; text-align:left;
+}
+.bi-input.bi-label{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-dim); font-weight:500; width:80px;}
+.bi-input.bi-value{color:var(--text); width:200px;}
+.bi-input.bi-label:hover{background:var(--surface-2);}
+.bi-input:focus{outline:none; border-color:var(--accent); background:#fff;}
+.bi-del{width:22px; padding:0 !important;}
+.bi-del-btn{
+  width:20px; height:20px; border:none; background:transparent; color:var(--text-faint);
+  border-radius:5px; font-size:10px; opacity:0; transition:.12s;
+}
+.bi-row:hover .bi-del-btn{opacity:1;}
+.bi-del-btn:hover{background:var(--danger-soft); color:var(--danger);}
+.bi-add-row td{padding:8px 4px 2px; border-bottom:none;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
 .hz-detail-hint{margin-top:14px; padding:22px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:12px;}
 
@@ -427,10 +471,7 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
 <div class="topbar">
   <div class="brand"><span class="mark">P</span>Private Space</div>
-  <div style="display:flex; align-items:center; gap:14px;">
-    <div class="crumb" id="crumb" onclick="go('home')">首页</div>
-    <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
-  </div>
+  <div class="crumb" id="crumb" onclick="go('home')">首页</div>
 </div>
 <div class="toptabs" id="topTabs"></div>
 <div class="wrap" id="app"></div>
@@ -452,7 +493,7 @@ var DEFAULT_TL_CATEGORIES = [
 var CATEGORY_COLOR_PALETTE = ["#2F5D50","#4A5A8C","#8C6D3F","#8C4A4A","#A0527A","#3D7A99","#7A9C3D","#9C3D6E","#5C3D9C","#8C8C8C"];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineOrientation:"horizontal", categoryViewMode:"list" },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineViewByFilter:{}, categoryViewMode:"list" },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -511,6 +552,13 @@ var DEFAULT_DATA = {
     {id:"d2", name:"和前同事的旧矛盾", status:"进行中", note:""}
   ],
   customBoards:[],
+  basicInfo:[
+    {id:"bi1", label:"姓名", value:""},
+    {id:"bi2", label:"英文名", value:""},
+    {id:"bi3", label:"日文名", value:""},
+    {id:"bi4", label:"曾用名", value:""},
+    {id:"bi5", label:"生日", value:""}
+  ],
   moduleCategories:{
     assets_type:[
       {key:"bankcard_physical", label:"银行实体卡"},
@@ -529,7 +577,20 @@ function normalizeData(d){
   d.settings = d.settings || {};
   d.settings.moduleView = d.settings.moduleView || "list";
   d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline"];
-  d.settings.timelineOrientation = d.settings.timelineOrientation || "horizontal";
+  d.settings.homeOrder = d.settings.homeOrder.filter(function(k){ return k!=="basicinfo"; });
+  d.settings.quickAccessIds = d.settings.quickAccessIds || [];
+  if(d.settings.quickAccessIds.indexOf("basicinfo")===-1){ d.settings.quickAccessIds.unshift("basicinfo"); }
+  d.settings.timelineViewByFilter = d.settings.timelineViewByFilter || {};
+  if(d.settings.timelineOrientation || d.settings.timelineGranularity){
+    if(!d.settings.timelineViewByFilter.all){
+      d.settings.timelineViewByFilter.all = {
+        orientation: d.settings.timelineOrientation || "horizontal",
+        granularity: d.settings.timelineGranularity || "year"
+      };
+    }
+    delete d.settings.timelineOrientation;
+    delete d.settings.timelineGranularity;
+  }
   d.settings.categoryViewMode = d.settings.categoryViewMode || "list";
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
@@ -542,16 +603,12 @@ function normalizeData(d){
   d.memorialEvents = d.memorialEvents || [];
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
+  d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.moduleCategories = d.moduleCategories || {};
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
   }
   d.assets = (d.assets||[]).map(migrateAssetItem);
-  d.profile = d.profile || {name:"", avatarUrl:""};
-  d.passwords = d.passwords || [];
-  d.idPhotos = d.idPhotos || [];
-  d.albumPhotos = d.albumPhotos || [];
-  d.contacts = d.contacts || [];
   return d;
 }
 /* 把旧版资产字段（bank/type/holder/number/note）自动迁移成新的"标题+自定义字段"结构，不丢数据 */
@@ -597,12 +654,22 @@ function save(){
   }
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }
+/* 通用：把数组里 fromId 这一项挪到 targetId 那一项的位置（fromId/targetId 匹配元素的 id 或 key 字段） */
+function reorderById(arr, fromId, targetId){
+  var idx = function(id){ return arr.findIndex(function(x){ return x.id===id || x.key===id; }); };
+  var from = idx(fromId), to = idx(targetId);
+  if(from===-1 || to===-1 || from===to) return arr;
+  var copy = arr.slice();
+  var item = copy.splice(from,1)[0];
+  copy.splice(to,0,item);
+  return copy;
+}
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
 /* ---- 名称自定义 ---- */
 var DEFAULT_LABELS = {
   passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
-  timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离"
+  timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离", basicinfo:"基本信息"
 };
 function labelFor(key){
   return (DATA.labels && DATA.labels[key]) || DEFAULT_LABELS[key] || key;
@@ -620,47 +687,6 @@ function toast(msg, duration){
   var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
 }
-
-/* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
-window.openBackupModal = function(){
-  var root=document.getElementById("modalRoot");
-  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
-    '<h3>备份与恢复</h3>'+
-    '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
-    '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
-    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
-      '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
-    '</label>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
-    '</div></div>';
-  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
-};
-window.exportBackup = function(){
-  var payload = JSON.stringify(DATA, null, 2);
-  var blob = new Blob([payload], {type:"application/json"});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement("a");
-  var stamp = new Date().toISOString().slice(0,10);
-  a.href = url; a.download = "private-space-backup-"+stamp+".json";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast("已导出备份文件");
-};
-window.importBackupFile = function(input){
-  var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var parsed;
-    try{ parsed = JSON.parse(e.target.result); }catch(err){ toast("这不是一个有效的 JSON 文件"); return; }
-    if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)){ toast("文件内容格式不对，不像是这个网页导出的备份"); return; }
-    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等），确定要用这份备份恢复吗？", function(){
-      DATA = normalizeData(parsed);
-      save(); render(); toast("已恢复备份");
-    }, "确认导入备份", "确定恢复");
-  };
-  reader.readAsText(file);
-  input.value = "";
-};
 
 /* ================= 路由 ================= */
 var VIEW = "home";
@@ -683,6 +709,7 @@ window.go = function(view){
 };
 
 var MODULES = [
+  {id:"basicinfo", icon:"👤", label:"基本信息", desc:"姓名、生日等身份信息", sensitive:true, count:function(){return (DATA.basicInfo||[]).length;}},
   {id:"passwords", icon:"🔐", label:"密码管理", desc:"网站账号密码", sensitive:true, count:function(){return DATA.passwords.length;}},
   {id:"assets", icon:"💳", label:"资产信息", desc:"银行卡账户", sensitive:true, count:function(){return DATA.assets.length;}},
   {id:"idphotos", icon:"🪪", label:"证件照管理", desc:"证件照片备份", sensitive:true, count:function(){return DATA.idPhotos.length;}},
@@ -707,6 +734,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
+  else if(VIEW==="basicinfo") app.innerHTML = renderBasicInfoPage();
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -764,6 +792,8 @@ function setupHzDrag(){
   el.addEventListener("pointercancel", endDrag);
   el.addEventListener("click", function(e){
     if(moved) return;
+    var period = e.target.closest ? e.target.closest(".tl-period") : null;
+    if(period){ openTimelineEntry(period.getAttribute("data-id")); return; }
     var leaf = e.target.closest ? e.target.closest(".hz-leaf") : null;
     if(leaf){ openTimelineEntry(leaf.getAttribute("data-id")); return; }
     var addPt = e.target.closest ? e.target.closest(".hz-point.add") : null;
@@ -800,6 +830,50 @@ function renderHome(){
   });
   return html;
 }
+
+/* ---- 基本信息：姓名/英文名/日文名/曾用名/生日等，左右两栏展示，字段完全自定义（作为常用功能里的一个模块） ---- */
+function renderBasicInfoPage(){
+  var list = DATA.basicInfo||[];
+  var rows = list.map(function(f){
+    return '<tr class="bi-row" ondragover="biDragOver(event)" ondrop="biDrop(event,\''+f.id+'\')">'+
+      '<td class="bi-handle-cell"><span class="drag-handle-sm" draggable="true" ondragstart="biDragStart(event,\''+f.id+'\')" ondragend="biDragEnd(event)" title="拖动排序">⠿</span></td>'+
+      '<th><input type="text" class="bi-input bi-label" value="'+esc(f.label)+'" placeholder="字段名" onchange="inlineUpdateBasicInfo(\''+f.id+'\',\'label\',this.value)"></th>'+
+      '<td><input type="text" class="bi-input bi-value" value="'+esc(f.value)+'" onchange="inlineUpdateBasicInfo(\''+f.id+'\',\'value\',this.value)"></td>'+
+      '<td class="bi-del"><button class="bi-del-btn" onclick="inlineRemoveBasicInfo(\''+f.id+'\')" title="删除这一行">✕</button></td>'+
+    '</tr>';
+  }).join('');
+  var addRow = '<tr class="bi-add-row"><td></td><td colspan="3"><button class="btn small ghost" onclick="inlineAddBasicInfo()">+ 添加字段</button></td></tr>';
+  var table = '<table class="bi-edit-table"><tbody>'+rows+addRow+'</tbody></table>';
+  return moduleShell("basicinfo","👤","basicinfo","姓名、生日等身份信息，左右两栏展示，直接在表格里编辑，字段完全自定义。","",
+    table
+  );
+}
+var __biDragId = null;
+window.biDragStart = function(e, id){ __biDragId = id; e.dataTransfer.effectAllowed = "move"; };
+window.biDragOver = function(e){ e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+window.biDragEnd = function(){ __biDragId = null; };
+window.biDrop = function(e, targetId){
+  e.preventDefault();
+  if(!__biDragId || __biDragId===targetId) return;
+  DATA.basicInfo = reorderById(DATA.basicInfo, __biDragId, targetId);
+  __biDragId = null;
+  save(); render();
+};
+window.inlineUpdateBasicInfo = function(id, key, value){
+  var f = (DATA.basicInfo||[]).filter(function(x){return x.id===id;})[0];
+  if(f){ f[key] = value; save(); }
+  render();
+};
+window.inlineRemoveBasicInfo = function(id){
+  DATA.basicInfo = (DATA.basicInfo||[]).filter(function(x){return x.id!==id;});
+  save(); render(); toast("已删除");
+};
+window.inlineAddBasicInfo = function(){
+  DATA.basicInfo = DATA.basicInfo || [];
+  DATA.basicInfo.push({id:uid(), label:"", value:""});
+  save(); render();
+};
+
 var __homeDragId = null;
 window.homeDragStart = function(e, key){
   __homeDragId = key;
@@ -1040,7 +1114,8 @@ window.manageModuleCategories = function(moduleId, titleOverride){
   var v = DATA.settings.categoryViewMode || "list";
   var cats = getModuleCategories(moduleId);
   var rows = cats.map(function(c){
-    return '<div class="cat-manage-row">'+
+    return '<div class="cat-manage-row" ondragover="modCatDragOver(event)" ondrop="modCatDrop(event,\''+moduleId+'\',\''+c.key+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="modCatDragStart(event,\''+moduleId+'\',\''+c.key+'\')" ondragend="modCatDragEnd(event)" title="拖动排序">⠿</span>'+
       '<span class="mod-icon">📁</span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameModuleCategory(\''+moduleId+'\',\''+c.key+'\', this.value, \''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
       '<button type="button" class="btn small danger" onclick="deleteModuleCategory(\''+moduleId+'\',\''+c.key+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">删除</button>'+
@@ -1070,6 +1145,17 @@ window.manageModuleCategories = function(moduleId, titleOverride){
 };
 window.setCategoryViewMode = function(mode, moduleId, titleOverride){
   DATA.settings.categoryViewMode = mode;
+  save(); render(); manageModuleCategories(moduleId, titleOverride);
+};
+var __modCatDrag = null;
+window.modCatDragStart = function(e, moduleId, key){ __modCatDrag = {moduleId:moduleId, key:key}; e.dataTransfer.effectAllowed="move"; };
+window.modCatDragOver = function(e){ e.preventDefault(); e.dataTransfer.dropEffect="move"; };
+window.modCatDragEnd = function(){ __modCatDrag = null; };
+window.modCatDrop = function(e, moduleId, targetKey, titleOverride){
+  e.preventDefault();
+  if(!__modCatDrag || __modCatDrag.moduleId!==moduleId || __modCatDrag.key===targetKey) return;
+  DATA.moduleCategories[moduleId] = reorderById(getModuleCategories(moduleId), __modCatDrag.key, targetKey);
+  __modCatDrag = null;
   save(); render(); manageModuleCategories(moduleId, titleOverride);
 };
 window.addModuleCategory = function(moduleId, titleOverride){
@@ -1150,7 +1236,8 @@ window.setTimelineFilter = function(key){
 window.openCategoryManager = function(){
   var root=document.getElementById("modalRoot");
   var rows = DATA.timelineCategories.map(function(c){
-    return '<div class="cat-manage-row">'+
+    return '<div class="cat-manage-row" ondragover="tlCatDragOver(event)" ondrop="tlCatDrop(event,\''+c.key+'\')">'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序">⠿</span>'+
       '<span class="cat-dot" style="background:'+c.color+'"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
       '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+'>删除</button>'+
@@ -1166,6 +1253,17 @@ window.openCategoryManager = function(){
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+var __tlCatDragKey = null;
+window.tlCatDragStart = function(e,key){ __tlCatDragKey=key; e.dataTransfer.effectAllowed="move"; };
+window.tlCatDragOver = function(e){ e.preventDefault(); e.dataTransfer.dropEffect="move"; };
+window.tlCatDragEnd = function(){ __tlCatDragKey=null; };
+window.tlCatDrop = function(e,targetKey){
+  e.preventDefault();
+  if(!__tlCatDragKey || __tlCatDragKey===targetKey) return;
+  DATA.timelineCategories = reorderById(DATA.timelineCategories, __tlCatDragKey, targetKey);
+  __tlCatDragKey = null;
+  save(); render(); openCategoryManager();
 };
 window.renameCategory = function(key, value){
   value = (value||"").trim(); if(!value) { render(); openCategoryManager(); return; }
@@ -1200,6 +1298,51 @@ function groupTimelineByYear(items){
   // items 本身已严格按时间排序，所以 yearOrder 天然从早到晚；"未知"排序键最大，自然落在最后
   return {yearGroups:yearGroups, yearOrder:yearOrder};
 }
+/* 时间轴颗粒度：把日期换算成分组用的 key（年："2024"；月："2024-03"），以及对应的排序键和显示文字 */
+function timeUnitKey(dateStr, granularity){
+  var p = parseFlexibleDate(dateStr);
+  if(!p) return "未知";
+  return granularity==="month" ? (String(p.y)+"-"+pad2(p.m)) : String(p.y);
+}
+function timeUnitSortKey(key){
+  if(key==="未知") return 999999999;
+  var parts = key.split("-");
+  var y = parseInt(parts[0],10);
+  var m = parts[1] ? parseInt(parts[1],10) : 0;
+  return y*100+m;
+}
+function timeUnitLabel(key){
+  if(key==="未知") return "未知";
+  var parts = key.split("-");
+  return parts[1] ? (parts[0]+"年"+parseInt(parts[1],10)+"月") : parts[0];
+}
+/* 把经历拆成"某个时间点"和"一段时间段"（填了结束时间的），并算出一份包含所有相关时间单位、按真实时间先后排序的轴，
+   时间段的起止单位哪怕自己没有其他经历，也会在轴上占个位置，用来拉括弧 */
+function buildTimelineLayout(items, granularity, allowPeriods){
+  granularity = granularity || "year";
+  var pointItems = [], periodItems = [];
+  items.forEach(function(t){
+    var pEnd = (allowPeriods && t.dateEnd) ? parseFlexibleDate(t.dateEnd) : null;
+    if(pEnd){ periodItems.push(t); } else { pointItems.push(t); }
+  });
+  var yearGroups = {}, yearSet = {};
+  pointItems.forEach(function(t){
+    var yKey = timeUnitKey(t.date, granularity);
+    yearGroups[yKey] = yearGroups[yKey] || [];
+    yearGroups[yKey].push(t);
+    yearSet[yKey] = true;
+  });
+  periodItems.forEach(function(t){
+    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
+    yearSet[y1]=true; yearSet[y2]=true;
+    yearGroups[y1] = yearGroups[y1] || [];
+    yearGroups[y2] = yearGroups[y2] || [];
+  });
+  var yearOrder = Object.keys(yearSet).sort(function(a,b){ return timeUnitSortKey(a)-timeUnitSortKey(b); });
+  var yearIndex = {};
+  yearOrder.forEach(function(yk,i){ yearIndex[yk]=i; });
+  return {yearGroups:yearGroups, yearOrder:yearOrder, yearIndex:yearIndex, periodItems:periodItems};
+}
 function timelineLeafHtml(t, tagClass, directClick){
   var cat = tlCategory(t.category||"other");
   var p = parseFlexibleDate(t.date);
@@ -1211,8 +1354,24 @@ function timelineLeafHtml(t, tagClass, directClick){
     esc(t.keyword||"未命名")+
   '</div>';
 }
+function getTimelineView(filterKey){
+  var m = DATA.settings.timelineViewByFilter || {};
+  var v = m[filterKey];
+  return {orientation:(v&&v.orientation)||"horizontal", granularity:(v&&v.granularity)||"year"};
+}
+function setTimelineView(filterKey, patch){
+  DATA.settings.timelineViewByFilter = DATA.settings.timelineViewByFilter || {};
+  var cur = getTimelineView(filterKey);
+  DATA.settings.timelineViewByFilter[filterKey] = {orientation:patch.orientation||cur.orientation, granularity:patch.granularity||cur.granularity};
+}
 window.toggleTimelineOrientation = function(){
-  DATA.settings.timelineOrientation = (DATA.settings.timelineOrientation==="vertical") ? "horizontal" : "vertical";
+  var cur = getTimelineView(timelineFilter);
+  setTimelineView(timelineFilter, {orientation: cur.orientation==="vertical" ? "horizontal" : "vertical"});
+  save(); render();
+};
+window.toggleTimelineGranularity = function(){
+  var cur = getTimelineView(timelineFilter);
+  setTimelineView(timelineFilter, {granularity: cur.granularity==="month" ? "year" : "month"});
   save(); render();
 };
 var expandedYears = {};
@@ -1220,49 +1379,81 @@ window.toggleYearExpand = function(yKey){
   expandedYears[yKey] = !expandedYears[yKey];
   render();
 };
-function renderTimelineAxisHorizontal(yearGroups, yearOrder){
+function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIndex, granularity){
   var maxLeaves = 0;
-  yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, yearGroups[yk].length); });
+  yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
+
+  var periodLaneHeight = (periodItems && periodItems.length) ? 30 : 0;
 
   var nodes = yearOrder.map(function(yk, i){
-    var group = yearGroups[yk];
+    var group = yearGroups[yk]||[];
     var isOpen = !!expandedYears[yk];
     var branches = "";
-    if(isOpen){
+    if(isOpen && group.length){
       var leaves = group.map(function(t){ return timelineLeafHtml(t,"hz-leaf"); }).join('');
       branches = '<div class="hz-year-branches">'+leaves+'</div>';
     }
-    var badge = '<span class="hz-year-count">'+group.length+'</span>';
-    return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+(i*HZ_SPACING+40)+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
+    var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
+    return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+(i*HZ_SPACING+40)+'px; top:'+periodLaneHeight+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
       '<div class="hz-dot hz-year-dot"></div>'+
-      '<div class="hz-date hz-year-label">'+esc(yk)+badge+'</div>'+
+      '<div class="hz-date hz-year-label">'+esc(timeUnitLabel(yk))+badge+'</div>'+
       branches+
     '</div>';
   }).join('');
 
   var addLeft = yearOrder.length*HZ_SPACING+40;
-  nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px" title="添加经历">'+
+  nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px; top:'+periodLaneHeight+'px" title="添加经历">'+
     '<div class="hz-dot hz-dot-add">+</div><div class="hz-date">添加</div></div>';
+
+  var brackets = (periodItems||[]).map(function(t){
+    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
+    var i1 = yearIndex[y1], i2 = yearIndex[y2];
+    if(i1===undefined || i2===undefined) return "";
+    if(i1>i2){ var tmp=i1; i1=i2; i2=tmp; }
+    var x1 = i1*HZ_SPACING+40, x2 = i2*HZ_SPACING+40;
+    var width = Math.max(x2-x1, 30);
+    var cat = tlCategory(t.category||"other");
+    return '<div class="tl-period" data-id="'+t.id+'" style="left:'+x1+'px; width:'+width+'px; --period-color:'+cat.color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+      '<div class="tl-period-bracket"></div>'+
+      '<div class="tl-period-label">'+esc(t.keyword||"时间段")+'</div>'+
+    '</div>';
+  }).join('');
+
   var trackWidth = Math.max(addLeft+40, 280);
-  var containerHeight = Math.max(60, 40 + maxLeaves*24 + 16);
+  var containerHeight = periodLaneHeight + Math.max(60, 40 + maxLeaves*24 + 16);
   return '<div class="hz-timeline-wrap"><div class="hz-timeline" id="hzTimeline" style="height:'+containerHeight+'px">'+
-    '<div class="hz-line" style="width:'+trackWidth+'px"></div>'+nodes+
+    brackets+
+    '<div class="hz-line" style="width:'+trackWidth+'px; top:'+(periodLaneHeight+6)+'px"></div>'+nodes+
     '</div></div>';
 }
-function renderTimelineAxisVertical(yearGroups, yearOrder){
+function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granularity){
+  var periodsByStartYear = {};
+  (periodItems||[]).forEach(function(t){
+    var y1 = timeUnitKey(t.date, granularity);
+    periodsByStartYear[y1] = periodsByStartYear[y1] || [];
+    periodsByStartYear[y1].push(t);
+  });
   var rows = yearOrder.map(function(yk){
-    var group = yearGroups[yk];
+    var group = yearGroups[yk]||[];
     var isOpen = !!expandedYears[yk];
-    var badge = '<span class="hz-year-count">'+group.length+'</span>';
+    var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
     var row = '<div class="tlv-year-row'+(isOpen?" open":"")+'" onclick="toggleYearExpand(\''+yk+'\')" title="点击'+(isOpen?"收起":"展开")+'">'+
-      '<span class="tlv-year-label">'+esc(yk)+badge+'</span>'+
+      '<span class="tlv-year-label">'+esc(timeUnitLabel(yk))+badge+'</span>'+
     '</div>';
+    var periodRows = (periodsByStartYear[yk]||[]).map(function(t){
+      var cat = tlCategory(t.category||"other");
+      return '<div class="tlv-period" onclick="openTimelineEntry(\''+t.id+'\')" style="--period-color:'+cat.color+'">'+
+        '<span class="tlv-period-bracket">⟪ ⟫</span>'+
+        '<span class="tlv-period-label">'+esc(t.keyword||"时间段")+'</span>'+
+        '<span class="hz-leaf-date">'+esc(t.date)+' ~ '+esc(t.dateEnd)+'</span>'+
+      '</div>';
+    }).join('');
     var branches = "";
-    if(isOpen){
+    if(isOpen && group.length){
       var leaves = group.map(function(t){ return timelineLeafHtml(t,"tlv-leaf",true); }).join('');
       branches = '<div class="tlv-branches">'+leaves+'</div>';
     }
-    return row + branches;
+    return row + periodRows + branches;
   }).join('');
   rows += '<div class="tlv-year-row add" onclick="editTimelineEntry()"><span class="tlv-year-label">+ 添加经历</span></div>';
   return '<div class="tl-vertical">'+rows+'</div>';
@@ -1270,12 +1461,17 @@ function renderTimelineAxisVertical(yearGroups, yearOrder){
 function renderTimelineSection(){
   var all = DATA.lifeTimeline.slice().sort(function(a,b){ return dateSortKey(a.date).localeCompare(dateSortKey(b.date)); });
   var items = timelineFilter==="all" ? all : all.filter(function(t){ return (t.category||"other")===timelineFilter; });
-  var orientation = DATA.settings.timelineOrientation || "horizontal";
+  var tv = getTimelineView(timelineFilter);
+  var orientation = tv.orientation;
+  var granularity = tv.granularity;
 
   var head = '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("timeline"))+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\'timeline\')" title="重命名">✎</button></div>'+
-    '<div class="sub">按年份排列，同一年有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子进入详情页。</div></div>'+
-    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向">'+(orientation==="vertical"?"↔":"↕")+'</button>'+
+    '<div class="sub">按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子进入详情页；各个类别筛选的横向/竖向、年/月设置互不影响。</div></div>'+
+    '<div style="display:flex; gap:6px;">'+
+    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>'+
+    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>'+
+    '</div>'+
   '</div>';
 
   var filterRow = '<div class="tl-filter-row">'+
@@ -1286,10 +1482,11 @@ function renderTimelineSection(){
     '<button class="gear-btn" onclick="openCategoryManager()" title="管理类别">⚙</button>'+
   '</div>';
 
-  var grouped = groupTimelineByYear(items);
+  var usePeriods = (timelineFilter==="school" || timelineFilter==="work");
+  var layout = buildTimelineLayout(items, granularity, usePeriods);
   var axis = orientation==="vertical"
-    ? renderTimelineAxisVertical(grouped.yearGroups, grouped.yearOrder)
-    : renderTimelineAxisHorizontal(grouped.yearGroups, grouped.yearOrder);
+    ? renderTimelineAxisVertical(layout.yearGroups, layout.yearOrder, layout.periodItems, granularity)
+    : renderTimelineAxisHorizontal(layout.yearGroups, layout.yearOrder, layout.periodItems, layout.yearIndex, granularity);
 
   var hint = items.length
     ? ''
@@ -1401,13 +1598,14 @@ function renderTimelineDetailPage(id){
   }).join('');
   return '<div class="module-head"><div>'+
     '<h2>'+esc(sel.keyword||"未命名经历")+'</h2>'+
-    '<div class="sub">'+esc(sel.date||"—")+' · <span style="color:'+cat.color+'">'+esc(cat.label)+'</span></div>'+
+    '<div class="sub">'+esc(sel.date||"—")+(sel.dateEnd?(' ~ '+esc(sel.dateEnd)):'')+' · <span style="color:'+cat.color+'">'+esc(cat.label)+'</span></div>'+
     '</div><div class="row-actions">'+
     '<button class="btn ghost" onclick="editTimelineEntry(\''+sel.id+'\')">编辑</button>'+
     '<button class="btn danger" onclick="deleteTimelineEntry(\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>时间</th><td>'+esc(sel.date||"—")+'</td></tr>'+
+      (sel.dateEnd?('<tr><th>结束时间</th><td>'+esc(sel.dateEnd)+'</td></tr>'):'')+
       '<tr><th>类别</th><td>'+esc(cat.label)+'</td></tr>'+
       '<tr><th>关键词</th><td>'+esc(sel.keyword||"—")+'</td></tr>'+
       fieldRows+
@@ -1434,12 +1632,12 @@ window.editTimelineEntry = function(id){
     var fieldsCopy = (item.fields||[]).map(function(f){ return {id:f.id||uid(), label:f.label||"", value:f.value||""}; });
     var trExtract = extractSpecialField(fieldsCopy, isTimeRangeLabel);
     timelineDraft = {
-      id: item.id, date: item.date||"", keyword: item.keyword||"", category: item.category||"other",
+      id: item.id, date: item.date||"", dateEnd: item.dateEnd||"", keyword: item.keyword||"", category: item.category||"other",
       timeRange: trExtract.value,
       fields: trExtract.rest
     };
   } else {
-    timelineDraft = {id:null, date:"", keyword:"", category:(timelineFilter!=="all"?timelineFilter:"other"), timeRange:"", fields:[]};
+    timelineDraft = {id:null, date:"", dateEnd:"", keyword:"", category:(timelineFilter!=="all"?timelineFilter:"other"), timeRange:"", fields:[]};
   }
   renderTimelineEditModal();
 };
@@ -1463,6 +1661,7 @@ function renderTimelineEditModal(){
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
     '<h3>'+(d.id?"编辑经历":"添加经历")+'</h3>'+
     '<div class="field"><label>时间（必填，如 1997-06-10 或 2024-03）</label><input type="text" value="'+esc(d.date)+'" onchange="updateDraftBasic(\'date\',this.value)"></div>'+
+    '<div class="field"><label>结束时间（可选，填了这条经历会在时间轴上显示成一个跨年份的括弧，比如在读哪所学校）</label><input type="text" placeholder="如 2020-06，留空则是单个时间点" value="'+esc(d.dateEnd)+'" onchange="updateDraftBasic(\'dateEnd\',this.value)"></div>'+
     '<div class="field"><label>关键词（必填，会直接显示在时间轴上'+(d.category==="travel"?"；旅游类别下也会用它去世界版图上定位":"")+'）</label><input type="text" value="'+esc(d.keyword)+'" onchange="updateDraftBasic(\'keyword\',this.value)"></div>'+
     '<div class="field"><label>类别</label><select onchange="updateDraftCategory(this.value)">'+
       DATA.timelineCategories.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===d.category?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
@@ -1527,11 +1726,11 @@ window.saveTimelineDraft = async function(){
   if(d.id){
     var item = DATA.lifeTimeline.filter(function(x){return x.id===d.id;})[0];
     if(item){
-      item.date = d.date.trim(); item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.fields = cleanFields;
+      item.date = d.date.trim(); item.dateEnd = (d.dateEnd||"").trim(); item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.fields = cleanFields;
       if(geo===null){ delete item.geo; } else if(geo){ item.geo = geo; }
     }
   } else {
-    var newItem = {id:uid(), date:d.date.trim(), keyword:d.keyword.trim(), category:d.category||"other", fields:cleanFields};
+    var newItem = {id:uid(), date:d.date.trim(), dateEnd:(d.dateEnd||"").trim(), keyword:d.keyword.trim(), category:d.category||"other", fields:cleanFields};
     if(geo && geo!==null){ newItem.geo = geo; }
     DATA.lifeTimeline.push(newItem);
   }
@@ -1781,12 +1980,12 @@ window.deleteDeclutter = function(id){
 
 /* ================= 通用：删除确认 =================
    不用原生 confirm()：发布后的沙盒环境可能会禁用浏览器原生弹窗，改成自己画的确认弹窗 */
-function confirmDelete(msg, onYes, title, confirmLabel){
+function confirmDelete(msg, onYes){
   var root=document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="cmask"><div class="modal" style="max-width:340px">'+
-    '<h3>'+esc(title||"确认删除")+'</h3>'+
+    '<h3>确认删除</h3>'+
     '<div class="sub" style="margin-bottom:4px">'+esc(msg)+'</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">'+esc(confirmLabel||"确定删除")+'</button></div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">确定删除</button></div>'+
     '</div></div>';
   document.getElementById("cmask").addEventListener("click", function(e){ if(e.target.id==="cmask") closeModal(); });
   window.__confirmDeleteYes = function(){ closeModal(); onYes(); };
@@ -2112,7 +2311,9 @@ function renderCustomBoardPage(boardId){
   }
   var scoped = cats.length ? board.items.filter(function(it){ return (it.category||"")===moduleCatView[boardId]; }) : board.items;
   var rows = scoped.map(function(it){
-    return '<div class="declutter-row"><div style="flex:1"><div class="dname row-open-link" onclick="openItemTab(\'customitem\',\''+it.id+'\',{boardId:\''+boardId+'\'})">'+esc(it.title)+'</div>'+(it.note?('<div class="dnote">'+esc(it.note)+'</div>'):'')+'</div>'+
+    return '<div class="declutter-row" ondragover="ciDragOver(event)" ondrop="ciDrop(event,\''+boardId+'\',\''+it.id+'\')">'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="ciDragStart(event,\''+boardId+'\',\''+it.id+'\')" ondragend="ciDragEnd(event)" title="拖动排序">⠿</span>'+
+      '<div style="flex:1"><div class="dname row-open-link" onclick="openItemTab(\'customitem\',\''+it.id+'\',{boardId:\''+boardId+'\'})">'+esc(it.title)+'</div>'+(it.note?('<div class="dnote">'+esc(it.note)+'</div>'):'')+'</div>'+
       '<div class="row-actions"><button class="btn small ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✎</button><button class="btn small danger" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✕</button></div>'+
     '</div>';
   }).join('');
@@ -2122,6 +2323,18 @@ function renderCustomBoardPage(boardId){
     backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容","点击右上角「新增」"))
   );
 }
+var __ciDrag = null;
+window.ciDragStart = function(e, boardId, id){ __ciDrag = {boardId:boardId, id:id}; e.dataTransfer.effectAllowed="move"; };
+window.ciDragOver = function(e){ e.preventDefault(); e.dataTransfer.dropEffect="move"; };
+window.ciDragEnd = function(){ __ciDrag = null; };
+window.ciDrop = function(e, boardId, targetId){
+  e.preventDefault();
+  if(!__ciDrag || __ciDrag.boardId!==boardId || __ciDrag.id===targetId) return;
+  var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
+  if(board){ board.items = reorderById(board.items, __ciDrag.id, targetId); save(); }
+  __ciDrag = null;
+  render();
+};
 window.editCustomBoardItem = function(boardId, itemId){
   var board = (DATA.customBoards||[]).filter(function(b){return b.id===boardId;})[0];
   if(!board) return;
