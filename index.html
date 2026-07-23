@@ -537,6 +537,7 @@ table.data tr:hover{background:var(--surface-2)}
 .modal h3{margin:0 0 18px; font-size:18px;}
 .field{margin-bottom:14px;}
 .field label{display:block; font-size:11.5px; font-family:'IBM Plex Mono',monospace; letter-spacing:.03em; color:var(--text-dim); margin-bottom:5px;}
+.field label.field-label-row{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 .field input, .field textarea, .field select{
   width:100%; padding:9px 11px; border:1px solid var(--border); border-radius:7px; font-size:13.5px;
   font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);
@@ -582,6 +583,12 @@ var DEFAULT_TL_CATEGORIES = [
   {key:"other", label:"其他", color:"#8C8C8C"}
 ];
 var CATEGORY_COLOR_PALETTE = ["#2F5D50","#4A5A8C","#8C6D3F","#8C4A4A","#A0527A","#3D7A99","#7A9C3D","#9C3D6E","#5C3D9C","#8C8C8C"];
+var DEFAULT_WORK_TAGS = [
+  {key:"parttime", label:"兼职", color:"#B3483C"},
+  {key:"fulltime", label:"正职", color:"#3D6FB4"},
+  {key:"intern", label:"实习", color:"#3D8C5C"},
+  {key:"study", label:"学习", color:"#8C6D3F"}
+];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
   settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineViewByFilter:{}, categoryViewMode:"list" },
@@ -686,6 +693,7 @@ var DEFAULT_DATA = {
     /* 自己 */
     {id:"self", name:"", relation:"自己", parentIds:["baba","mama"]}
   ],
+  workTags: JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS)),
   moduleCategories:{
     assets_type:[
       {key:"bankcard_physical", label:"银行实体卡"},
@@ -731,6 +739,7 @@ function normalizeData(d){
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
+  d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   if(!d.familyMembers){
     if(d.familyTree && d.familyTree.length){
       var flat = [];
@@ -1781,13 +1790,7 @@ function tlCategory(key){
   return found || list[list.length-1];
 }
 /* "工作"类别下的固定标签：兼职/正职/实习，各自带一个颜色，选了之后时间轴上的括弧框/圆点就用这个颜色，不用类别本身的颜色 */
-var WORK_TAGS = [
-  {key:"parttime", label:"兼职", color:"#B3483C"},
-  {key:"fulltime", label:"正职", color:"#3D6FB4"},
-  {key:"intern", label:"实习", color:"#3D8C5C"},
-  {key:"study", label:"学习", color:"#8C6D3F"}
-];
-function workTag(key){ return WORK_TAGS.filter(function(w){return w.key===key;})[0] || null; }
+function workTag(key){ return (DATA.workTags||[]).filter(function(w){return w.key===key;})[0] || null; }
 function timelineEntryColor(t){
   if((t.category||"")==="work" && t.jobType){
     var w = workTag(t.jobType);
@@ -2010,17 +2013,36 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var width = Math.max(i2*HZ_SPACING+40-x1, 30);
     return {t:t, x1:x1, x2:x1+width, width:width};
   }).filter(Boolean);
+  /* 先按开始时间分组：只要跟前面的经历时间上有重叠（传递性的）就归到同一组，
+     这样才能准确判断"到底有没有真的重叠"，不会把完全不挨着的经历也误判成需要分两行。
+     组里只有 1 条 = 没有重叠，永远放第 1 行；组里有多条 = 真重叠，按时长从短到长依次占第 1、2 行。 */
   var MAX_LANES = 2;
-  /* 短的经历优先占上面那一行，两行放不下的极端情况就只好挤第二行了 */
-  periodMeta.sort(function(a,b){ return a.width-b.width; });
-  var laneEnds = [];
+  periodMeta.sort(function(a,b){ return a.x1-b.x1; });
+  var groups = [], curGroup = null, curGroupEnd = -Infinity;
   periodMeta.forEach(function(m){
-    var lane = 0;
-    while(lane<MAX_LANES-1 && lane<laneEnds.length && laneEnds[lane] > m.x1) lane++;
-    laneEnds[lane] = m.x2 + 6;
-    m.lane = lane;
+    if(curGroup && m.x1 < curGroupEnd){
+      curGroup.push(m);
+      curGroupEnd = Math.max(curGroupEnd, m.x2);
+    } else {
+      curGroup = [m];
+      groups.push(curGroup);
+      curGroupEnd = m.x2;
+    }
   });
-  var periodLaneHeight = periodMeta.length ? Math.max(1,laneEnds.length)*ROW_H : 0;
+  var maxLaneUsed = 0;
+  groups.forEach(function(group){
+    if(group.length===1){ group[0].lane = 0; return; }
+    var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
+    var laneEnds = [];
+    sorted.forEach(function(m){
+      var lane = 0;
+      while(lane<MAX_LANES-1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
+      laneEnds[lane] = m.x2 + 6;
+      m.lane = lane;
+      maxLaneUsed = Math.max(maxLaneUsed, lane);
+    });
+  });
+  var periodLaneHeight = periodMeta.length ? (maxLaneUsed+1)*ROW_H : 0;
 
   var nodes = yearOrder.map(function(yk, i){
     var group = yearGroups[yk]||[];
@@ -2294,8 +2316,10 @@ function renderTimelineEditModal(){
   }
   var jobTypeFieldHtml = "";
   if(d.category==="work"){
-    jobTypeFieldHtml = '<div class="field"><label>状态类型（可选，选中后时间轴上这条经历会用对应颜色）</label><div style="display:flex; gap:6px; flex-wrap:wrap;">'+
-      WORK_TAGS.map(function(w){
+    jobTypeFieldHtml = '<div class="field"><label class="field-label-row">状态类型（可选，选中后时间轴上这条经历会用对应颜色）'+
+      '<button type="button" class="gear-btn" style="width:20px;height:20px;font-size:10px" onclick="openWorkTagManager()" title="管理标签">⚙</button></label>'+
+      '<div style="display:flex; gap:6px; flex-wrap:wrap;">'+
+      (DATA.workTags||[]).map(function(w){
         return '<span class="tl-filter-chip'+(d.jobType===w.key?" active":"")+'" style="--chip-color:'+w.color+'" onclick="updateDraftJobType(\''+w.key+'\')">'+esc(w.label)+'</span>';
       }).join('')+
     '</div></div>';
@@ -2324,6 +2348,51 @@ window.updateDraftCategory = function(value){
 window.updateDraftJobType = function(key){
   timelineDraft.jobType = (timelineDraft.jobType===key) ? "" : key;
   renderTimelineEditModal();
+};
+/* 状态标签（兼职/正职/实习/学习……）管理：改名、删除、新增，跟时间经历类别管理是同一套思路 */
+window.openWorkTagManager = function(){
+  var root = document.getElementById("modalRoot");
+  var rows = (DATA.workTags||[]).map(function(w){
+    return '<div class="cat-manage-row">'+
+      '<span class="cat-dot" style="background:'+w.color+'"></span>'+
+      '<input type="text" class="cat-name-input" value="'+esc(w.label)+'" onchange="renameWorkTag(\''+w.key+'\', this.value)">'+
+      '<button type="button" class="btn small danger" onclick="deleteWorkTag(\''+w.key+'\')" '+((DATA.workTags||[]).length<=1?"disabled":"")+'>删除</button>'+
+    '</div>';
+  }).join('');
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>状态类型 · 标签管理</h3>'+
+    '<div class="cat-manage-list">'+rows+'</div>'+
+    '<div class="cat-add-row">'+
+      '<input type="text" id="newWorkTagName" placeholder="新标签名称" maxlength="8">'+
+      '<button type="button" class="btn small solid" onclick="addWorkTag()">+ 添加</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal(); renderTimelineEditModal();">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask"){ closeModal(); renderTimelineEditModal(); } });
+};
+window.renameWorkTag = function(key, value){
+  value = (value||"").trim(); if(!value){ openWorkTagManager(); return; }
+  var w = (DATA.workTags||[]).filter(function(x){return x.key===key;})[0];
+  if(w){ w.label = value; save(); }
+  openWorkTagManager();
+};
+window.deleteWorkTag = function(key){
+  if((DATA.workTags||[]).length<=1) return;
+  confirmDelete("确定删除这个标签吗？用过这个标签的经历会变回默认颜色。", function(){
+    DATA.workTags = (DATA.workTags||[]).filter(function(x){return x.key!==key;});
+    DATA.lifeTimeline.forEach(function(t){ if(t.jobType===key){ t.jobType = ""; } });
+    if(timelineDraft && timelineDraft.jobType===key){ timelineDraft.jobType = ""; }
+    save(); openWorkTagManager();
+  }, "确认删除标签", "确定删除");
+};
+window.addWorkTag = function(){
+  var input = document.getElementById("newWorkTagName");
+  var value = (input.value||"").trim();
+  if(!value) return;
+  var color = CATEGORY_COLOR_PALETTE[(DATA.workTags||[]).length % CATEGORY_COLOR_PALETTE.length];
+  DATA.workTags = DATA.workTags || [];
+  DATA.workTags.push({key:uid(), label:value, color:color});
+  save(); openWorkTagManager();
 };
 window.addDraftField = function(){
   timelineDraft.fields.push({id:uid(), label:"", value:""});
