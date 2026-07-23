@@ -391,22 +391,35 @@ table.data tr:hover{background:var(--surface-2)}
 }
 .fam-node:active{cursor:grabbing;}
 .fam-node:hover{border-color:var(--accent); box-shadow:var(--shadow-lg);}
-.fam-node-relation{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--text-dim); cursor:text;}
-.fam-node-name{font-size:12.5px; font-weight:600; color:var(--text); margin-top:1px; white-space:nowrap; cursor:text;}
+.fam-node-relation, .fam-node-name{
+  display:block; width:100%; box-sizing:border-box; text-align:center; cursor:text;
+  border:1px solid transparent; background:transparent; border-radius:5px; padding:1px 3px;
+  font-family:'IBM Plex Sans',sans-serif;
+}
+.fam-node-relation{font-family:'IBM Plex Mono',monospace; font-size:9.5px; color:var(--text-dim);}
+.fam-node-name{font-size:12.5px; font-weight:600; color:var(--text); margin-top:1px; white-space:nowrap;}
+.fam-node-relation:hover, .fam-node-name:hover{border-color:var(--border);}
+.fam-node-relation:focus, .fam-node-name:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .fam-hint{font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.6;}
-.fam-node-del{
-  position:absolute; top:2px; right:2px; width:15px; height:15px; border:none; background:transparent;
+.fam-node-del, .fam-node-link{
+  position:absolute; top:2px; width:15px; height:15px; border:none; background:transparent;
   color:var(--text-faint); font-size:8px; border-radius:4px; opacity:0; transition:.12s;
 }
-.fam-node:hover .fam-node-del{opacity:1;}
+.fam-node-del{right:2px;}
+.fam-node-link{left:2px; font-size:9px;}
+.fam-node:hover .fam-node-del, .fam-node:hover .fam-node-link{opacity:1;}
 .fam-node-del:hover{background:var(--danger-soft); color:var(--danger);}
-.fam-node-add{
-  position:absolute; left:50%; bottom:-9px; transform:translateX(-50%); width:16px; height:16px;
+.fam-node-link:hover{background:var(--accent-soft); color:var(--accent);}
+.fam-node-add, .fam-node-add-child, .fam-node-add-sib{
+  position:absolute; width:16px; height:16px;
   border:1.5px solid var(--border); background:var(--surface); color:var(--text-faint);
   border-radius:50%; font-size:10px; line-height:1; opacity:0; transition:.12s; z-index:2;
 }
-.fam-node:hover .fam-node-add{opacity:1;}
-.fam-node-add:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
+.fam-node-add{left:50%; bottom:-9px; transform:translateX(-50%);}
+.fam-node-add-child{left:50%; top:-9px; transform:translateX(-50%);}
+.fam-node-add-sib{top:50%; right:-9px; transform:translateY(-50%);}
+.fam-node:hover .fam-node-add, .fam-node:hover .fam-node-add-child, .fam-node:hover .fam-node-add-sib{opacity:1;}
+.fam-node-add:hover, .fam-node-add-child:hover, .fam-node-add-sib:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
@@ -955,9 +968,12 @@ function renderFamilyTree(){
   var nodesHtml = members.map(function(p){
     return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+(p.x||0)+'px; top:'+(p.y||0)+'px;" onpointerdown="famNodeDragStart(event,\''+p.id+'\')">'+
       '<button class="fam-node-del" onclick="event.stopPropagation(); deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
-      '<div class="fam-node-relation" onclick="editFamilyMember(\''+p.id+'\')">'+esc(p.relation||"—")+'</div>'+
-      '<div class="fam-node-name" onclick="editFamilyMember(\''+p.id+'\')">'+esc(p.name||"未命名")+'</div>'+
-      '<button class="fam-node-add" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="添加一条分支（TA的父/母）">+</button>'+
+      '<button class="fam-node-link" onclick="event.stopPropagation(); editFamilyLinks(\''+p.id+'\')" title="关联父母">🔗</button>'+
+      '<input type="text" class="fam-node-relation" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
+      '<input type="text" class="fam-node-name" value="'+esc(p.name||"")+'" placeholder="姓名" onchange="updateFamilyMemberField(\''+p.id+'\',\'name\',this.value)">'+
+      '<button class="fam-node-add" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="添加父母">+</button>'+
+      '<button class="fam-node-add-child" onclick="event.stopPropagation(); addFamilyChildBranch(\''+p.id+'\')" title="添加子女">+</button>'+
+      '<button class="fam-node-add-sib" onclick="event.stopPropagation(); addFamilySiblingBranch(\''+p.id+'\')" title="添加兄弟姐妹">+</button>'+
     '</div>';
   }).join('');
   return '<div class="fam-tree-wrap"><div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px;">'+
@@ -965,8 +981,8 @@ function renderFamilyTree(){
       '<defs><marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker></defs>'+
     '</svg>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">节点可以随便拖动摆放；箭头从本人指向TA的父/母，代表这段亲子关系。</div>'+
-    '<button class="btn small ghost" style="margin-top:6px" onclick="editFamilyMember()">+ 添加成员</button>';
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。下方加号加父母、上方加号加子女、右侧加号加兄弟姐妹，左上角🔗可以调整已有的父母关联。</div>'+
+    '<button class="btn small ghost" style="margin-top:6px" onclick="addFamilyMember()">+ 添加成员</button>';
 }
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
@@ -978,12 +994,40 @@ window.addFamilyParentBranch = function(childId){
   DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], x:nx, y:ny});
   if(child){ child.parentIds = child.parentIds || []; child.parentIds.push(newId); }
   save(); render();
-  editFamilyMember(newId);
 };
-/* 自由拖动：按住节点(除了删除/新增按钮和文字本身)拖到任意位置，松手后记住坐标 */
+window.addFamilyChildBranch = function(parentId){
+  var parent = (DATA.familyMembers||[]).filter(function(x){return x.id===parentId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  var nx = (parent&&typeof parent.x==="number") ? parent.x : 30;
+  var ny = (parent&&typeof parent.y==="number") ? Math.max(0, parent.y - 110) : 30;
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:parent?[parent.id]:[], x:nx, y:ny});
+  save(); render();
+};
+window.addFamilySiblingBranch = function(personId){
+  var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  var nx = (person&&typeof person.x==="number") ? person.x + 140 : 30;
+  var ny = (person&&typeof person.y==="number") ? person.y : 30;
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:(person&&person.parentIds)?person.parentIds.slice():[], x:nx, y:ny});
+  save(); render();
+};
+window.addFamilyMember = function(){
+  DATA.familyMembers = DATA.familyMembers || [];
+  var maxY = 0; DATA.familyMembers.forEach(function(p){ maxY = Math.max(maxY, p.y||0); });
+  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], x:30, y:DATA.familyMembers.length?maxY+110:30});
+  save(); render();
+};
+window.updateFamilyMemberField = function(id, key, value){
+  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
+  p[key] = value; save();
+};
+/* 自由拖动：按住节点(除了删除/新增按钮、关联按钮和输入框本身)拖到任意位置，松手后记住坐标 */
 var __famDrag = null;
 window.famNodeDragStart = function(e, id){
-  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-add"))) return;
+  if(e.target.tagName==="INPUT") return;
+  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add") || e.target.closest(".fam-node-add-child") || e.target.closest(".fam-node-add-sib"))) return;
   var node = document.getElementById("famnode-"+id);
   if(!node) return;
   __famDrag = {id:id, startX:e.clientX, startY:e.clientY, origLeft:parseFloat(node.style.left)||0, origTop:parseFloat(node.style.top)||0, moved:false};
@@ -1044,16 +1088,16 @@ function drawFamilyLines(){
   });
   svg.innerHTML = svgHtml;
 }
+/* 姓名/关系已经改成节点上直接编辑；这个弹窗现在只负责"关联父母"这一件结构性的事 */
 var familyDraft = null;
-window.editFamilyMember = function(id){
-  var item = id ? (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0] : null;
-  familyDraft = item
-    ? {id:item.id, name:item.name||"", relation:item.relation||"", parentIds:(item.parentIds||[]).slice()}
-    : {id:null, name:"", relation:"", parentIds:[]};
+window.editFamilyLinks = function(id){
+  var item = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!item) return;
+  familyDraft = {id:item.id, parentIds:(item.parentIds||[]).slice()};
   renderFamilyMemberModal();
 };
 function renderFamilyMemberModal(){
   var d = familyDraft;
+  var self = (DATA.familyMembers||[]).filter(function(x){return x.id===d.id;})[0];
   var others = (DATA.familyMembers||[]).filter(function(p){ return p.id!==d.id; });
   var parentOptions = others.map(function(p){
     var checked = d.parentIds.indexOf(p.id)>=0;
@@ -1062,18 +1106,12 @@ function renderFamilyMemberModal(){
   }).join('') || '<div class="sub">还没有其他成员可选</div>';
   var root = document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
-    '<h3>'+(d.id?"编辑成员":"添加成员")+'</h3>'+
-    '<div class="field"><label>称谓（如：爷爷、父亲、自己）</label><input type="text" value="'+esc(d.relation)+'" onchange="updateFamilyDraft(\'relation\',this.value)"></div>'+
-    '<div class="field"><label>姓名</label><input type="text" value="'+esc(d.name)+'" onchange="updateFamilyDraft(\'name\',this.value)"></div>'+
+    '<h3>'+esc(self?(self.name||self.relation||"这位成员"):"关联父母")+' · 关联父母</h3>'+
     '<div class="field"><label>父母（最多选 2 位，没有就不选）</label><div class="fam-parent-list">'+parentOptions+'</div></div>'+
-    '<div class="modal-actions">'+
-      (d.id ? '<button type="button" class="btn danger" onclick="deleteFamilyMember(\''+d.id+'\'); closeModal();" style="margin-right:auto">删除</button>' : '')+
-      '<button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveFamilyMember()">保存</button>'+
-    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveFamilyMember()">保存</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 }
-window.updateFamilyDraft = function(key, value){ familyDraft[key] = value; };
 window.toggleFamilyParent = function(id, checked){
   if(checked){
     if(familyDraft.parentIds.length>=2){ toast("最多选 2 位父母"); renderFamilyMemberModal(); return; }
@@ -1084,13 +1122,8 @@ window.toggleFamilyParent = function(id, checked){
 };
 window.saveFamilyMember = function(){
   var d = familyDraft;
-  DATA.familyMembers = DATA.familyMembers || [];
-  if(d.id){
-    var item = DATA.familyMembers.filter(function(x){return x.id===d.id;})[0];
-    if(item){ item.name=d.name; item.relation=d.relation; item.parentIds=d.parentIds; }
-  } else {
-    DATA.familyMembers.push({id:uid(), name:d.name, relation:d.relation, parentIds:d.parentIds});
-  }
+  var item = (DATA.familyMembers||[]).filter(function(x){return x.id===d.id;})[0];
+  if(item){ item.parentIds = d.parentIds; }
   familyDraft = null;
   save(); closeModal(); render(); toast("已保存");
 };
