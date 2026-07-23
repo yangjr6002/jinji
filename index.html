@@ -2163,7 +2163,7 @@ function renderTimelineSection(){
     '<button class="gear-btn" onclick="openCategoryManager()" title="管理类别">⚙</button>'+
   '</div>';
 
-  var usePeriods = (timelineFilter==="school" || timelineFilter==="work");
+  var usePeriods = (timelineFilter==="school" || timelineFilter==="work" || timelineFilter==="residence");
   var layout = buildTimelineLayout(items, granularity, usePeriods);
   var axis = orientation==="vertical"
     ? renderTimelineAxisVertical(layout.yearGroups, layout.yearOrder, layout.periodItems, granularity)
