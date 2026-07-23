@@ -276,6 +276,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-filter-row .gear-btn{margin-left:auto;}
 .cat-manage-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px; max-height:280px; overflow-y:auto;}
 .cat-manage-row{display:flex; align-items:center; gap:9px;}
+.cat-merge-select{font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:6px; padding:4px 6px; background:var(--surface); flex:none; max-width:88px;}
 .cat-fixed-hint{font-size:10px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; flex:none; white-space:nowrap;}
 .cat-dot{width:12px; height:12px; border-radius:50%; flex:none;}
 .cat-name-input{flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
@@ -333,12 +334,34 @@ table.data tr:hover{background:var(--surface-2)}
   background:var(--surface); padding:0 5px; max-width:150px; overflow:hidden; text-overflow:ellipsis;
 }
 .tl-period:hover .tl-period-label{text-decoration:underline;}
+/* 矩形填充样式（目前用在"工作"类别），比括弧更直观一眼看出这一段时间 */
+.tl-period.tl-period-fill .tl-period-bracket{
+  top:0; height:100%; background:var(--period-color); border:none; border-radius:6px; opacity:.88;
+}
+.tl-period.tl-period-fill .tl-period-label{
+  top:50%; transform:translate(-50%,-50%); color:#fff; background:transparent; z-index:1;
+}
 .tlv-period{
   display:flex; align-items:baseline; gap:6px; padding:3px 0 3px 2px; cursor:pointer; font-size:12px;
 }
 .tlv-period-bracket{color:var(--period-color); font-weight:700; font-size:13px;}
 .tlv-period-label{color:var(--period-color); font-weight:600;}
 .tlv-period:hover .tlv-period-label{text-decoration:underline;}
+.tlv-period.tlv-period-fill{background:var(--period-color); border-radius:6px; padding:4px 10px;}
+.tlv-period.tlv-period-fill .tlv-period-bracket{display:none;}
+.tlv-period.tlv-period-fill .tlv-period-label, .tlv-period.tlv-period-fill .hz-leaf-date{color:#fff;}
+.tlv-period.tlv-period-fill:hover .tlv-period-label{text-decoration:underline;}
+/* 补充内容的悬浮提示，类似 Excel 单元格注释：只有真的有补充字段的经历才会出现小圆点提示、鼠标移上去才展开 */
+.tl-tip-wrap{position:relative; display:inline-block; cursor:help;}
+.tl-tip-wrap.has-tip::after{content:""; position:absolute; top:-1px; right:-7px; width:5px; height:5px; border-radius:50%; background:var(--accent);}
+.tl-tip{
+  display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:6px;
+  background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
+  padding:7px 9px; font-size:11px; line-height:1.6; white-space:normal; width:max-content; max-width:200px;
+  box-shadow:var(--shadow-lg); z-index:80; text-align:left; font-weight:400;
+}
+.tl-tip-wrap.has-tip:hover .tl-tip{display:block;}
+.tl-tip-row b{color:#8a7420; font-weight:600;}
 .hz-year-branches{
   display:flex; flex-direction:column; align-items:flex-start; gap:5px;
   margin-top:9px; padding-left:12px; border-left:1.5px solid var(--border-soft); max-width:150px;
@@ -1703,16 +1726,30 @@ function timelineEntryColor(t){
   }
   return tlCategory(t.category||"other").color;
 }
+/* 关键词上的悬浮提示：把补充内容（自定义字段）显示出来，类似 Excel 单元格注释；没有补充内容就不加提示 */
+function keywordWithTip(text, t){
+  var fields = t.fields||[];
+  if(!fields.length) return esc(text);
+  var tip = '<div class="tl-tip">'+fields.map(function(f){
+    return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>';
+  }).join('')+'</div>';
+  return '<span class="tl-tip-wrap has-tip">'+esc(text)+tip+'</span>';
+}
 window.setTimelineFilter = function(key){
   timelineFilter = key; render();
 };
 window.openCategoryManager = function(){
   var root=document.getElementById("modalRoot");
   var rows = DATA.timelineCategories.map(function(c){
+    var mergeOptions = DATA.timelineCategories.filter(function(o){return o.key!==c.key;})
+      .map(function(o){ return '<option value="'+esc(o.key)+'">'+esc(o.label)+'</option>'; }).join('');
     return '<div class="cat-manage-row" ondragover="tlCatDragOver(event)" ondrop="tlCatDrop(event,\''+c.key+'\')">'+
       '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序">⠿</span>'+
       '<span class="cat-dot" style="background:'+c.color+'"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
+      (DATA.timelineCategories.length>1 ? ('<select class="cat-merge-select" onchange="if(this.value){mergeCategory(\''+c.key+'\', this.value);} this.selectedIndex=0;">'+
+        '<option value="">合并到…</option>'+mergeOptions+
+      '</select>') : '')+
       '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+'>删除</button>'+
     '</div>';
   }).join('');
@@ -1751,6 +1788,19 @@ window.deleteCategory = function(key){
     if(timelineFilter===key) timelineFilter="all";
     save(); render(); openCategoryManager();
   });
+};
+/* 合并类别：比如"学校"合并到"工作"——这个类别下所有经历改成目标类别，这个类别本身删掉 */
+window.mergeCategory = function(fromKey, toKey){
+  if(!toKey || toKey===fromKey) return;
+  var fromCat = DATA.timelineCategories.filter(function(x){return x.key===fromKey;})[0];
+  var toCat = DATA.timelineCategories.filter(function(x){return x.key===toKey;})[0];
+  if(!fromCat || !toCat) return;
+  confirmDelete("确定把「"+fromCat.label+"」合并到「"+toCat.label+"」吗？「"+fromCat.label+"」下的经历都会改成「"+toCat.label+"」，「"+fromCat.label+"」这个类别本身会被删除。", function(){
+    DATA.lifeTimeline.forEach(function(t){ if((t.category||"")===fromKey){ t.category = toKey; } });
+    DATA.timelineCategories = DATA.timelineCategories.filter(function(x){return x.key!==fromKey;});
+    if(timelineFilter===fromKey) timelineFilter = toKey;
+    save(); render(); openCategoryManager(); toast("已合并到「"+toCat.label+"」");
+  }, "确认合并类别", "确定合并");
 };
 window.addCategory = function(){
   var input = document.getElementById("newCatName");
@@ -1823,7 +1873,7 @@ function timelineLeafHtml(t, tagClass, directClick){
   return '<div class="'+tagClass+'"'+attrs+'>'+
     '<span class="hz-leaf-dot" style="background:'+timelineEntryColor(t)+'"></span>'+
     (shortDate?('<span class="hz-leaf-date">'+shortDate+'</span>'):'')+
-    esc(t.keyword||"未命名")+
+    keywordWithTip(t.keyword||"未命名", t)+
   '</div>';
 }
 function getTimelineView(filterKey){
@@ -1884,9 +1934,10 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     if(i1>i2){ var tmp=i1; i1=i2; i2=tmp; }
     var x1 = i1*HZ_SPACING+40, x2 = i2*HZ_SPACING+40;
     var width = Math.max(x2-x1, 30);
-    return '<div class="tl-period" data-id="'+t.id+'" style="left:'+x1+'px; width:'+width+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    var fillClass = (t.category||"")==="work" ? " tl-period-fill" : "";
+    return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+x1+'px; width:'+width+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
-      '<div class="tl-period-label">'+esc(t.keyword||"时间段")+'</div>'+
+      '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
   }).join('');
 
@@ -1912,9 +1963,10 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
       '<span class="tlv-year-label">'+esc(timeUnitLabel(yk))+badge+'</span>'+
     '</div>';
     var periodRows = (periodsByStartYear[yk]||[]).map(function(t){
-      return '<div class="tlv-period" onclick="openTimelineEntry(\''+t.id+'\')" style="--period-color:'+timelineEntryColor(t)+'">'+
+      var fillClass = (t.category||"")==="work" ? " tlv-period-fill" : "";
+      return '<div class="tlv-period'+fillClass+'" onclick="openTimelineEntry(\''+t.id+'\')" style="--period-color:'+timelineEntryColor(t)+'">'+
         '<span class="tlv-period-bracket">⟪ ⟫</span>'+
-        '<span class="tlv-period-label">'+esc(t.keyword||"时间段")+'</span>'+
+        '<span class="tlv-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</span>'+
         '<span class="hz-leaf-date">'+esc(t.date)+' ~ '+esc(t.dateEnd)+'</span>'+
       '</div>';
     }).join('');
@@ -2142,9 +2194,6 @@ function renderTimelineEditModal(){
     '<div class="field"><label>时间（必填，如 1997-06-10 或 2024-03）</label><input type="text" value="'+esc(d.date)+'" onchange="updateDraftBasic(\'date\',this.value)"></div>'+
     '<div class="field"><label>结束时间（可选，填了这条经历会在时间轴上显示成一个跨年份的括弧，比如在读哪所学校）</label><input type="text" placeholder="如 2020-06，留空则是单个时间点" value="'+esc(d.dateEnd)+'" onchange="updateDraftBasic(\'dateEnd\',this.value)"></div>'+
     '<div class="field"><label>关键词（必填，会直接显示在时间轴上'+(d.category==="travel"?"；旅游类别下也会用它去世界版图上定位":"")+'）</label><input type="text" value="'+esc(d.keyword)+'" onchange="updateDraftBasic(\'keyword\',this.value)"></div>'+
-    '<div class="field"><label>类别</label><select onchange="updateDraftCategory(this.value)">'+
-      DATA.timelineCategories.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===d.category?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
-    '</select></div>'+
     travelFieldsHtml+
     jobTypeFieldHtml+
     '<div class="field"><label>补充内容（可选，自己定义字段名和内容，比如人物/心情……随便加）</label>'+
