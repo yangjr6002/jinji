@@ -354,13 +354,14 @@ table.data tr:hover{background:var(--surface-2)}
 /* 补充内容的悬浮提示，类似 Excel 单元格注释：只有真的有补充字段的经历才会出现小圆点提示、鼠标移上去才展开 */
 .tl-tip-wrap{position:relative; display:inline-block; cursor:help;}
 .tl-tip-wrap.has-tip::after{content:""; position:absolute; top:-1px; right:-7px; width:5px; height:5px; border-radius:50%; background:var(--accent);}
-.tl-tip{
-  display:none; position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:6px;
+/* 提示框用 position:fixed 单独挂在 body 上，用 JS 算坐标显示——
+   不这样做的话，嵌在横向时间轴（overflow-y:hidden 的滚动容器）里的提示框会被裁掉，鼠标移上去看不到内容 */
+.tl-tooltip{
+  display:none; position:fixed;
   background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
-  padding:7px 9px; font-size:11px; line-height:1.6; white-space:normal; width:max-content; max-width:200px;
-  box-shadow:var(--shadow-lg); z-index:80; text-align:left; font-weight:400;
+  padding:7px 9px; font-size:11px; line-height:1.6; white-space:normal; width:max-content; max-width:220px;
+  box-shadow:var(--shadow-lg); z-index:500; text-align:left; font-weight:400;
 }
-.tl-tip-wrap.has-tip:hover .tl-tip{display:block;}
 .tl-tip-row b{color:#8a7420; font-weight:600;}
 .hz-year-branches{
   display:flex; flex-direction:column; align-items:flex-start; gap:5px;
@@ -554,6 +555,7 @@ table.data tr:hover{background:var(--surface-2)}
 
 <div id="modalRoot"></div>
 <div class="toast" id="toast"></div>
+<div class="tl-tooltip" id="tlTooltip"></div>
 
 <script>
 /* ================= 数据层 ================= */
@@ -1730,11 +1732,34 @@ function timelineEntryColor(t){
 function keywordWithTip(text, t){
   var fields = t.fields||[];
   if(!fields.length) return esc(text);
-  var tip = '<div class="tl-tip">'+fields.map(function(f){
+  var tipHtml = fields.map(function(f){
     return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>';
-  }).join('')+'</div>';
-  return '<span class="tl-tip-wrap has-tip">'+esc(text)+tip+'</span>';
+  }).join('');
+  return '<span class="tl-tip-wrap has-tip" data-tip="'+esc(tipHtml)+'">'+esc(text)+'</span>';
 }
+/* 悬浮提示统一挂在 body 上用 position:fixed 显示，不受时间轴滚动容器裁剪影响 */
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest(".tl-tip-wrap.has-tip") : null;
+  if(!el) return;
+  var tip = document.getElementById("tlTooltip");
+  if(!tip) return;
+  tip.innerHTML = el.getAttribute("data-tip")||"";
+  tip.style.display = "block";
+  var r = el.getBoundingClientRect();
+  var tr = tip.getBoundingClientRect();
+  var left = Math.max(4, Math.min(r.left + r.width/2 - tr.width/2, window.innerWidth - tr.width - 4));
+  var top = r.top - tr.height - 8;
+  if(top < 4){ top = r.bottom + 8; }
+  tip.style.left = left+"px";
+  tip.style.top = top+"px";
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest(".tl-tip-wrap.has-tip") : null;
+  if(!el) return;
+  if(e.relatedTarget && el.contains(e.relatedTarget)) return;
+  var tip = document.getElementById("tlTooltip");
+  if(tip) tip.style.display = "none";
+});
 window.setTimelineFilter = function(key){
   timelineFilter = key; render();
 };
@@ -1905,7 +1930,26 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var maxLeaves = 0;
   yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
 
-  var periodLaneHeight = (periodItems && periodItems.length) ? 30 : 0;
+  /* 挤在一起、时间重叠的经历自动分到不同行摆放（贪心区间调度），不然会互相盖住看不见 */
+  var ROW_H = 30;
+  var periodMeta = (periodItems||[]).map(function(t){
+    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
+    var i1 = yearIndex[y1], i2 = yearIndex[y2];
+    if(i1===undefined || i2===undefined) return null;
+    if(i1>i2){ var tmp=i1; i1=i2; i2=tmp; }
+    var x1 = i1*HZ_SPACING+40;
+    var width = Math.max(i2*HZ_SPACING+40-x1, 30);
+    return {t:t, x1:x1, x2:x1+width, width:width};
+  }).filter(Boolean);
+  periodMeta.sort(function(a,b){ return a.x1-b.x1; });
+  var laneEnds = [];
+  periodMeta.forEach(function(m){
+    var lane = 0;
+    while(lane<laneEnds.length && laneEnds[lane] > m.x1) lane++;
+    laneEnds[lane] = m.x2 + 6;
+    m.lane = lane;
+  });
+  var periodLaneHeight = periodMeta.length ? Math.max(1,laneEnds.length)*ROW_H : 0;
 
   var nodes = yearOrder.map(function(yk, i){
     var group = yearGroups[yk]||[];
@@ -1927,15 +1971,11 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px; top:'+periodLaneHeight+'px" title="添加经历">'+
     '<div class="hz-dot hz-dot-add">+</div><div class="hz-date">添加</div></div>';
 
-  var brackets = (periodItems||[]).map(function(t){
-    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
-    var i1 = yearIndex[y1], i2 = yearIndex[y2];
-    if(i1===undefined || i2===undefined) return "";
-    if(i1>i2){ var tmp=i1; i1=i2; i2=tmp; }
-    var x1 = i1*HZ_SPACING+40, x2 = i2*HZ_SPACING+40;
-    var width = Math.max(x2-x1, 30);
+  var brackets = periodMeta.map(function(m){
+    var t = m.t;
     var fillClass = (t.category||"")==="work" ? " tl-period-fill" : "";
-    return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+x1+'px; width:'+width+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    var top = 4 + m.lane*ROW_H;
+    return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
