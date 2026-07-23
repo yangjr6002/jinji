@@ -342,7 +342,7 @@ table.data tr:hover{background:var(--surface-2)}
   top:50%; transform:translate(-50%,-50%); color:#fff; background:transparent; z-index:1;
 }
 /* "住所"类别单独放在轴线下方一块区域，颜色调淡一点，跟轴线上方其它类别的矩形区分开 */
-.tl-period.tl-period-soft .tl-period-bracket{opacity:.45;}
+.tl-period.tl-period-soft .tl-period-bracket{opacity:.28;}
 .tl-period.tl-period-soft .tl-period-label{color:var(--text);}
 .hz-year-connector{position:absolute; width:1px; background:var(--border); opacity:.5; pointer-events:none; z-index:0;}
 .tlv-period{
@@ -2035,9 +2035,9 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var width = Math.max(i2*HZ_SPACING+40-x1, 30);
     return {t:t, x1:x1, x2:x1+width, width:width};
   }).filter(Boolean);
-  var isFixedResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="fixed"; };
-  var fixedMeta = periodMeta.filter(isFixedResidence);
-  var aboveMeta = periodMeta.filter(function(m){ return !isFixedResidence(m); });
+  var isMobileResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="mobile"; };
+  var belowMeta = periodMeta.filter(isMobileResidence);
+  var aboveMeta = periodMeta.filter(function(m){ return !isMobileResidence(m); });
   function packLanes(list){
     list.sort(function(a,b){ return a.x1-b.x1; });
     var groups = [], curGroup = null, curGroupEnd = -Infinity;
@@ -2063,12 +2063,12 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   }
   var aboveMaxLane = aboveMeta.length ? packLanes(aboveMeta) : 0;
   var aboveHeight = aboveMeta.length ? (aboveMaxLane+1)*ROW_H : 0;
-  var fixedMaxLane = fixedMeta.length ? packLanes(fixedMeta) : 0;
-  var fixedHeight = fixedMeta.length ? (fixedMaxLane+1)*ROW_H : 0;
+  var belowMaxLane = belowMeta.length ? packLanes(belowMeta) : 0;
+  var belowHeight = belowMeta.length ? (belowMaxLane+1)*ROW_H : 0;
 
   var axisTop = aboveHeight + 6;
-  var fixedZoneTop = axisTop + (fixedMeta.length ? 10 : 0);
-  var yearTop = fixedZoneTop + fixedHeight + (fixedMeta.length ? 10 : 0);
+  var belowZoneTop = axisTop + (belowMeta.length ? 10 : 0);
+  var yearTop = belowZoneTop + belowHeight + (belowMeta.length ? 10 : 0);
 
   var connectors = yearOrder.map(function(yk, i){
     return '<div class="hz-year-connector" style="left:'+(i*HZ_SPACING+40)+'px; top:'+axisTop+'px; height:'+Math.max(yearTop-axisTop,0)+'px;"></div>';
@@ -2096,17 +2096,19 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
 
   var aboveBrackets = aboveMeta.map(function(m){
     var t = m.t;
+    var isFixed = t.category==="residence" && t.residenceType==="fixed";
     var fillClass = (t.category==="work"||t.category==="residence") ? " tl-period-fill" : "";
+    if(isFixed){ fillClass += " tl-period-soft"; }
     var top = 4 + m.lane*ROW_H;
     return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
   }).join('');
-  var fixedBrackets = fixedMeta.map(function(m){
+  var belowBrackets = belowMeta.map(function(m){
     var t = m.t;
-    var top = fixedZoneTop + m.lane*ROW_H;
-    return '<div class="tl-period tl-period-fill tl-period-soft" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    var top = belowZoneTop + m.lane*ROW_H;
+    return '<div class="tl-period tl-period-fill" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
@@ -2115,7 +2117,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var trackWidth = Math.max(addLeft+40, 280);
   var containerHeight = yearTop + Math.max(60, 40 + maxLeaves*24 + 16);
   return '<div class="hz-timeline-wrap"><div class="hz-timeline" id="hzTimeline" style="height:'+containerHeight+'px">'+
-    aboveBrackets+fixedBrackets+connectors+
+    aboveBrackets+belowBrackets+connectors+
     '<div class="hz-line" style="width:'+trackWidth+'px; top:'+axisTop+'px"></div>'+nodes+
     '</div></div>';
 }
