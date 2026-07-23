@@ -1065,8 +1065,17 @@ function renderFamilyTree(){
     '</svg>'+nodesHtml+
     '</div></div>'+
     '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上/下/左/右四个加号分别是加子女/父母/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系，灰色箭头是亲子关系。</div>'+
-    '<button class="btn small ghost" style="margin-top:6px" onclick="addFamilyMember()">+ 添加成员</button>';
+    '<div style="display:flex; gap:8px; margin-top:6px;">'+
+    '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
+    (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
+    '</div>';
 }
+window.clearAllFamilyMembers = function(){
+  confirmDelete("确定要清空整个家庭关系树吗？所有成员和连线都会一起删掉，清空后不能撤销。", function(){
+    DATA.familyMembers = [];
+    save(); render(); toast("已清空，点「+ 添加成员」重新开始");
+  }, "确认清空家庭关系树", "确定清空");
+};
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
   if(child && (child.parentIds||[]).length>=2){ toast("最多添加 2 条父母分支"); return; }
