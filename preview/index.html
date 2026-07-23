@@ -531,7 +531,9 @@ table.data tr:hover{background:var(--surface-2)}
 
 <script>
 /* ================= 数据层 ================= */
-var STORE_KEY = "pw_dossier_data_v6";
+/* localStorage 是按域名隔离的，不看路径——如果不加区分，/preview/ 和正式地址会共用同一份数据，
+   导致在预览环境的操作意外覆盖正式数据。这里按路径里是否带 /preview/ 换一个独立的 key，彻底隔离。 */
+var STORE_KEY = (typeof location!=="undefined" && location.pathname.indexOf("/preview/")!==-1) ? "pw_dossier_data_v6_preview" : "pw_dossier_data_v6";
 var DEFAULT_TL_CATEGORIES = [
   {key:"growth", label:"成长", color:"#2F5D50"},
   {key:"school", label:"学校", color:"#4A5A8C"},
@@ -805,16 +807,16 @@ window.openBackupModal = function(){
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 };
-window.exportBackup = function(){
+window.exportBackup = function(filenamePrefix){
   var payload = JSON.stringify(DATA, null, 2);
   var blob = new Blob([payload], {type:"application/json"});
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
-  var stamp = new Date().toISOString().slice(0,10);
-  a.href = url; a.download = "private-space-backup-"+stamp+".json";
+  var stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.href = url; a.download = (filenamePrefix||"private-space-backup")+"-"+stamp+".json";
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast("已导出备份文件");
+  if(!filenamePrefix){ toast("已导出备份文件"); }
 };
 window.importBackupFile = function(input){
   var file = input.files[0]; if(!file) return;
@@ -823,9 +825,10 @@ window.importBackupFile = function(input){
     var parsed;
     try{ parsed = JSON.parse(e.target.result); }catch(err){ toast("这不是一个有效的 JSON 文件"); return; }
     if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)){ toast("文件内容格式不对，不像是这个网页导出的备份"); return; }
-    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等），确定要用这份备份恢复吗？", function(){
+    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等）。为防止手滑，会先自动帮你下载一份当前数据的安全备份，再继续导入。确定要用这份备份恢复吗？", function(){
+      exportBackup("private-space-before-import-safety-backup");
       DATA = normalizeData(parsed);
-      save(); render(); toast("已恢复备份");
+      save(); render(); toast("已恢复备份（导入前的数据也已自动下载了一份安全备份）", 5000);
     }, "确认导入备份", "确定恢复");
   };
   reader.readAsText(file);
@@ -1489,6 +1492,14 @@ function dateSortKey(str){
   if(!p) return "99999999";
   return String(p.y)+pad2(p.m)+pad2(p.d);
 }
+/* 提交时把各种写法统一归成"年/月/日"中文格式，识别不了就原样保留（不耽误提交） */
+function normalizeDateInput(str){
+  var p = parseFlexibleDate(str);
+  if(!p) return str;
+  if(p.precision==="year") return p.y+"年";
+  if(p.precision==="month") return p.y+"年"+p.m+"月";
+  return p.y+"年"+p.m+"月"+p.d+"日";
+}
 
 /* ================= 通用模块分类（给密码/资产/联系人/自定义板块用的"中间大分类"层） =================
    每个板块可以自己开启：没有分类时就是原来的平铺列表；一旦加了分类，就会先看到分类文件夹，点进去才是列表。
@@ -1862,7 +1873,7 @@ function renderTimelineSection(){
 
   var head = '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("timeline"))+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\'timeline\')" title="重命名">✎</button></div>'+
-    '<div class="sub">按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子进入详情页；各个类别筛选的横向/竖向、年/月设置互不影响。</div></div>'+
+    '<div class="sub">按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。</div></div>'+
     '<div style="display:flex; gap:6px;">'+
     '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>'+
     '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>'+
@@ -1963,8 +1974,8 @@ window.closeItemTab = function(e, key){
     render();
   }
 };
-/* 旧接口保留兼容：时间经历/世界版图继续用这两个名字打开，内部转发到通用系统 */
-window.openTimelineEntry = function(id){ openItemTab("timeline", id); };
+/* 点时间轴卡片不再跳转到详情页，直接弹出编辑浮窗，点开就能改 */
+window.openTimelineEntry = function(id){ editTimelineEntry(id); };
 window.openWorldMapTab = function(){ openItemTab("worldmap", "map"); };
 
 function renderItemDetailPage(){
@@ -2118,14 +2129,16 @@ window.saveTimelineDraft = async function(){
     geo = null;
   }
 
+  var normDate = normalizeDateInput(d.date.trim());
+  var normDateEnd = (d.dateEnd&&d.dateEnd.trim()) ? normalizeDateInput(d.dateEnd.trim()) : "";
   if(d.id){
     var item = DATA.lifeTimeline.filter(function(x){return x.id===d.id;})[0];
     if(item){
-      item.date = d.date.trim(); item.dateEnd = (d.dateEnd||"").trim(); item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.fields = cleanFields;
+      item.date = normDate; item.dateEnd = normDateEnd; item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.fields = cleanFields;
       if(geo===null){ delete item.geo; } else if(geo){ item.geo = geo; }
     }
   } else {
-    var newItem = {id:uid(), date:d.date.trim(), dateEnd:(d.dateEnd||"").trim(), keyword:d.keyword.trim(), category:d.category||"other", fields:cleanFields};
+    var newItem = {id:uid(), date:normDate, dateEnd:normDateEnd, keyword:d.keyword.trim(), category:d.category||"other", fields:cleanFields};
     if(geo && geo!==null){ newItem.geo = geo; }
     DATA.lifeTimeline.push(newItem);
   }
