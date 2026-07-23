@@ -1620,7 +1620,7 @@ var openTabs = [];
 var activeTabKey = null;
 var timelineFilter = "all";
 
-var HZ_SPACING = 132;
+var HZ_SPACING = 90;
 
 /* 灵活识别各种写法的日期，比如 97/6/10、1997-6-10、2024年3月、19970610、2024，
    统一换算成 {y,m,d,precision} 用来排序和按年分组；识别不了就返回 null（这条经历会被归到"未知年份"，排在最后，不会丢） */
@@ -2050,10 +2050,11 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     if(xByKey[yk]===undefined){ maxKnownX += HZ_SPACING; xByKey[yk] = maxKnownX; }
   });
 
-  /* 挤在一起、时间重叠的经历不再另开新行——只保留固定的两行（轴线上方一行、下方一行），
-     同一行里如果还是重叠，就直接挤在一起，不会再冒出第三行。
-     固定住所单独放到轴线下方（颜色调淡)，移动住所（以及其它类别）留在轴线上方（颜色正常）；
-     年份点挪到最下面，轴线到年份点之间用一条淡淡的竖线连一下，看得出对应关系。 */
+  /* "住所"类别（固定/移动）严格锁死两行——轴线上方一行放固定住所（颜色调淡)、下方一行放移动住所（颜色正常），
+     同一行里哪怕还有重叠，也直接挤在一起，绝不会再冒出第三行。
+     "工作"（含合并进来的"学校"）等其它类别维持原来的规则不变：挤在一起、时间重叠的经历自动分两行摆放
+     （贪心区间调度），短的那段经历优先占额外的上面一行，长的留在基准行。
+     年份点在最下面，轴线到年份点之间用一条淡淡的竖线连一下，看得出对应关系。 */
   var ROW_H = 30;
   var periodMeta = (periodItems||[]).map(function(t){
     var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
@@ -2063,9 +2064,35 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     return {t:t, x1:x1, x2:x1+width, width:width, lane:0};
   }).filter(Boolean);
   var isMobileResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="mobile"; };
+  var isFixedResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="fixed"; };
   var belowMeta = periodMeta.filter(isMobileResidence);
   var aboveMeta = periodMeta.filter(function(m){ return !isMobileResidence(m); });
-  var aboveHeight = aboveMeta.length ? ROW_H : 0;
+  var aboveOther = aboveMeta.filter(function(m){ return !isFixedResidence(m); });
+  function packLanesWithOverflow(list){
+    list.sort(function(a,b){ return a.x1-b.x1; });
+    var groups = [], curGroup = null, curGroupEnd = -Infinity;
+    list.forEach(function(m){
+      if(curGroup && m.x1 < curGroupEnd){ curGroup.push(m); curGroupEnd = Math.max(curGroupEnd, m.x2); }
+      else { curGroup=[m]; groups.push(curGroup); curGroupEnd = m.x2; }
+    });
+    var maxLane = 0;
+    groups.forEach(function(group){
+      if(group.length===1){ group[0].lane = "base"; return; }
+      var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
+      var laneEnds = [];
+      sorted.forEach(function(m){
+        var lane = 0;
+        while(lane<1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
+        laneEnds[lane] = m.x2 + 6;
+        m.lane = lane;
+        maxLane = Math.max(maxLane, lane);
+      });
+    });
+    list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
+    return maxLane;
+  }
+  var aboveOtherMaxLane = aboveOther.length ? packLanesWithOverflow(aboveOther) : 0;
+  var aboveHeight = aboveMeta.length ? (aboveOtherMaxLane+1)*ROW_H : 0;
   var belowHeight = belowMeta.length ? ROW_H : 0;
 
   var axisTop = aboveHeight + 6;
