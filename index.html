@@ -408,6 +408,15 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-lines{position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible;}
 .fam-line{stroke:#B7B4AA; stroke-width:1.5; fill:none;}
 .fam-line-spouse{stroke:#A0527A; stroke-width:1.5; stroke-dasharray:3,3; fill:none;}
+.fam-line-pending{stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4,3; fill:none;}
+.fam-pending-layer{position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;}
+.fam-pending-btn{
+  position:absolute; width:22px; height:22px; border-radius:50%; pointer-events:auto;
+  border:1.5px dashed var(--accent); background:var(--accent-soft); color:var(--accent);
+  font-size:13px; line-height:1; z-index:3; animation:famPendingPulse 1.4s ease-in-out infinite;
+}
+.fam-pending-btn:hover{background:var(--accent); color:#fff;}
+@keyframes famPendingPulse{0%,100%{box-shadow:0 0 0 0 rgba(47,93,80,.25);} 50%{box-shadow:0 0 0 5px rgba(47,93,80,0);}}
 .fam-node{
   position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:10px;
   padding:8px 16px; box-shadow:var(--shadow); cursor:grab; text-align:center;
@@ -449,6 +458,9 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node:hover .fam-node-add, .fam-node:hover .fam-node-add-child, .fam-node:hover .fam-node-add-sib, .fam-node:hover .fam-node-add-spouse{opacity:1;}
 .fam-node-add:hover, .fam-node-add-child:hover, .fam-node-add-sib:hover, .fam-node-add-spouse:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
 .fam-node-add-spouse:hover{border-color:#A0527A; color:#A0527A; background:#F7ECF1;}
+.fam-node-add.active, .fam-node-add-child.active, .fam-node-add-sib.active, .fam-node-add-spouse.active{
+  opacity:1; border-color:var(--accent); color:var(--accent); background:var(--accent-soft);
+}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
@@ -908,7 +920,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
-  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); setupFamilyNodeResize(); }
+  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); renderPendingArrows(); setupFamilyNodeResize(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -1076,21 +1088,26 @@ function renderFamilyTree(){
   var canvasW = Math.max(maxX+150, 320), canvasH = Math.max(maxY+90, 160);
   var nodesHtml = members.map(function(p){
     var sizeStyle = (p.w?(' width:'+p.w+'px;'):'')+(p.h?(' height:'+p.h+'px;'):'');
+    var pend = famPendingArrows[p.id] || {};
     return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+(p.x||0)+'px; top:'+(p.y||0)+'px;'+sizeStyle+'" onpointerdown="famNodeDragStart(event,\''+p.id+'\')">'+
       '<button class="fam-node-del" onclick="event.stopPropagation(); deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
       '<button class="fam-node-link" onclick="event.stopPropagation(); editFamilyLinks(\''+p.id+'\')" title="关联父母">🔗</button>'+
       '<input type="text" class="fam-node-relation" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
       '<input type="text" class="fam-node-name" value="'+esc(p.name||"")+'" placeholder="姓名" onchange="updateFamilyMemberField(\''+p.id+'\',\'name\',this.value)">'+
-      '<button class="fam-node-add" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="添加父母">+</button>'+
-      '<button class="fam-node-add-child" onclick="event.stopPropagation(); addFamilyChildBranch(\''+p.id+'\')" title="添加子女">+</button>'+
-      '<button class="fam-node-add-sib" onclick="event.stopPropagation(); addFamilySiblingBranch(\''+p.id+'\')" title="添加兄弟姐妹">+</button>'+
-      '<button class="fam-node-add-spouse" onclick="event.stopPropagation(); addFamilySpouseBranch(\''+p.id+'\')" title="添加配偶（再婚可以加多个）">+</button>'+
+      '<button class="fam-node-add'+(pend.parent?" active":"")+'" onclick="event.stopPropagation(); toggleFamArrow(\''+p.id+'\',\'parent\')" title="点一下往下发一个箭头，再点箭头才真正生成父母">+</button>'+
+      '<button class="fam-node-add-child'+(pend.child?" active":"")+'" onclick="event.stopPropagation(); toggleFamArrow(\''+p.id+'\',\'child\')" title="点一下往上发一个箭头，再点箭头才真正生成子女">+</button>'+
+      '<button class="fam-node-add-sib'+(pend.sibling?" active":"")+'" onclick="event.stopPropagation(); toggleFamArrow(\''+p.id+'\',\'sibling\')" title="点一下往右发一个箭头，再点箭头才真正生成兄弟姐妹">+</button>'+
+      '<button class="fam-node-add-spouse'+(pend.spouse?" active":"")+'" onclick="event.stopPropagation(); toggleFamArrow(\''+p.id+'\',\'spouse\')" title="点一下往左发一个箭头，再点箭头才真正生成配偶">+</button>'+
     '</div>';
   }).join('');
   return '<div class="fam-tree-wrap"><div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px;">'+
     '<svg class="fam-lines" id="famLinesSvg">'+
-      '<defs><marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker></defs>'+
-    '</svg>'+nodesHtml+
+      '<defs>'+
+        '<marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker>'+
+        '<marker id="famArrowPending" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#2F5D50"/></marker>'+
+      '</defs>'+
+    '</svg>'+
+    '<div class="fam-pending-layer" id="famPendingLayer"></div>'+nodesHtml+
     '</div></div>'+
     '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上/下/左/右四个加号分别是加子女/父母/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系，灰色箭头是亲子关系。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
@@ -1103,6 +1120,21 @@ window.clearAllFamilyMembers = function(){
     DATA.familyMembers = [];
     save(); render(); toast("已清空，点「+ 添加成员」重新开始");
   }, "确认清空家庭关系树", "确定清空");
+};
+/* 两步生成：先点方向的"+"往那个方向发一个箭头（只是预览，不改数据），再点箭头本身才真正生成节点。
+   同一个节点可以同时往几个方向都发箭头。 */
+var famPendingArrows = {};
+window.toggleFamArrow = function(nodeId, dir){
+  famPendingArrows[nodeId] = famPendingArrows[nodeId] || {};
+  famPendingArrows[nodeId][dir] = !famPendingArrows[nodeId][dir];
+  render();
+};
+window.confirmFamArrow = function(nodeId, dir){
+  if(famPendingArrows[nodeId]) famPendingArrows[nodeId][dir] = false;
+  if(dir==="parent") addFamilyParentBranch(nodeId);
+  else if(dir==="child") addFamilyChildBranch(nodeId);
+  else if(dir==="sibling") addFamilySiblingBranch(nodeId);
+  else if(dir==="spouse") addFamilySpouseBranch(nodeId);
 };
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
@@ -1178,6 +1210,7 @@ function famNodeDragMove(e){
     node.style.top = Math.max(0,(__famDrag.origTop+dy))+"px";
   }
   drawFamilyLines();
+  renderPendingArrows();
 }
 function famNodeDragEnd(){
   if(!__famDrag) return;
@@ -1212,7 +1245,10 @@ function drawFamilyLines(){
   svg.setAttribute("width", cr.width);
   svg.setAttribute("height", cr.height);
   svg.setAttribute("viewBox", "0 0 "+cr.width+" "+cr.height);
-  var defs = '<defs><marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker></defs>';
+  var defs = '<defs>'+
+    '<marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker>'+
+    '<marker id="famArrowPending" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#2F5D50"/></marker>'+
+  '</defs>';
   var svgHtml = defs;
   (DATA.familyMembers||[]).forEach(function(p){
     if(!p.parentIds || !p.parentIds.length) return;
@@ -1252,6 +1288,36 @@ function drawFamilyLines(){
   });
   svg.innerHTML = svgHtml;
 }
+/* 待确认的"箭头"：只是预览用的虚线+箭头，指向按了哪个方向的空白处；点箭头本身（fam-pending-btn）才真正生成节点。
+   必须在 drawFamilyLines() 之后调用，因为那个函数会整个替换掉 svg 内容。 */
+function renderPendingArrows(){
+  var canvas = document.getElementById("famTreeCanvas");
+  var svg = document.getElementById("famLinesSvg");
+  var layer = document.getElementById("famPendingLayer");
+  if(!canvas || !svg || !layer) return;
+  var cr = canvas.getBoundingClientRect();
+  if(!cr.width) return;
+  var DIRS = {parent:{dx:0,dy:1}, child:{dx:0,dy:-1}, sibling:{dx:1,dy:0}, spouse:{dx:-1,dy:0}};
+  var STUB = 56;
+  var lineHtml = "", buttons = [];
+  Object.keys(famPendingArrows).forEach(function(nodeId){
+    var flags = famPendingArrows[nodeId];
+    if(!flags) return;
+    var node = document.getElementById("famnode-"+nodeId);
+    if(!node) return;
+    var r = node.getBoundingClientRect();
+    Object.keys(DIRS).forEach(function(dir){
+      if(!flags[dir]) return;
+      var d = DIRS[dir];
+      var from = famRectEdgePoint(r, cr, d.dx, d.dy);
+      var to = {x:from.x+d.dx*STUB, y:from.y+d.dy*STUB};
+      lineHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line-pending" marker-end="url(#famArrowPending)"/>';
+      buttons.push('<button type="button" class="fam-pending-btn" style="left:'+(to.x-11)+'px; top:'+(to.y-11)+'px;" onclick="confirmFamArrow(\''+nodeId+'\',\''+dir+'\')" title="点这里生成">+</button>');
+    });
+  });
+  svg.insertAdjacentHTML("beforeend", '<g id="famPendingLinesGroup">'+lineHtml+'</g>');
+  layer.innerHTML = buttons.join('');
+}
 /* 方框右下角可以拖拽改大小（原生 CSS resize），改完记住宽高，下次渲染继续用这个尺寸 */
 var __famResizeObservers = [];
 function setupFamilyNodeResize(){
@@ -1269,6 +1335,7 @@ function setupFamilyNodeResize(){
       clearTimeout(node.__famSaveTimer);
       node.__famSaveTimer = setTimeout(function(){ save(); }, 400);
       drawFamilyLines();
+      renderPendingArrows();
     });
     ro.observe(node);
     __famResizeObservers.push(ro);
