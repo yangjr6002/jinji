@@ -518,7 +518,10 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
 <div class="topbar">
   <div class="brand"><span class="mark">P</span>Private Space</div>
-  <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+    <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
+  </div>
 </div>
 <div class="toptabs" id="topTabs"></div>
 <div class="wrap" id="app"></div>
@@ -704,6 +707,11 @@ function normalizeData(d){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
   }
   d.assets = (d.assets||[]).map(migrateAssetItem);
+  d.profile = d.profile || {name:"", avatarUrl:""};
+  d.passwords = d.passwords || [];
+  d.idPhotos = d.idPhotos || [];
+  d.albumPhotos = d.albumPhotos || [];
+  d.contacts = d.contacts || [];
   return d;
 }
 /* 把旧版资产字段（bank/type/holder/number/note）自动迁移成新的"标题+自定义字段"结构，不丢数据 */
@@ -782,6 +790,47 @@ function toast(msg, duration){
   var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
 }
+
+/* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
+window.openBackupModal = function(){
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>备份与恢复</h3>'+
+    '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
+    '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
+    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
+      '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
+    '</label>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.exportBackup = function(){
+  var payload = JSON.stringify(DATA, null, 2);
+  var blob = new Blob([payload], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  var stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = "private-space-backup-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("已导出备份文件");
+};
+window.importBackupFile = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var parsed;
+    try{ parsed = JSON.parse(e.target.result); }catch(err){ toast("这不是一个有效的 JSON 文件"); return; }
+    if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)){ toast("文件内容格式不对，不像是这个网页导出的备份"); return; }
+    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等），确定要用这份备份恢复吗？", function(){
+      DATA = normalizeData(parsed);
+      save(); render(); toast("已恢复备份");
+    }, "确认导入备份", "确定恢复");
+  };
+  reader.readAsText(file);
+  input.value = "";
+};
 
 /* ================= 路由 ================= */
 var VIEW = "home";
@@ -2326,12 +2375,12 @@ window.deleteDeclutter = function(id){
 
 /* ================= 通用：删除确认 =================
    不用原生 confirm()：发布后的沙盒环境可能会禁用浏览器原生弹窗，改成自己画的确认弹窗 */
-function confirmDelete(msg, onYes){
+function confirmDelete(msg, onYes, title, confirmLabel){
   var root=document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="cmask"><div class="modal" style="max-width:340px">'+
-    '<h3>确认删除</h3>'+
+    '<h3>'+esc(title||"确认删除")+'</h3>'+
     '<div class="sub" style="margin-bottom:4px">'+esc(msg)+'</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">确定删除</button></div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">'+esc(confirmLabel||"确定删除")+'</button></div>'+
     '</div></div>';
   document.getElementById("cmask").addEventListener("click", function(e){ if(e.target.id==="cmask") closeModal(); });
   window.__confirmDeleteYes = function(){ closeModal(); onYes(); };

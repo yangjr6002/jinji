@@ -384,6 +384,7 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-tree-canvas{position:relative; margin:10px;}
 .fam-lines{position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible;}
 .fam-line{stroke:#B7B4AA; stroke-width:1.5; fill:none;}
+.fam-line-spouse{stroke:#A0527A; stroke-width:1.5; stroke-dasharray:3,3; fill:none;}
 .fam-node{
   position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:10px;
   padding:8px 16px; box-shadow:var(--shadow); cursor:grab; text-align:center; min-width:64px; transition:border-color .12s, box-shadow .12s;
@@ -410,7 +411,7 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node:hover .fam-node-del, .fam-node:hover .fam-node-link{opacity:1;}
 .fam-node-del:hover{background:var(--danger-soft); color:var(--danger);}
 .fam-node-link:hover{background:var(--accent-soft); color:var(--accent);}
-.fam-node-add, .fam-node-add-child, .fam-node-add-sib{
+.fam-node-add, .fam-node-add-child, .fam-node-add-sib, .fam-node-add-spouse{
   position:absolute; width:16px; height:16px;
   border:1.5px solid var(--border); background:var(--surface); color:var(--text-faint);
   border-radius:50%; font-size:10px; line-height:1; opacity:0; transition:.12s; z-index:2;
@@ -418,8 +419,10 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node-add{left:50%; bottom:-9px; transform:translateX(-50%);}
 .fam-node-add-child{left:50%; top:-9px; transform:translateX(-50%);}
 .fam-node-add-sib{top:50%; right:-9px; transform:translateY(-50%);}
-.fam-node:hover .fam-node-add, .fam-node:hover .fam-node-add-child, .fam-node:hover .fam-node-add-sib{opacity:1;}
-.fam-node-add:hover, .fam-node-add-child:hover, .fam-node-add-sib:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
+.fam-node-add-spouse{top:50%; left:-9px; transform:translateY(-50%);}
+.fam-node:hover .fam-node-add, .fam-node:hover .fam-node-add-child, .fam-node:hover .fam-node-add-sib, .fam-node:hover .fam-node-add-spouse{opacity:1;}
+.fam-node-add:hover, .fam-node-add-child:hover, .fam-node-add-sib:hover, .fam-node-add-spouse:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
+.fam-node-add-spouse:hover{border-color:#A0527A; color:#A0527A; background:#F7ECF1;}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
@@ -515,7 +518,10 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
 <div class="topbar">
   <div class="brand"><span class="mark">P</span>Private Space</div>
-  <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+  <div style="display:flex; align-items:center; gap:14px;">
+    <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+    <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
+  </div>
 </div>
 <div class="toptabs" id="topTabs"></div>
 <div class="wrap" id="app"></div>
@@ -604,13 +610,40 @@ var DEFAULT_DATA = {
     {id:"bi5", label:"生日", value:""}
   ],
   familyMembers:[
-    {id:"p1", name:"", relation:"爷爷", parentIds:[]},
-    {id:"p2", name:"", relation:"奶奶", parentIds:[]},
-    {id:"p3", name:"", relation:"外公", parentIds:[]},
-    {id:"p4", name:"", relation:"外婆", parentIds:[]},
-    {id:"p5", name:"", relation:"父亲", parentIds:["p1","p2"]},
-    {id:"p6", name:"", relation:"母亲", parentIds:["p3","p4"]},
-    {id:"p7", name:"", relation:"自己", parentIds:["p5","p6"]}
+    /* 爸爸这边 */
+    {id:"yeye", name:"", relation:"爷爷", parentIds:[], spouseIds:["nainai"]},
+    {id:"nainai", name:"", relation:"奶奶", parentIds:[], spouseIds:["yeye"]},
+    {id:"baba", name:"", relation:"爸爸", parentIds:["yeye","nainai"], spouseIds:["mama"]},
+    {id:"dage", name:"", relation:"大哥", parentIds:["yeye","nainai"], spouseIds:["dasao"]},
+    {id:"dasao", name:"", relation:"大嫂", parentIds:[], spouseIds:["dage"]},
+    {id:"dage_child", name:"", relation:"孩子", parentIds:["dage","dasao"]},
+    {id:"erge", name:"", relation:"二哥", parentIds:["yeye","nainai"], spouseIds:["jiu_ersao","xin_ersao"]},
+    {id:"jiu_ersao", name:"", relation:"旧二嫂", parentIds:[], spouseIds:["erge"]},
+    {id:"xin_ersao", name:"", relation:"新二嫂", parentIds:[], spouseIds:["erge"]},
+    {id:"erge_child", name:"", relation:"孩子", parentIds:["erge","jiu_ersao"]},
+    {id:"sange", name:"", relation:"三哥", parentIds:["yeye","nainai"], spouseIds:["jiu_sansao","xin_sansao"]},
+    {id:"jiu_sansao", name:"", relation:"旧三嫂", parentIds:[], spouseIds:["sange"]},
+    {id:"xin_sansao", name:"", relation:"新三嫂", parentIds:[], spouseIds:["sange"]},
+    {id:"sange_child", name:"", relation:"孩子", parentIds:["sange","jiu_sansao"]},
+    /* 妈妈这边 */
+    {id:"waigong", name:"", relation:"外公", parentIds:[], spouseIds:["lao_waipo","xin_waipo"]},
+    {id:"lao_waipo", name:"", relation:"老外婆", parentIds:[], spouseIds:["waigong"]},
+    {id:"xin_waipo", name:"", relation:"新外婆", parentIds:[], spouseIds:["waigong"]},
+    {id:"mama", name:"", relation:"妈妈", parentIds:["waigong","lao_waipo"], spouseIds:["baba"]},
+    {id:"dajie", name:"", relation:"大姨", parentIds:["waigong","lao_waipo"], spouseIds:["dajiefu"]},
+    {id:"dajiefu", name:"", relation:"大姨夫", parentIds:[], spouseIds:["dajie"]},
+    {id:"dajie_child", name:"", relation:"孩子", parentIds:["dajie","dajiefu"]},
+    {id:"erjie", name:"", relation:"二姨", parentIds:["waigong","lao_waipo"], spouseIds:["erjiefu"]},
+    {id:"erjiefu", name:"", relation:"二姨夫", parentIds:[], spouseIds:["erjie"]},
+    {id:"erjie_child", name:"", relation:"孩子", parentIds:["erjie","erjiefu"]},
+    {id:"dadidi", name:"", relation:"大舅（新外婆带来的）", parentIds:["xin_waipo"], spouseIds:["dadixi"]},
+    {id:"dadixi", name:"", relation:"大舅媳", parentIds:[], spouseIds:["dadidi"]},
+    {id:"dadidi_child", name:"", relation:"孩子", parentIds:["dadidi","dadixi"]},
+    {id:"xiaodidi", name:"", relation:"小舅（新外婆带来的）", parentIds:["xin_waipo"], spouseIds:["xiaodixi"]},
+    {id:"xiaodixi", name:"", relation:"小舅媳", parentIds:[], spouseIds:["xiaodidi"]},
+    {id:"xiaodidi_child", name:"", relation:"孩子", parentIds:["xiaodidi","xiaodixi"]},
+    /* 自己 */
+    {id:"self", name:"", relation:"自己", parentIds:["baba","mama"]}
   ],
   moduleCategories:{
     assets_type:[
@@ -674,6 +707,11 @@ function normalizeData(d){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
   }
   d.assets = (d.assets||[]).map(migrateAssetItem);
+  d.profile = d.profile || {name:"", avatarUrl:""};
+  d.passwords = d.passwords || [];
+  d.idPhotos = d.idPhotos || [];
+  d.albumPhotos = d.albumPhotos || [];
+  d.contacts = d.contacts || [];
   return d;
 }
 /* 把旧版资产字段（bank/type/holder/number/note）自动迁移成新的"标题+自定义字段"结构，不丢数据 */
@@ -752,6 +790,47 @@ function toast(msg, duration){
   var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
 }
+
+/* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
+window.openBackupModal = function(){
+  var root=document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>备份与恢复</h3>'+
+    '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
+    '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
+    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
+      '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
+    '</label>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.exportBackup = function(){
+  var payload = JSON.stringify(DATA, null, 2);
+  var blob = new Blob([payload], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  var stamp = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = "private-space-backup-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("已导出备份文件");
+};
+window.importBackupFile = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var parsed;
+    try{ parsed = JSON.parse(e.target.result); }catch(err){ toast("这不是一个有效的 JSON 文件"); return; }
+    if(!parsed || typeof parsed!=="object" || Array.isArray(parsed)){ toast("文件内容格式不对，不像是这个网页导出的备份"); return; }
+    confirmDelete("导入会覆盖当前浏览器里的所有数据（密码、资产、时间线等），确定要用这份备份恢复吗？", function(){
+      DATA = normalizeData(parsed);
+      save(); render(); toast("已恢复备份");
+    }, "确认导入备份", "确定恢复");
+  };
+  reader.readAsText(file);
+  input.value = "";
+};
 
 /* ================= 路由 ================= */
 var VIEW = "home";
@@ -974,6 +1053,7 @@ function renderFamilyTree(){
       '<button class="fam-node-add" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="添加父母">+</button>'+
       '<button class="fam-node-add-child" onclick="event.stopPropagation(); addFamilyChildBranch(\''+p.id+'\')" title="添加子女">+</button>'+
       '<button class="fam-node-add-sib" onclick="event.stopPropagation(); addFamilySiblingBranch(\''+p.id+'\')" title="添加兄弟姐妹">+</button>'+
+      '<button class="fam-node-add-spouse" onclick="event.stopPropagation(); addFamilySpouseBranch(\''+p.id+'\')" title="添加配偶（再婚可以加多个）">+</button>'+
     '</div>';
   }).join('');
   return '<div class="fam-tree-wrap"><div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px;">'+
@@ -981,7 +1061,7 @@ function renderFamilyTree(){
       '<defs><marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker></defs>'+
     '</svg>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。下方加号加父母、上方加号加子女、右侧加号加兄弟姐妹，左上角🔗可以调整已有的父母关联。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上/下/左/右四个加号分别是加子女/父母/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系，灰色箭头是亲子关系。</div>'+
     '<button class="btn small ghost" style="margin-top:6px" onclick="addFamilyMember()">+ 添加成员</button>';
 }
 window.addFamilyParentBranch = function(childId){
@@ -1013,10 +1093,21 @@ window.addFamilySiblingBranch = function(personId){
   DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:(person&&person.parentIds)?person.parentIds.slice():[], x:nx, y:ny});
   save(); render();
 };
+window.addFamilySpouseBranch = function(personId){
+  var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  var existingSpouses = (person&&person.spouseIds)?person.spouseIds.length:0;
+  var nx = (person&&typeof person.x==="number") ? Math.max(0, person.x - 140 - existingSpouses*40) : 30;
+  var ny = (person&&typeof person.y==="number") ? person.y : 30;
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], spouseIds:person?[person.id]:[], x:nx, y:ny});
+  if(person){ person.spouseIds = person.spouseIds || []; person.spouseIds.push(newId); }
+  save(); render();
+};
 window.addFamilyMember = function(){
   DATA.familyMembers = DATA.familyMembers || [];
   var maxY = 0; DATA.familyMembers.forEach(function(p){ maxY = Math.max(maxY, p.y||0); });
-  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], x:30, y:DATA.familyMembers.length?maxY+110:30});
+  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], spouseIds:[], x:30, y:DATA.familyMembers.length?maxY+110:30});
   save(); render();
 };
 window.updateFamilyMemberField = function(id, key, value){
@@ -1027,7 +1118,7 @@ window.updateFamilyMemberField = function(id, key, value){
 var __famDrag = null;
 window.famNodeDragStart = function(e, id){
   if(e.target.tagName==="INPUT") return;
-  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add") || e.target.closest(".fam-node-add-child") || e.target.closest(".fam-node-add-sib"))) return;
+  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add") || e.target.closest(".fam-node-add-child") || e.target.closest(".fam-node-add-sib") || e.target.closest(".fam-node-add-spouse"))) return;
   var node = document.getElementById("famnode-"+id);
   if(!node) return;
   __famDrag = {id:id, startX:e.clientX, startY:e.clientY, origLeft:parseFloat(node.style.left)||0, origTop:parseFloat(node.style.top)||0, moved:false};
@@ -1086,6 +1177,21 @@ function drawFamilyLines(){
       svgHtml += '<line x1="'+childX+'" y1="'+childY+'" x2="'+parentX+'" y2="'+parentY+'" class="fam-line" marker-end="url(#famArrow)"/>';
     });
   });
+  /* 配偶关系：无方向的虚线，每一对只画一次 */
+  var drawnPairs = {};
+  (DATA.familyMembers||[]).forEach(function(p){
+    (p.spouseIds||[]).forEach(function(sid){
+      var pairKey = [p.id, sid].sort().join("|");
+      if(drawnPairs[pairKey]) return;
+      drawnPairs[pairKey] = true;
+      var aEl = document.getElementById("famnode-"+p.id), bEl = document.getElementById("famnode-"+sid);
+      if(!aEl || !bEl) return;
+      var ar = aEl.getBoundingClientRect(), br = bEl.getBoundingClientRect();
+      var ax = ar.left + ar.width/2 - cr.left, ay = ar.top + ar.height/2 - cr.top;
+      var bx = br.left + br.width/2 - cr.left, by = br.top + br.height/2 - cr.top;
+      svgHtml += '<line x1="'+ax+'" y1="'+ay+'" x2="'+bx+'" y2="'+by+'" class="fam-line-spouse"/>';
+    });
+  });
   svg.innerHTML = svgHtml;
 }
 /* 姓名/关系已经改成节点上直接编辑；这个弹窗现在只负责"关联父母"这一件结构性的事 */
@@ -1130,7 +1236,10 @@ window.saveFamilyMember = function(){
 window.deleteFamilyMember = function(id){
   confirmDelete("确定删除这位成员吗？和TA相关的连线也会一起消失（不影响其他成员）。", function(){
     DATA.familyMembers = (DATA.familyMembers||[]).filter(function(x){return x.id!==id;});
-    DATA.familyMembers.forEach(function(p){ p.parentIds = (p.parentIds||[]).filter(function(pid){return pid!==id;}); });
+    DATA.familyMembers.forEach(function(p){
+      p.parentIds = (p.parentIds||[]).filter(function(pid){return pid!==id;});
+      p.spouseIds = (p.spouseIds||[]).filter(function(sid){return sid!==id;});
+    });
     save(); render(); toast("已删除");
   });
 };
@@ -2266,12 +2375,12 @@ window.deleteDeclutter = function(id){
 
 /* ================= 通用：删除确认 =================
    不用原生 confirm()：发布后的沙盒环境可能会禁用浏览器原生弹窗，改成自己画的确认弹窗 */
-function confirmDelete(msg, onYes){
+function confirmDelete(msg, onYes, title, confirmLabel){
   var root=document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="cmask"><div class="modal" style="max-width:340px">'+
-    '<h3>确认删除</h3>'+
+    '<h3>'+esc(title||"确认删除")+'</h3>'+
     '<div class="sub" style="margin-bottom:4px">'+esc(msg)+'</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">确定删除</button></div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn danger" onclick="__confirmDeleteYes()">'+esc(confirmLabel||"确定删除")+'</button></div>'+
     '</div></div>';
   document.getElementById("cmask").addEventListener("click", function(e){ if(e.target.id==="cmask") closeModal(); });
   window.__confirmDeleteYes = function(){ closeModal(); onYes(); };
