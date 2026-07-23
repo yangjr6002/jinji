@@ -344,6 +344,7 @@ table.data tr:hover{background:var(--surface-2)}
 /* "住所"类别单独放在轴线下方一块区域，颜色调淡一点，跟轴线上方其它类别的矩形区分开 */
 .tl-period.tl-period-soft .tl-period-bracket{opacity:.45;}
 .tl-period.tl-period-soft .tl-period-label{color:var(--text);}
+.hz-year-connector{position:absolute; width:1px; background:var(--border); opacity:.5; pointer-events:none; z-index:0;}
 .tlv-period{
   display:flex; align-items:baseline; gap:6px; padding:3px 0 3px 2px; cursor:pointer; font-size:12px;
 }
@@ -2022,9 +2023,8 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
 
   /* 挤在一起、时间重叠的经历自动分到不同行摆放（贪心区间调度），不然会互相盖住看不见。
-     "住所"类别单独拎出来，不跟其它类别共用轴线上方那个"面"，改到轴线下方（年份点上方）单独一块区域展示，
-     颜色也调淡一点；组里只有 1 条 = 没有重叠，放"基准行"；组里有多条 = 真重叠——住所类别下移动住所
-     优先占额外那一行、固定住所留在基准行，其余情况按时长从短到长依次占额外行/基准行。 */
+     固定住所单独拎出来放到轴线下方（颜色调淡)，移动住所（以及其它类别）留在轴线上方（颜色正常）；
+     年份点挪到最下面，轴线到年份点之间用一条淡淡的竖线连一下，看得出对应关系。 */
   var MAX_LANES = 2, ROW_H = 30;
   var periodMeta = (periodItems||[]).map(function(t){
     var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
@@ -2035,8 +2035,9 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var width = Math.max(i2*HZ_SPACING+40-x1, 30);
     return {t:t, x1:x1, x2:x1+width, width:width};
   }).filter(Boolean);
-  var residenceMeta = periodMeta.filter(function(m){ return m.t.category==="residence"; });
-  var otherMeta = periodMeta.filter(function(m){ return m.t.category!=="residence"; });
+  var isFixedResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="fixed"; };
+  var fixedMeta = periodMeta.filter(isFixedResidence);
+  var aboveMeta = periodMeta.filter(function(m){ return !isFixedResidence(m); });
   function packLanes(list){
     list.sort(function(a,b){ return a.x1-b.x1; });
     var groups = [], curGroup = null, curGroupEnd = -Infinity;
@@ -2047,12 +2048,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var maxLane = 0;
     groups.forEach(function(group){
       if(group.length===1){ group[0].lane = "base"; return; }
-      var sorted = group.slice().sort(function(a,b){
-        var aMobile = (a.t.category==="residence" && a.t.residenceType==="mobile") ? 0 : 1;
-        var bMobile = (b.t.category==="residence" && b.t.residenceType==="mobile") ? 0 : 1;
-        if(aMobile!==bMobile) return aMobile-bMobile;
-        return a.width-b.width;
-      });
+      var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
       var laneEnds = [];
       sorted.forEach(function(m){
         var lane = 0;
@@ -2065,14 +2061,18 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
     return maxLane;
   }
-  var otherMaxLane = otherMeta.length ? packLanes(otherMeta) : 0;
-  var periodLaneHeight = otherMeta.length ? (otherMaxLane+1)*ROW_H : 0;
-  var residenceMaxLane = residenceMeta.length ? packLanes(residenceMeta) : 0;
-  var residenceLaneHeight = residenceMeta.length ? (residenceMaxLane+1)*ROW_H : 0;
+  var aboveMaxLane = aboveMeta.length ? packLanes(aboveMeta) : 0;
+  var aboveHeight = aboveMeta.length ? (aboveMaxLane+1)*ROW_H : 0;
+  var fixedMaxLane = fixedMeta.length ? packLanes(fixedMeta) : 0;
+  var fixedHeight = fixedMeta.length ? (fixedMaxLane+1)*ROW_H : 0;
 
-  var axisTop = periodLaneHeight + 6;
-  var residenceZoneTop = axisTop + (residenceMeta.length ? 10 : 0);
-  var yearTop = residenceZoneTop + residenceLaneHeight + (residenceMeta.length ? 10 : 0);
+  var axisTop = aboveHeight + 6;
+  var fixedZoneTop = axisTop + (fixedMeta.length ? 10 : 0);
+  var yearTop = fixedZoneTop + fixedHeight + (fixedMeta.length ? 10 : 0);
+
+  var connectors = yearOrder.map(function(yk, i){
+    return '<div class="hz-year-connector" style="left:'+(i*HZ_SPACING+40)+'px; top:'+axisTop+'px; height:'+Math.max(yearTop-axisTop,0)+'px;"></div>';
+  }).join('');
 
   var nodes = yearOrder.map(function(yk, i){
     var group = yearGroups[yk]||[];
@@ -2094,18 +2094,18 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px; top:'+yearTop+'px" title="添加经历">'+
     '<div class="hz-dot hz-dot-add">+</div><div class="hz-date">添加</div></div>';
 
-  var otherBrackets = otherMeta.map(function(m){
+  var aboveBrackets = aboveMeta.map(function(m){
     var t = m.t;
-    var fillClass = (t.category==="work") ? " tl-period-fill" : "";
+    var fillClass = (t.category==="work"||t.category==="residence") ? " tl-period-fill" : "";
     var top = 4 + m.lane*ROW_H;
     return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
   }).join('');
-  var residenceBrackets = residenceMeta.map(function(m){
+  var fixedBrackets = fixedMeta.map(function(m){
     var t = m.t;
-    var top = residenceZoneTop + m.lane*ROW_H;
+    var top = fixedZoneTop + m.lane*ROW_H;
     return '<div class="tl-period tl-period-fill tl-period-soft" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
@@ -2115,7 +2115,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var trackWidth = Math.max(addLeft+40, 280);
   var containerHeight = yearTop + Math.max(60, 40 + maxLeaves*24 + 16);
   return '<div class="hz-timeline-wrap"><div class="hz-timeline" id="hzTimeline" style="height:'+containerHeight+'px">'+
-    otherBrackets+residenceBrackets+
+    aboveBrackets+fixedBrackets+connectors+
     '<div class="hz-line" style="width:'+trackWidth+'px; top:'+axisTop+'px"></div>'+nodes+
     '</div></div>';
 }
