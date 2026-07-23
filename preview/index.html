@@ -1951,6 +1951,15 @@ function timeUnitSortKey(key){
   var m = parts[1] ? parseInt(parts[1],10) : 0;
   return y*100+m;
 }
+/* 换算成连续的"年"数值（比如 2020-03 -> 2020.1666），用来把横向时间轴改成真正按比例尺画，
+   而不是按"用到的年份"顺序均匀排列——这样中间空掉的年份，间距也会正确地拉开 */
+function timeUnitNumeric(key){
+  if(key==="未知") return null;
+  var parts = key.split("-");
+  var y = parseInt(parts[0],10);
+  var m = parts[1] ? parseInt(parts[1],10) : 1;
+  return y + (m-1)/12;
+}
 function timeUnitLabel(key){
   if(key==="未知") return "未知";
   var parts = key.split("-");
@@ -2022,59 +2031,52 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var maxLeaves = 0;
   yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
 
-  /* 挤在一起、时间重叠的经历自动分到不同行摆放（贪心区间调度），不然会互相盖住看不见。
-     固定住所单独拎出来放到轴线下方（颜色调淡)，移动住所（以及其它类别）留在轴线上方（颜色正常）；
+  /* 横坐标完全按真实时间比例尺来画（连续数值），不是按"用到的年份"顺序均匀摆——中间跳过的年份，
+     间距也会正确地拉开，柱状图的宽度真实反映时长。日期认不出来的（"未知"）依次排在最右边。 */
+  var unitsPerYear = granularity==="month" ? 12 : 1;
+  var numericByKey = {};
+  yearOrder.forEach(function(yk){ numericByKey[yk] = timeUnitNumeric(yk); });
+  var knownNumerics = yearOrder.map(function(yk){ return numericByKey[yk]; }).filter(function(n){ return n!==null; });
+  var minNumeric = knownNumerics.length ? Math.min.apply(Math, knownNumerics) : 0;
+  var xByKey = {}, maxKnownX = 40;
+  yearOrder.forEach(function(yk){
+    var n = numericByKey[yk];
+    if(n===null) return;
+    var x = 40 + (n - minNumeric) * unitsPerYear * HZ_SPACING;
+    xByKey[yk] = x;
+    maxKnownX = Math.max(maxKnownX, x);
+  });
+  yearOrder.forEach(function(yk){
+    if(xByKey[yk]===undefined){ maxKnownX += HZ_SPACING; xByKey[yk] = maxKnownX; }
+  });
+
+  /* 挤在一起、时间重叠的经历不再另开新行——只保留固定的两行（轴线上方一行、下方一行），
+     同一行里如果还是重叠，就直接挤在一起，不会再冒出第三行。
+     固定住所单独放到轴线下方（颜色调淡)，移动住所（以及其它类别）留在轴线上方（颜色正常）；
      年份点挪到最下面，轴线到年份点之间用一条淡淡的竖线连一下，看得出对应关系。 */
-  var MAX_LANES = 2, ROW_H = 30;
+  var ROW_H = 30;
   var periodMeta = (periodItems||[]).map(function(t){
     var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
-    var i1 = yearIndex[y1], i2 = yearIndex[y2];
-    if(i1===undefined || i2===undefined) return null;
-    if(i1>i2){ var tmp=i1; i1=i2; i2=tmp; }
-    var x1 = i1*HZ_SPACING+40;
-    var width = Math.max(i2*HZ_SPACING+40-x1, 30);
-    return {t:t, x1:x1, x2:x1+width, width:width};
+    if(xByKey[y1]===undefined || xByKey[y2]===undefined) return null;
+    var x1 = Math.min(xByKey[y1], xByKey[y2]), x2raw = Math.max(xByKey[y1], xByKey[y2]);
+    var width = Math.max(x2raw-x1, 30);
+    return {t:t, x1:x1, x2:x1+width, width:width, lane:0};
   }).filter(Boolean);
   var isMobileResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="mobile"; };
   var belowMeta = periodMeta.filter(isMobileResidence);
   var aboveMeta = periodMeta.filter(function(m){ return !isMobileResidence(m); });
-  function packLanes(list){
-    list.sort(function(a,b){ return a.x1-b.x1; });
-    var groups = [], curGroup = null, curGroupEnd = -Infinity;
-    list.forEach(function(m){
-      if(curGroup && m.x1 < curGroupEnd){ curGroup.push(m); curGroupEnd = Math.max(curGroupEnd, m.x2); }
-      else { curGroup=[m]; groups.push(curGroup); curGroupEnd = m.x2; }
-    });
-    var maxLane = 0;
-    groups.forEach(function(group){
-      if(group.length===1){ group[0].lane = "base"; return; }
-      var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
-      var laneEnds = [];
-      sorted.forEach(function(m){
-        var lane = 0;
-        while(lane<MAX_LANES-1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
-        laneEnds[lane] = m.x2 + 6;
-        m.lane = lane;
-        maxLane = Math.max(maxLane, lane);
-      });
-    });
-    list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
-    return maxLane;
-  }
-  var aboveMaxLane = aboveMeta.length ? packLanes(aboveMeta) : 0;
-  var aboveHeight = aboveMeta.length ? (aboveMaxLane+1)*ROW_H : 0;
-  var belowMaxLane = belowMeta.length ? packLanes(belowMeta) : 0;
-  var belowHeight = belowMeta.length ? (belowMaxLane+1)*ROW_H : 0;
+  var aboveHeight = aboveMeta.length ? ROW_H : 0;
+  var belowHeight = belowMeta.length ? ROW_H : 0;
 
   var axisTop = aboveHeight + 6;
   var belowZoneTop = axisTop + (belowMeta.length ? 10 : 0);
   var yearTop = belowZoneTop + belowHeight + (belowMeta.length ? 10 : 0);
 
-  var connectors = yearOrder.map(function(yk, i){
-    return '<div class="hz-year-connector" style="left:'+(i*HZ_SPACING+40)+'px; top:'+axisTop+'px; height:'+Math.max(yearTop-axisTop,0)+'px;"></div>';
+  var connectors = yearOrder.map(function(yk){
+    return '<div class="hz-year-connector" style="left:'+xByKey[yk]+'px; top:'+axisTop+'px; height:'+Math.max(yearTop-axisTop,0)+'px;"></div>';
   }).join('');
 
-  var nodes = yearOrder.map(function(yk, i){
+  var nodes = yearOrder.map(function(yk){
     var group = yearGroups[yk]||[];
     var isOpen = !!expandedYears[yk];
     var branches = "";
@@ -2083,14 +2085,14 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
       branches = '<div class="hz-year-branches">'+leaves+'</div>';
     }
     var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
-    return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+(i*HZ_SPACING+40)+'px; top:'+yearTop+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
+    return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+xByKey[yk]+'px; top:'+yearTop+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
       '<div class="hz-dot hz-year-dot"></div>'+
       '<div class="hz-date hz-year-label">'+esc(timeUnitLabel(yk))+badge+'</div>'+
       branches+
     '</div>';
   }).join('');
 
-  var addLeft = yearOrder.length*HZ_SPACING+40;
+  var addLeft = maxKnownX+HZ_SPACING;
   nodes += '<div class="hz-point add" data-id="__add__" style="left:'+addLeft+'px; top:'+yearTop+'px" title="添加经历">'+
     '<div class="hz-dot hz-dot-add">+</div><div class="hz-date">添加</div></div>';
 
