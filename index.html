@@ -353,7 +353,6 @@ table.data tr:hover{background:var(--surface-2)}
 .tlv-period.tlv-period-fill:hover .tlv-period-label{text-decoration:underline;}
 /* 补充内容的悬浮提示，类似 Excel 单元格注释：只有真的有补充字段的经历才会出现小圆点提示、鼠标移上去才展开 */
 .tl-tip-wrap{position:relative; display:inline-block; cursor:help;}
-.tl-tip-wrap.has-tip::after{content:""; position:absolute; top:-1px; right:-7px; width:5px; height:5px; border-radius:50%; background:var(--accent);}
 /* 提示框用 position:fixed 单独挂在 body 上，用 JS 算坐标显示——
    不这样做的话，嵌在横向时间轴（overflow-y:hidden 的滚动容器）里的提示框会被裁掉，鼠标移上去看不到内容 */
 .tl-tooltip{
@@ -1733,8 +1732,8 @@ function timelineEntryColor(t){
 function keywordWithTip(text, t){
   var fields = t.fields||[];
   var dateLine = t.dateEnd ? (esc(t.date||"—")+" ~ "+esc(t.dateEnd)) : esc(t.date||"—");
-  var tipHtml = '<div class="tl-tip-row"><b>关键词：</b>'+esc(t.keyword||"—")+'</div>'+
-    '<div class="tl-tip-row"><b>时间：</b>'+dateLine+'</div>'+
+  var tipHtml = '<div class="tl-tip-row">'+esc(t.keyword||"—")+'</div>'+
+    '<div class="tl-tip-row">'+dateLine+'</div>'+
     fields.map(function(f){
       return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>';
     }).join('');
