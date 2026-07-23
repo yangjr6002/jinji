@@ -2031,7 +2031,9 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   }).filter(Boolean);
   /* 先按开始时间分组：只要跟前面的经历时间上有重叠（传递性的）就归到同一组，
      这样才能准确判断"到底有没有真的重叠"，不会把完全不挨着的经历也误判成需要分两行。
-     组里只有 1 条 = 没有重叠，永远放第 1 行；组里有多条 = 真重叠，按时长从短到长依次占第 1、2 行。 */
+     组里只有 1 条 = 没有重叠，放"基准行"（挨着时间轴主线那一行，如果全程都没有任何重叠，
+     基准行就是唯一的一行）；组里有多条 = 真重叠——"住所"类别下移动住所优先占上面那行、
+     固定住所留在基准行，其余情况按时长从短到长依次占上面/基准行。 */
   var MAX_LANES = 2;
   periodMeta.sort(function(a,b){ return a.x1-b.x1; });
   var groups = [], curGroup = null, curGroupEnd = -Infinity;
@@ -2047,8 +2049,13 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   });
   var maxLaneUsed = 0;
   groups.forEach(function(group){
-    if(group.length===1){ group[0].lane = 0; return; }
-    var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
+    if(group.length===1){ group[0].lane = "base"; return; }
+    var sorted = group.slice().sort(function(a,b){
+      var aMobile = (a.t.category==="residence" && a.t.residenceType==="mobile") ? 0 : 1;
+      var bMobile = (b.t.category==="residence" && b.t.residenceType==="mobile") ? 0 : 1;
+      if(aMobile!==bMobile) return aMobile-bMobile;
+      return a.width-b.width;
+    });
     var laneEnds = [];
     sorted.forEach(function(m){
       var lane = 0;
@@ -2058,6 +2065,9 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
       maxLaneUsed = Math.max(maxLaneUsed, lane);
     });
   });
+  /* 没有重叠的经历统一归到"基准行"——如果整条时间轴上确实没有任何重叠，基准行就是第 0 行（唯一一行）；
+     只要有别的地方出现了真重叠、需要用到第 2 行，基准行就会是最贴近时间轴主线的那一行 */
+  periodMeta.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLaneUsed; } });
   var periodLaneHeight = periodMeta.length ? (maxLaneUsed+1)*ROW_H : 0;
 
   var nodes = yearOrder.map(function(yk, i){
@@ -2082,7 +2092,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
 
   var brackets = periodMeta.map(function(m){
     var t = m.t;
-    var fillClass = (t.category||"")==="work" ? " tl-period-fill" : "";
+    var fillClass = (t.category==="work"||t.category==="residence") ? " tl-period-fill" : "";
     var top = 4 + m.lane*ROW_H;
     return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
@@ -2112,7 +2122,7 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
       '<span class="tlv-year-label">'+esc(timeUnitLabel(yk))+badge+'</span>'+
     '</div>';
     var periodRows = (periodsByStartYear[yk]||[]).map(function(t){
-      var fillClass = (t.category||"")==="work" ? " tlv-period-fill" : "";
+      var fillClass = (t.category==="work"||t.category==="residence") ? " tlv-period-fill" : "";
       return '<div class="tlv-period'+fillClass+'" onclick="openTimelineEntry(\''+t.id+'\')" style="--period-color:'+timelineEntryColor(t)+'">'+
         '<span class="tlv-period-bracket">⟪ ⟫</span>'+
         '<span class="tlv-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</span>'+
@@ -2362,7 +2372,9 @@ function renderTimelineEditModal(){
     '<div class="tl-fields-list">'+rows+'</div>'+
     '<button type="button" class="btn small ghost" onclick="addDraftField()" style="margin-top:6px">+ 添加字段</button>'+
     '</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveTimelineDraft()">保存</button></div>'+
+    '<div class="modal-actions">'+
+      (d.id ? '<button type="button" class="btn danger" onclick="deleteTimelineEntry(\''+d.id+'\')" style="margin-right:auto">删除</button>' : '')+
+      '<button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveTimelineDraft()">保存</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 }
