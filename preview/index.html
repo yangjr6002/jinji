@@ -1718,7 +1718,8 @@ function tlCategory(key){
 var WORK_TAGS = [
   {key:"parttime", label:"兼职", color:"#B3483C"},
   {key:"fulltime", label:"正职", color:"#3D6FB4"},
-  {key:"intern", label:"实习", color:"#3D8C5C"}
+  {key:"intern", label:"实习", color:"#3D8C5C"},
+  {key:"study", label:"学习", color:"#8C6D3F"}
 ];
 function workTag(key){ return WORK_TAGS.filter(function(w){return w.key===key;})[0] || null; }
 function timelineEntryColor(t){
@@ -1731,10 +1732,12 @@ function timelineEntryColor(t){
 /* 关键词上的悬浮提示：把补充内容（自定义字段）显示出来，类似 Excel 单元格注释；没有补充内容就不加提示 */
 function keywordWithTip(text, t){
   var fields = t.fields||[];
-  if(!fields.length) return esc(text);
-  var tipHtml = fields.map(function(f){
-    return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>';
-  }).join('');
+  var dateLine = t.dateEnd ? (esc(t.date||"—")+" ~ "+esc(t.dateEnd)) : esc(t.date||"—");
+  var tipHtml = '<div class="tl-tip-row"><b>关键词：</b>'+esc(t.keyword||"—")+'</div>'+
+    '<div class="tl-tip-row"><b>时间：</b>'+dateLine+'</div>'+
+    fields.map(function(f){
+      return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>';
+    }).join('');
   return '<span class="tl-tip-wrap has-tip" data-tip="'+esc(tipHtml)+'">'+esc(text)+'</span>';
 }
 /* 悬浮提示统一挂在 body 上用 position:fixed 显示，不受时间轴滚动容器裁剪影响 */
@@ -1941,11 +1944,13 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var width = Math.max(i2*HZ_SPACING+40-x1, 30);
     return {t:t, x1:x1, x2:x1+width, width:width};
   }).filter(Boolean);
-  periodMeta.sort(function(a,b){ return a.x1-b.x1; });
+  var MAX_LANES = 2;
+  /* 短的经历优先占上面那一行，两行放不下的极端情况就只好挤第二行了 */
+  periodMeta.sort(function(a,b){ return a.width-b.width; });
   var laneEnds = [];
   periodMeta.forEach(function(m){
     var lane = 0;
-    while(lane<laneEnds.length && laneEnds[lane] > m.x1) lane++;
+    while(lane<MAX_LANES-1 && lane<laneEnds.length && laneEnds[lane] > m.x1) lane++;
     laneEnds[lane] = m.x2 + 6;
     m.lane = lane;
   });
@@ -2223,7 +2228,7 @@ function renderTimelineEditModal(){
   }
   var jobTypeFieldHtml = "";
   if(d.category==="work"){
-    jobTypeFieldHtml = '<div class="field"><label>工作类型（可选，选中后时间轴上这条经历会用对应颜色）</label><div style="display:flex; gap:6px; flex-wrap:wrap;">'+
+    jobTypeFieldHtml = '<div class="field"><label>状态类型（可选，选中后时间轴上这条经历会用对应颜色）</label><div style="display:flex; gap:6px; flex-wrap:wrap;">'+
       WORK_TAGS.map(function(w){
         return '<span class="tl-filter-chip'+(d.jobType===w.key?" active":"")+'" style="--chip-color:'+w.color+'" onclick="updateDraftJobType(\''+w.key+'\')">'+esc(w.label)+'</span>';
       }).join('')+
