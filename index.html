@@ -1314,6 +1314,31 @@ function famRectEdgePoint(rect, cr, dirX, dirY){
   var scale = Math.min(hw/(Math.abs(dirX)||1e-6), hh/(Math.abs(dirY)||1e-6));
   return {x:cx+dirX*scale, y:cy+dirY*scale};
 }
+/* 重叠时段自动分两行：短的那段优先占用额外的那一行，长的留在基础行；单条不重叠的就固定在基础行。
+   工作/学校板块、以及"全部"矩阵图里的工作/学校两行都靠这个函数决定每条经历该放第几行 */
+function packLanesWithOverflow(list){
+  list.sort(function(a,b){ return a.x1-b.x1; });
+  var groups = [], curGroup = null, curGroupEnd = -Infinity;
+  list.forEach(function(m){
+    if(curGroup && m.x1 < curGroupEnd){ curGroup.push(m); curGroupEnd = Math.max(curGroupEnd, m.x2); }
+    else { curGroup=[m]; groups.push(curGroup); curGroupEnd = m.x2; }
+  });
+  var maxLane = 0;
+  groups.forEach(function(group){
+    if(group.length===1){ group[0].lane = "base"; return; }
+    var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
+    var laneEnds = [];
+    sorted.forEach(function(m){
+      var lane = 0;
+      while(lane<1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
+      laneEnds[lane] = m.x2 + 6;
+      m.lane = lane;
+      maxLane = Math.max(maxLane, lane);
+    });
+  });
+  list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
+  return maxLane;
+}
 function familySpousePairKey(aId, bId){ return [aId, bId].sort().join("|"); }
 /* 生成一条真正的"大括号"曲线路径：x1,y1 到 x2,y2 是括号两端的端点，w 是尖角凸出的深度，q 控制弧度胖瘦 */
 function makeCurlyBracePath(x1,y1,x2,y2,w,q){
@@ -2266,29 +2291,6 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var belowMeta = periodMeta.filter(isFixedResidence);
   var aboveMeta = periodMeta.filter(function(m){ return !isFixedResidence(m); });
   var aboveOther = aboveMeta.filter(function(m){ return !isMobileResidence(m); });
-  function packLanesWithOverflow(list){
-    list.sort(function(a,b){ return a.x1-b.x1; });
-    var groups = [], curGroup = null, curGroupEnd = -Infinity;
-    list.forEach(function(m){
-      if(curGroup && m.x1 < curGroupEnd){ curGroup.push(m); curGroupEnd = Math.max(curGroupEnd, m.x2); }
-      else { curGroup=[m]; groups.push(curGroup); curGroupEnd = m.x2; }
-    });
-    var maxLane = 0;
-    groups.forEach(function(group){
-      if(group.length===1){ group[0].lane = "base"; return; }
-      var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
-      var laneEnds = [];
-      sorted.forEach(function(m){
-        var lane = 0;
-        while(lane<1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
-        laneEnds[lane] = m.x2 + 6;
-        m.lane = lane;
-        maxLane = Math.max(maxLane, lane);
-      });
-    });
-    list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
-    return maxLane;
-  }
   var aboveOtherMaxLane = aboveOther.length ? packLanesWithOverflow(aboveOther) : 0;
   var aboveHeight = aboveMeta.length ? (aboveOtherMaxLane+1)*ROW_H : 0;
   var belowHeight = belowMeta.length ? ROW_H : 0;
@@ -2469,15 +2471,37 @@ function renderTimelineMatrix(items, granularity){
   var PAD_L = 40, ROW_H = 44, PAD_B = 46, BAR_H = 10;
   function toX(n){ return PAD_L + (n-minNumeric)*unitsPerYear*HZ_SPACING; }
 
+  metas.forEach(function(m){
+    var x1 = toX(m.startNum);
+    var x2 = Math.max(toX(m.endNum!==null ? m.endNum : m.startNum), x1+14);
+    m.x1 = x1; m.x2 = x2; m.width = x2-x1; m.lane = 0;
+  });
   var maxX = PAD_L;
-  metas.forEach(function(m){ maxX = Math.max(maxX, toX(m.endNum!==null ? m.endNum : m.startNum)); });
-  var chartW = maxX+40, chartH = cats.length*ROW_H;
+  metas.forEach(function(m){ maxX = Math.max(maxX, m.x2); });
+  var chartW = maxX+40;
 
-  var catY = {}; cats.forEach(function(c,i){ catY[c.key] = i*ROW_H + ROW_H/2; });
+  /* 工作/学校跟各自专属板块一样，同一时间重叠的经历自动分两行（短的那段挤到上面那行）；
+     其它类别（含住所，住所自己另有上下分区逻辑）维持单行 */
+  var DUAL_LANE_CATS = {work:true, school:true};
+  var byCat = {};
+  metas.forEach(function(m){ var ck = m.t.category||"other"; (byCat[ck]=byCat[ck]||[]).push(m); });
+  var catMaxLane = {};
+  Object.keys(byCat).forEach(function(ck){
+    catMaxLane[ck] = DUAL_LANE_CATS[ck] ? packLanesWithOverflow(byCat[ck]) : 0;
+  });
+
+  var catTop = {}, runningTop = 0, rowHeights = {};
+  cats.forEach(function(c){
+    rowHeights[c.key] = ((catMaxLane[c.key]||0)+1) * ROW_H;
+    catTop[c.key] = runningTop;
+    runningTop += rowHeights[c.key];
+  });
+  var chartH = runningTop;
+  var catY = {}; cats.forEach(function(c){ catY[c.key] = catTop[c.key] + ROW_H/2; });
 
   /* 纵轴：类别标签，固定在左边不随横向滚动 */
-  var yAxisLabels = cats.map(function(c,i){
-    return '<div class="tla-ylabel" style="top:'+(i*ROW_H)+'px; height:'+ROW_H+'px; --cat-color:'+c.color+'" onclick="setTimelineFilter(\''+c.key+'\')" title="点击单独看这个类别">'+esc(c.label)+'</div>';
+  var yAxisLabels = cats.map(function(c){
+    return '<div class="tla-ylabel" style="top:'+catTop[c.key]+'px; height:'+rowHeights[c.key]+'px; --cat-color:'+c.color+'" onclick="setTimelineFilter(\''+c.key+'\')" title="点击单独看这个类别">'+esc(c.label)+'</div>';
   }).join('');
 
   /* 横轴：按实际出现过的年份/年月刻度，用连续比例尺定位，带对应年纪（带随年纪变化的小图标），网格线 */
@@ -2498,30 +2522,32 @@ function renderTimelineMatrix(items, granularity){
   var vGrid = xKeys.map(function(yk){
     return '<div class="tla-vgrid" style="left:'+toX(timeUnitNumeric(yk))+'px; height:'+chartH+'px"></div>';
   }).join('');
-  var hGrid = ""; for(var hi=0; hi<=cats.length; hi++){ hGrid += '<div class="tla-hgrid" style="top:'+(hi*ROW_H)+'px; width:'+chartW+'px"></div>'; }
+  var hGrid = cats.map(function(c){ return '<div class="tla-hgrid" style="top:'+catTop[c.key]+'px; width:'+chartW+'px"></div>'; }).join('') +
+    '<div class="tla-hgrid" style="top:'+chartH+'px; width:'+chartW+'px"></div>';
   /* "住所"这一行跟专属板块里一样分轴线上下：固定住所在下面（颜色淡一点），移动住所在上面；
      行中间加一条弱化的轴线，呼应住所板块里的时间轴线，但不抢视觉重点 */
   var resRowAxis = catY["residence"]!==undefined
     ? '<div class="tla-hgrid tla-res-axis" style="top:'+catY["residence"]+'px; width:'+chartW+'px"></div>' : '';
   var RES_OFFSET = 9;
 
-  /* 细长的条状色块：有结束时间的按真实时长算宽度，没有的就是一段最短宽度的细条；同一类别里重叠的直接叠在一起，靠颜色区分 */
+  /* 细长的条状色块：有结束时间的按真实时长算宽度，没有的就是一段最短宽度的细条；工作/学校重叠时靠上面分出来的第二行区分，其它类别靠颜色区分 */
   var dots = metas.map(function(m){
     var t = m.t;
     var ck = t.category||"other";
     if(catY[ck]===undefined) return "";
-    var x1 = toX(m.startNum);
-    var x2 = toX(m.endNum!==null ? m.endNum : m.startNum);
-    var w = Math.max(x2-x1, 14);
     var isResidence = ck==="residence";
     var isMobileRes = isResidence && t.residenceType==="mobile";
-    var y = catY[ck] + (isResidence ? (isMobileRes ? -RES_OFFSET : RES_OFFSET) : 0);
+    var isDual = !!DUAL_LANE_CATS[ck];
+    var y;
+    if(isDual){ y = catTop[ck] + m.lane*ROW_H + ROW_H/2; }
+    else if(isResidence){ y = catY[ck] + (isMobileRes ? -RES_OFFSET : RES_OFFSET); }
+    else { y = catY[ck]; }
     /* 颜色/填充方式跟各自板块保持一致：工作按状态类型（兼职/正职/实习）上色，住所按每条经历单独上色，
        其余类别用类别本色；只有工作和住所是实心填充条，跟专属板块里的展现形式对齐 */
     var color = isResidence ? colorForResidenceEntry(t) : timelineEntryColor(t);
     var fillClass = (ck==="work"||ck==="residence") ? " tl-period-fill" : "";
     var softClass = (isResidence && !isMobileRes) ? " tl-period-soft" : "";
-    return '<div class="tl-period'+fillClass+' tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
+    return '<div class="tl-period'+fillClass+' tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+(y-BAR_H/2)+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
