@@ -310,11 +310,8 @@ table.data tr:hover{background:var(--surface-2)}
 .tla-xlabel{position:absolute; top:0; text-align:center; padding-top:8px;}
 .tla-year{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text);}
 .tla-age{font-size:9px; color:var(--text-dim); margin-top:2px; white-space:nowrap;}
-.tla-bar{
-  position:absolute; border-radius:3px; background:var(--cat-color);
-  box-shadow:0 1px 3px rgba(20,20,15,.25); cursor:pointer; transition:transform .12s; z-index:1;
-}
-.tla-bar:hover{transform:scaleY(1.6); z-index:5;}
+.tla-bar{ z-index:1; transition:transform .12s; }
+.tla-bar:hover{ transform:scaleY(1.6); z-index:5; }
 .tla-dot-label{
   position:absolute; transform:translate(-50%,0); font-size:9px; color:var(--text-dim); white-space:nowrap;
   pointer-events:none; max-width:60px; overflow:hidden; text-overflow:ellipsis;
@@ -458,6 +455,14 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-line{stroke:#B7B4AA; stroke-width:1.5; fill:none;}
 .fam-line-spouse{stroke:#A0527A; stroke-width:1.5; stroke-dasharray:3,3; fill:none;}
 .fam-line-pending{stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4,3; fill:none;}
+.fam-line-brace{stroke:#B7B4AA; stroke-width:1.5; fill:none; stroke-linecap:round; stroke-linejoin:round;}
+.fam-spouse-label-layer{position:absolute; top:0; left:0; z-index:2;}
+.fam-spouse-label{
+  position:absolute; transform:translate(-50%,-50%); font-size:10.5px; color:#A0527A;
+  background:var(--surface); border:1px solid #A0527A; border-radius:8px; padding:1px 7px;
+  min-width:20px; text-align:center; cursor:text; white-space:nowrap; pointer-events:auto;
+}
+.fam-spouse-label:focus{outline:none; background:var(--surface-2);}
 .fam-pending-layer{position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;}
 .fam-pending-btn{
   position:absolute; width:22px; height:22px; border-radius:50%; pointer-events:auto;
@@ -814,6 +819,7 @@ function normalizeData(d){
     }
   }
   delete d.familyTree;
+  d.familySpouseLabels = d.familySpouseLabels || {};
   d.moduleCategories = d.moduleCategories || {};
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
@@ -1178,9 +1184,10 @@ function renderFamilyTree(){
         '<marker id="famArrowPending" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#2F5D50"/></marker>'+
       '</defs>'+
     '</svg>'+
-    '<div class="fam-pending-layer" id="famPendingLayer"></div>'+nodesHtml+
+    '<div class="fam-pending-layer" id="famPendingLayer"></div>'+
+    '<div class="fam-spouse-label-layer" id="famSpouseLabelLayer"></div>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上/下/左/右四个加号分别是加子女/父母/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系，灰色箭头是亲子关系。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上/下/左/右四个加号分别是加子女/父母/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系（中间的字可以点开改），灰色线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
@@ -1306,6 +1313,7 @@ function famRectEdgePoint(rect, cr, dirX, dirY){
   var scale = Math.min(hw/(Math.abs(dirX)||1e-6), hh/(Math.abs(dirY)||1e-6));
   return {x:cx+dirX*scale, y:cy+dirY*scale};
 }
+function familySpousePairKey(aId, bId){ return [aId, bId].sort().join("|"); }
 function drawFamilyLines(){
   var canvas = document.getElementById("famTreeCanvas");
   var svg = document.getElementById("famLinesSvg");
@@ -1320,29 +1328,12 @@ function drawFamilyLines(){
     '<marker id="famArrowPending" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#2F5D50"/></marker>'+
   '</defs>';
   var svgHtml = defs;
-  (DATA.familyMembers||[]).forEach(function(p){
-    if(!p.parentIds || !p.parentIds.length) return;
-    var childEl = document.getElementById("famnode-"+p.id);
-    if(!childEl) return;
-    var chr = childEl.getBoundingClientRect();
-    var childCx = chr.left + chr.width/2 - cr.left, childCy = chr.top + chr.height/2 - cr.top;
-    p.parentIds.forEach(function(pid){
-      var pe = document.getElementById("famnode-"+pid);
-      if(!pe) return;
-      var pr = pe.getBoundingClientRect();
-      var parentCx = pr.left + pr.width/2 - cr.left, parentCy = pr.top + pr.height/2 - cr.top;
-      var dx = parentCx-childCx, dy = parentCy-childCy;
-      var from = famRectEdgePoint(chr, cr, dx, dy);
-      var to = famRectEdgePoint(pr, cr, -dx, -dy);
-      /* 直线，箭头指向父/母那一端，代表"本人 → 父/母"这条关系 */
-      svgHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line" marker-end="url(#famArrow)"/>';
-    });
-  });
-  /* 配偶关系：无方向的虚线，每一对只画一次 */
+  /* 先把每对配偶的连线画出来，同时记下中点位置——大括号要从这个中点往下牵 */
+  var spouseMid = {};
   var drawnPairs = {};
   (DATA.familyMembers||[]).forEach(function(p){
     (p.spouseIds||[]).forEach(function(sid){
-      var pairKey = [p.id, sid].sort().join("|");
+      var pairKey = familySpousePairKey(p.id, sid);
       if(drawnPairs[pairKey]) return;
       drawnPairs[pairKey] = true;
       var aEl = document.getElementById("famnode-"+p.id), bEl = document.getElementById("famnode-"+sid);
@@ -1354,10 +1345,71 @@ function drawFamilyLines(){
       var from = famRectEdgePoint(ar, cr, dx, dy);
       var to = famRectEdgePoint(br, cr, -dx, -dy);
       svgHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line-spouse"/>';
+      spouseMid[pairKey] = {x:(from.x+to.x)/2, y:(from.y+to.y)/2, bottomY:Math.max(ar.bottom,br.bottom)-cr.top};
+    });
+  });
+  /* 亲子关系：如果两个父母正好是夫妻，就用大括号从夫妻中点一起牵出所有孩子（xmind 那种分支感）；
+     否则（单亲，或两个父母没登记为配偶）还是画各自一条直线，跟原来一样 */
+  var coupleGroups = {};
+  (DATA.familyMembers||[]).forEach(function(p){
+    if(!p.parentIds || !p.parentIds.length) return;
+    var childEl = document.getElementById("famnode-"+p.id);
+    if(!childEl) return;
+    var chr = childEl.getBoundingClientRect();
+    var childCx = chr.left + chr.width/2 - cr.left, childCy = chr.top + chr.height/2 - cr.top;
+    var pids = p.parentIds;
+    var coupleKey = pids.length===2 ? familySpousePairKey(pids[0], pids[1]) : null;
+    if(coupleKey && spouseMid[coupleKey]){
+      coupleGroups[coupleKey] = coupleGroups[coupleKey] || {mid:spouseMid[coupleKey], children:[]};
+      var topPoint = famRectEdgePoint(chr, cr, 0, -1);
+      coupleGroups[coupleKey].children.push(topPoint);
+    } else {
+      pids.forEach(function(pid){
+        var pe = document.getElementById("famnode-"+pid);
+        if(!pe) return;
+        var pr = pe.getBoundingClientRect();
+        var parentCx = pr.left + pr.width/2 - cr.left, parentCy = pr.top + pr.height/2 - cr.top;
+        var dx = parentCx-childCx, dy = parentCy-childCy;
+        var from = famRectEdgePoint(chr, cr, dx, dy);
+        var to = famRectEdgePoint(pr, cr, -dx, -dy);
+        /* 直线，箭头指向父/母那一端，代表"本人 → 父/母"这条关系 */
+        svgHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line" marker-end="url(#famArrow)"/>';
+      });
+    }
+  });
+  Object.keys(coupleGroups).forEach(function(key){
+    var g = coupleGroups[key];
+    if(!g.children.length) return;
+    var busY = g.mid.bottomY + 20;
+    var xs = g.children.map(function(c){ return c.x; }).concat([g.mid.x]);
+    var minX = Math.min.apply(Math, xs), maxX = Math.max.apply(Math, xs);
+    svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+g.mid.x+'" y2="'+busY+'" class="fam-line-brace"/>';
+    svgHtml += '<line x1="'+minX+'" y1="'+busY+'" x2="'+maxX+'" y2="'+busY+'" class="fam-line-brace"/>';
+    g.children.forEach(function(c){
+      svgHtml += '<line x1="'+c.x+'" y1="'+busY+'" x2="'+c.x+'" y2="'+c.y+'" class="fam-line-brace"/>';
     });
   });
   svg.innerHTML = svgHtml;
+  renderFamilySpouseLabels(spouseMid);
 }
+/* 配偶连线中间可以点开填一个关系词（比如"夫妻"），存在 DATA.familySpouseLabels 里，key 是两人 id 排序后拼起来 */
+function renderFamilySpouseLabels(spouseMid){
+  var layer = document.getElementById("famSpouseLabelLayer");
+  if(!layer) return;
+  var labels = DATA.familySpouseLabels || {};
+  layer.innerHTML = Object.keys(spouseMid).map(function(key){
+    var m = spouseMid[key];
+    var text = labels[key]!==undefined ? labels[key] : "夫妻";
+    return '<span class="fam-spouse-label" contenteditable="true" style="left:'+m.x+'px; top:'+m.y+'px" '+
+      'onblur="updateFamilySpouseLabel(\''+key+'\', this.textContent)" '+
+      'onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()">'+esc(text)+'</span>';
+  }).join('');
+}
+window.updateFamilySpouseLabel = function(pairKey, text){
+  DATA.familySpouseLabels = DATA.familySpouseLabels || {};
+  DATA.familySpouseLabels[pairKey] = (text||"").trim();
+  save();
+};
 /* 待确认的"箭头"：只是预览用的虚线+箭头，指向按了哪个方向的空白处；点箭头本身（fam-pending-btn）才真正生成节点。
    必须在 drawFamilyLines() 之后调用，因为那个函数会整个替换掉 svg 内容。 */
 function renderPendingArrows(){
@@ -2427,14 +2479,18 @@ function renderTimelineMatrix(items, granularity){
 
   /* 细长的条状色块：有结束时间的按真实时长算宽度，没有的就是一段最短宽度的细条；同一类别里重叠的直接叠在一起，靠颜色区分 */
   var dots = metas.map(function(m){
-    var ck = m.t.category||"other";
+    var t = m.t;
+    var ck = t.category||"other";
     if(catY[ck]===undefined) return "";
     var cat = tlCategory(ck);
     var x1 = toX(m.startNum);
     var x2 = toX(m.endNum!==null ? m.endNum : m.startNum);
     var w = Math.max(x2-x1, 14);
     var y = catY[ck];
-    return '<div class="tla-bar" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --cat-color:'+cat.color+'" onclick="openTimelineEntry(\''+m.t.id+'\')" title="'+esc(m.t.date)+(m.t.dateEnd?(' ~ '+esc(m.t.dateEnd)):'')+' · '+esc(m.t.keyword||"")+'"></div>';
+    return '<div class="tl-period tl-period-fill tla-bar" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+cat.color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
+      '<div class="tl-period-bracket"></div>'+
+      '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
+    '</div>';
   }).join('');
 
   return '<div class="tl-axis-wrap">'+
