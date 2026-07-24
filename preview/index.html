@@ -1314,6 +1314,19 @@ function famRectEdgePoint(rect, cr, dirX, dirY){
   return {x:cx+dirX*scale, y:cy+dirY*scale};
 }
 function familySpousePairKey(aId, bId){ return [aId, bId].sort().join("|"); }
+/* 生成一条真正的"大括号"曲线路径：x1,y1 到 x2,y2 是括号两端的端点，w 是尖角凸出的深度，q 控制弧度胖瘦 */
+function makeCurlyBracePath(x1,y1,x2,y2,w,q){
+  var dx = x1-x2, dy = y1-y2;
+  var len = Math.sqrt(dx*dx+dy*dy) || 1;
+  dx/=len; dy/=len;
+  var qx1 = x1 + q*w*dy, qy1 = y1 - q*w*dx;
+  var qx2 = (x1 - .25*len*dx) + (1-q)*w*dy, qy2 = (y1 - .25*len*dy) - (1-q)*w*dx;
+  var tx1 = (x1 - .5*len*dx) + w*dy, ty1 = (y1 - .5*len*dy) - w*dx;
+  var qx3 = x2 + q*w*dy, qy3 = y2 - q*w*dx;
+  var qx4 = (x1 - .75*len*dx) + (1-q)*w*dy, qy4 = (y1 - .75*len*dy) - (1-q)*w*dx;
+  return "M "+x1+" "+y1+" Q "+qx1+" "+qy1+" "+qx2+" "+qy2+" T "+tx1+" "+ty1+
+    " M "+x2+" "+y2+" Q "+qx3+" "+qy3+" "+qx4+" "+qy4+" T "+tx1+" "+ty1;
+}
 function drawFamilyLines(){
   var canvas = document.getElementById("famTreeCanvas");
   var svg = document.getElementById("famLinesSvg");
@@ -1380,13 +1393,23 @@ function drawFamilyLines(){
   Object.keys(coupleGroups).forEach(function(key){
     var g = coupleGroups[key];
     if(!g.children.length) return;
-    var busY = g.mid.bottomY + 20;
+    var baseY = g.mid.bottomY + 26;
+    if(g.children.length===1){
+      /* 只有一个孩子用不上大括号，直接一条线牵下去就好 */
+      var only = g.children[0];
+      svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+only.x+'" y2="'+only.y+'" class="fam-line-brace"/>';
+      return;
+    }
+    var braceDepth = 12;
     var xs = g.children.map(function(c){ return c.x; }).concat([g.mid.x]);
     var minX = Math.min.apply(Math, xs), maxX = Math.max.apply(Math, xs);
-    svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+g.mid.x+'" y2="'+busY+'" class="fam-line-brace"/>';
-    svgHtml += '<line x1="'+minX+'" y1="'+busY+'" x2="'+maxX+'" y2="'+busY+'" class="fam-line-brace"/>';
+    if(maxX-minX < 40){ minX -= 20; maxX += 20; }
+    var midX = (minX+maxX)/2, tipY = baseY - braceDepth;
+    /* 真正的大括号曲线，尖角朝上顶着父母那条线，两端刚好落在孩子们所在的那条基线上 */
+    svgHtml += '<path d="'+makeCurlyBracePath(maxX, baseY, minX, baseY, braceDepth, 0.5)+'" class="fam-line-brace" fill="none"/>';
+    svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+midX+'" y2="'+tipY+'" class="fam-line-brace"/>';
     g.children.forEach(function(c){
-      svgHtml += '<line x1="'+c.x+'" y1="'+busY+'" x2="'+c.x+'" y2="'+c.y+'" class="fam-line-brace"/>';
+      svgHtml += '<line x1="'+c.x+'" y1="'+baseY+'" x2="'+c.x+'" y2="'+c.y+'" class="fam-line-brace"/>';
     });
   });
   svg.innerHTML = svgHtml;
