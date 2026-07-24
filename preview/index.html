@@ -2612,7 +2612,8 @@ function timeUnitYearSnapshotTip(yStr){
   (DATA.lifeTimeline||[]).forEach(function(t){
     var c = t.category||"";
     if(c==="work"||c==="school") addEntry(t,"work");
-    if(c==="residence") addEntry(t,"resi");
+    /* 固定住所不用挤进这个小结里，只有移动住所才值得单独标注 */
+    if(c==="residence" && t.residenceType==="mobile") addEntry(t,"resi");
   });
   var months = Object.keys(byMonth).map(Number).sort(function(a,b){ return a-b; });
   var lines = [];
