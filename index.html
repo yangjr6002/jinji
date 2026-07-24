@@ -322,6 +322,7 @@ table.data tr:hover{background:var(--surface-2)}
 .cat-merge-select{font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:6px; padding:4px 6px; background:var(--surface); flex:none; max-width:88px;}
 .cat-fixed-hint{font-size:10px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; flex:none; white-space:nowrap;}
 .cat-dot{width:12px; height:12px; border-radius:50%; flex:none;}
+.cat-color-input{width:20px; height:20px; padding:0; border:1px solid var(--border); border-radius:50%; flex:none; cursor:pointer; background:none; overflow:hidden;}
 .cat-name-input{flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
 .cat-name-input:focus{outline:none; border-color:var(--accent);}
 .cat-add-row{display:flex; gap:8px; padding-top:10px; border-top:1px solid var(--border-soft);}
@@ -2010,6 +2011,7 @@ function tlCategory(key){
 function workTag(key){ return (DATA.workTags||[]).filter(function(w){return w.key===key;})[0] || null; }
 function residenceTag(key){ return (DATA.residenceTags||[]).filter(function(w){return w.key===key;})[0] || null; }
 function timelineEntryColor(t){
+  if(t.customColor) return t.customColor;
   if((t.category||"")==="work" && t.jobType){
     var w = workTag(t.jobType);
     if(w) return w.color;
@@ -2024,6 +2026,7 @@ function timelineEntryColor(t){
    改成按每条经历自己的 id 算一个稳定的颜色（同一条经历每次刷新颜色不变），
    这样同一行里哪怕好几段重叠在一起，也能靠颜色分清楚是哪一段 */
 function colorForResidenceEntry(t){
+  if(t.customColor) return t.customColor;
   var s = String(t.id||"");
   var hash = 0;
   for(var i=0;i<s.length;i++){ hash = (hash*31 + s.charCodeAt(i)) >>> 0; }
@@ -2075,7 +2078,7 @@ window.openCategoryManager = function(){
     return '<div class="cat-manage-row" ondragover="tlCatDragOver(event)" ondrop="tlCatDrop(event,\''+c.key+'\')">'+
       '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序（也会改变「全部」坐标图纵轴的顺序）">⠿</span>'+
       '<input type="checkbox" class="mod-visible-check" '+(shownInMatrix?"checked":"")+' onchange="toggleCategoryInMatrix(\''+c.key+'\')" title="是否在「全部」坐标图纵轴里展示">'+
-      '<span class="cat-dot" style="background:'+c.color+'"></span>'+
+      '<input type="color" class="cat-color-input" value="'+esc(c.color)+'" onchange="updateCategoryColor(\''+c.key+'\', this.value)" title="改这个类别的默认颜色">'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
       (DATA.timelineCategories.length>1 ? ('<select class="cat-merge-select" onchange="if(this.value){mergeCategory(\''+c.key+'\', this.value);} this.selectedIndex=0;">'+
         '<option value="">合并到…</option>'+mergeOptions+
@@ -2110,6 +2113,11 @@ window.renameCategory = function(key, value){
   value = (value||"").trim(); if(!value) { render(); openCategoryManager(); return; }
   var c = DATA.timelineCategories.filter(function(x){return x.key===key;})[0];
   if(c){ c.label = value; save(); }
+  render(); openCategoryManager();
+};
+window.updateCategoryColor = function(key, value){
+  var c = DATA.timelineCategories.filter(function(x){return x.key===key;})[0];
+  if(c){ c.color = value; save(); }
   render(); openCategoryManager();
 };
 /* 控制这个类别要不要出现在"全部"坐标图的纵轴里；不影响这个类别本身或它下面的经历 */
@@ -2186,6 +2194,26 @@ function timeUnitLabel(key){
   var parts = key.split("-");
   return parts[1] ? (parts[0]+"年"+parseInt(parts[1],10)+"月") : parts[0];
 }
+/* 同一年份里如果有好几条经历分别发生在不同月份（比如那年搬了两次家），光标个年份区分不出来，
+   就把这一年具体涉及到的月份都标注在刻度上；只在"按年"颗粒度下才需要，"按月"本来就已经够细了 */
+function yearLabelWithMonthDetail(yk, items, granularity){
+  var base = timeUnitLabel(yk);
+  if(granularity==="month" || yk==="未知") return base;
+  var months = {};
+  (items||[]).forEach(function(t){
+    if(timeUnitKey(t.date, "year")===yk){
+      var p = parseFlexibleDate(t.date);
+      if(p && p.precision!=="year") months[p.m] = true;
+    }
+    if(t.dateEnd && timeUnitKey(t.dateEnd, "year")===yk){
+      var p2 = parseFlexibleDate(t.dateEnd);
+      if(p2 && p2.precision!=="year") months[p2.m] = true;
+    }
+  });
+  var list = Object.keys(months).map(Number).sort(function(a,b){ return a-b; });
+  if(list.length<=1) return base;
+  return base+"("+list.map(function(m){ return m+"月"; }).join("/")+")";
+}
 /* 把经历拆成"某个时间点"和"一段时间段"（填了结束时间的），并算出一份包含所有相关时间单位、按真实时间先后排序的轴，
    时间段的起止单位哪怕自己没有其他经历，也会在轴上占个位置，用来拉括弧 */
 function buildTimelineLayout(items, granularity, allowPeriods){
@@ -2251,6 +2279,9 @@ window.toggleYearExpand = function(yKey){
 function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIndex, granularity){
   var maxLeaves = 0;
   yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
+  /* 给年份刻度判断"这一年是不是有好几个月份"用的完整经历列表（点状经历+时间段经历） */
+  var allItemsFlat = (periodItems||[]).slice();
+  Object.keys(yearGroups).forEach(function(yk2){ allItemsFlat = allItemsFlat.concat(yearGroups[yk2]); });
 
   /* 横坐标完全按真实时间比例尺来画（连续数值），不是按"用到的年份"顺序均匀摆——中间跳过的年份，
      间距也会正确地拉开，柱状图的宽度真实反映时长。日期认不出来的（"未知"）依次排在最右边。 */
@@ -2314,7 +2345,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
     return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+xByKey[yk]+'px; top:'+yearTop+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
       '<div class="hz-dot hz-year-dot"></div>'+
-      '<div class="hz-date hz-year-label">'+esc(timeUnitLabel(yk))+badge+'</div>'+
+      '<div class="hz-date hz-year-label">'+esc(yearLabelWithMonthDetail(yk, allItemsFlat, granularity))+badge+'</div>'+
       branches+
     '</div>';
   }).join('');
@@ -2358,12 +2389,14 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
     periodsByStartYear[y1] = periodsByStartYear[y1] || [];
     periodsByStartYear[y1].push(t);
   });
+  var allItemsFlat = (periodItems||[]).slice();
+  Object.keys(yearGroups).forEach(function(yk2){ allItemsFlat = allItemsFlat.concat(yearGroups[yk2]); });
   var rows = yearOrder.map(function(yk){
     var group = yearGroups[yk]||[];
     var isOpen = !!expandedYears[yk];
     var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
     var row = '<div class="tlv-year-row'+(isOpen?" open":"")+'" onclick="toggleYearExpand(\''+yk+'\')" title="点击'+(isOpen?"收起":"展开")+'">'+
-      '<span class="tlv-year-label">'+esc(timeUnitLabel(yk))+badge+'</span>'+
+      '<span class="tlv-year-label">'+esc(yearLabelWithMonthDetail(yk, allItemsFlat, granularity))+badge+'</span>'+
     '</div>';
     var periodRows = (periodsByStartYear[yk]||[]).map(function(t){
       var fillClass = (t.category==="work"||t.category==="residence") ? " tlv-period-fill" : "";
@@ -2490,9 +2523,11 @@ function renderTimelineMatrix(items, granularity){
     catMaxLane[ck] = DUAL_LANE_CATS[ck] ? packLanesWithOverflow(byCat[ck]) : 0;
   });
 
+  /* 两条重叠经历之间的间距不用跟整行的高度一样大——按专属板块里的紧凑程度来，别拉得太开 */
+  var LANE_GAP = 26;
   var catTop = {}, runningTop = 0, rowHeights = {};
   cats.forEach(function(c){
-    rowHeights[c.key] = ((catMaxLane[c.key]||0)+1) * ROW_H;
+    rowHeights[c.key] = ROW_H + (catMaxLane[c.key]||0)*LANE_GAP;
     catTop[c.key] = runningTop;
     runningTop += rowHeights[c.key];
   });
@@ -2516,7 +2551,7 @@ function renderTimelineMatrix(items, granularity){
       if(!isNaN(y) && y>=birthYear){ var age=y-birthYear; ageHtml = '<div class="tla-age">'+ageGrowthIcon(age)+' '+age+'岁</div>'; }
     }
     return '<div class="tla-xlabel" style="left:'+(x-48)+'px; width:96px">'+
-      '<div class="tla-year">'+esc(timeUnitLabel(yk))+'</div>'+ageHtml+
+      '<div class="tla-year">'+esc(yearLabelWithMonthDetail(yk, items, granularity))+'</div>'+ageHtml+
     '</div>';
   }).join('');
   var vGrid = xKeys.map(function(yk){
@@ -2539,7 +2574,7 @@ function renderTimelineMatrix(items, granularity){
     var isMobileRes = isResidence && t.residenceType==="mobile";
     var isDual = !!DUAL_LANE_CATS[ck];
     var y;
-    if(isDual){ y = catTop[ck] + m.lane*ROW_H + ROW_H/2; }
+    if(isDual){ y = catTop[ck] + m.lane*LANE_GAP + ROW_H/2; }
     else if(isResidence){ y = catY[ck] + (isMobileRes ? -RES_OFFSET : RES_OFFSET); }
     else { y = catY[ck]; }
     /* 颜色/填充方式跟各自板块保持一致：工作按状态类型（兼职/正职/实习）上色，住所按每条经历单独上色，
@@ -2703,12 +2738,12 @@ window.editTimelineEntry = function(id){
     var trExtract = extractSpecialField(fieldsCopy, isTimeRangeLabel);
     timelineDraft = {
       id: item.id, date: item.date||"", dateEnd: item.dateEnd||"", keyword: item.keyword||"", category: item.category||"other",
-      jobType: item.jobType||"", residenceType: item.residenceType||"",
+      jobType: item.jobType||"", residenceType: item.residenceType||"", customColor: item.customColor||"",
       timeRange: trExtract.value,
       fields: trExtract.rest
     };
   } else {
-    timelineDraft = {id:null, date:"", dateEnd:"", keyword:"", category:(timelineFilter!=="all"?timelineFilter:"other"), jobType:"", residenceType:"", timeRange:"", fields:[]};
+    timelineDraft = {id:null, date:"", dateEnd:"", keyword:"", category:(timelineFilter!=="all"?timelineFilter:"other"), jobType:"", residenceType:"", customColor:"", timeRange:"", fields:[]};
   }
   renderTimelineEditModal();
 };
@@ -2749,6 +2784,11 @@ function renderTimelineEditModal(){
       }).join('')+
     '</div></div>';
   }
+  var customColorFieldHtml = '<div class="field"><label class="field-label-row">自定义颜色（可选，填了会盖过标签/类别的默认颜色，时间轴上这条经历的方框和字都用这个色）</label>'+
+    '<div style="display:flex; align-items:center; gap:8px;">'+
+    '<input type="color" value="'+esc(d.customColor||"#8A8577")+'" onchange="updateDraftBasic(\'customColor\',this.value)" style="width:36px; height:28px; padding:0; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer;">'+
+    (d.customColor ? '<button type="button" class="btn small ghost" onclick="updateDraftBasic(\'customColor\',\'\'); renderTimelineEditModal();">清除，用回默认颜色</button>' : '<span class="sub">不填就用默认颜色</span>')+
+    '</div></div>';
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
     '<h3>'+(d.id?"编辑经历":"添加经历")+'</h3>'+
     '<div class="field"><label>时间（必填，如 1997-06-10 或 2024-03）</label><input type="text" value="'+esc(d.date)+'" onchange="updateDraftBasic(\'date\',this.value)"></div>'+
@@ -2757,6 +2797,7 @@ function renderTimelineEditModal(){
     travelFieldsHtml+
     jobTypeFieldHtml+
     residenceTypeFieldHtml+
+    customColorFieldHtml+
     '<div class="field"><label>补充内容（可选，自己定义字段名和内容，比如人物/心情……随便加）</label>'+
     '<div class="tl-fields-list">'+rows+'</div>'+
     '<button type="button" class="btn small ghost" onclick="addDraftField()" style="margin-top:6px">+ 添加字段</button>'+
@@ -2783,7 +2824,7 @@ window.openWorkTagManager = function(){
   var root = document.getElementById("modalRoot");
   var rows = (DATA.workTags||[]).map(function(w){
     return '<div class="cat-manage-row">'+
-      '<span class="cat-dot" style="background:'+w.color+'"></span>'+
+      '<input type="color" class="cat-color-input" value="'+esc(w.color)+'" onchange="updateWorkTagColor(\''+w.key+'\', this.value)" title="改这个标签的颜色">'+
       '<input type="text" class="cat-name-input" value="'+esc(w.label)+'" onchange="renameWorkTag(\''+w.key+'\', this.value)">'+
       '<button type="button" class="btn small danger" onclick="deleteWorkTag(\''+w.key+'\')" '+((DATA.workTags||[]).length<=1?"disabled":"")+'>删除</button>'+
     '</div>';
@@ -2803,6 +2844,11 @@ window.renameWorkTag = function(key, value){
   value = (value||"").trim(); if(!value){ openWorkTagManager(); return; }
   var w = (DATA.workTags||[]).filter(function(x){return x.key===key;})[0];
   if(w){ w.label = value; save(); }
+  openWorkTagManager();
+};
+window.updateWorkTagColor = function(key, value){
+  var w = (DATA.workTags||[]).filter(function(x){return x.key===key;})[0];
+  if(w){ w.color = value; save(); render(); }
   openWorkTagManager();
 };
 window.deleteWorkTag = function(key){
@@ -2922,11 +2968,11 @@ window.saveTimelineDraft = async function(){
   if(d.id){
     var item = DATA.lifeTimeline.filter(function(x){return x.id===d.id;})[0];
     if(item){
-      item.date = normDate; item.dateEnd = normDateEnd; item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.jobType = jobType; item.residenceType = residenceType; item.fields = cleanFields;
+      item.date = normDate; item.dateEnd = normDateEnd; item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.jobType = jobType; item.residenceType = residenceType; item.customColor = d.customColor||""; item.fields = cleanFields;
       if(geo===null){ delete item.geo; } else if(geo){ item.geo = geo; }
     }
   } else {
-    var newItem = {id:uid(), date:normDate, dateEnd:normDateEnd, keyword:d.keyword.trim(), category:d.category||"other", jobType:jobType, residenceType:residenceType, fields:cleanFields};
+    var newItem = {id:uid(), date:normDate, dateEnd:normDateEnd, keyword:d.keyword.trim(), category:d.category||"other", jobType:jobType, residenceType:residenceType, customColor:d.customColor||"", fields:cleanFields};
     if(geo && geo!==null){ newItem.geo = geo; }
     DATA.lifeTimeline.push(newItem);
   }
