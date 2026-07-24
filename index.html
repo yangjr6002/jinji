@@ -156,6 +156,19 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   display:flex;align-items:center;justify-content:center; font-size:12px; flex:none; transition:.15s;
 }
 .gear-btn:hover{border-color:var(--text-faint); color:var(--text);}
+.bg-settings-btn{
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--border); background:var(--surface);
+  color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:12px; transition:.15s; flex:none;
+}
+.bg-settings-btn:hover{border-color:var(--accent); color:var(--accent);}
+.bg-image-layer{
+  position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; background-repeat:no-repeat;
+  pointer-events:none; opacity:0;
+}
+.bg-preview-box{width:100%; aspect-ratio:16/9; border-radius:10px; overflow:hidden; background:var(--surface-2); border:1px solid var(--border); background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:12px;}
+.bg-opacity-row{display:flex; align-items:center; gap:10px; margin-top:14px;}
+.bg-opacity-row input[type="range"]{flex:1;}
+.bg-opacity-val{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); width:34px; text-align:right; flex:none;}
 
 /* ---- quick access: list / grid ---- */
 .quick-access-box{position:relative; width:100%; padding-right:30px;}
@@ -274,6 +287,39 @@ table.data tr:hover{background:var(--surface-2)}
 /* timeline (life experience) */
 .tl-filter-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;}
 .tl-filter-row .gear-btn{margin-left:auto;}
+/* 时间经历"全部"坐标图：横轴时间/年纪，纵轴类别，事件是画在交叉点上的圆点，真正的坐标轴而不是表格 */
+.tl-axis-wrap{display:flex; align-items:flex-start; border:1px solid var(--border); border-radius:10px; background:var(--surface); overflow:hidden;}
+.tla-yaxis-col{position:relative; flex:none; width:88px; border-right:1.5px solid var(--text-faint); background:var(--surface-2);}
+.tla-ylabel{
+  position:absolute; left:0; right:0; display:flex; align-items:center; gap:6px;
+  padding:0 10px; font-size:11px; font-weight:700; color:var(--text); cursor:pointer;
+  border-bottom:1px solid var(--border-soft); box-sizing:border-box; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.tla-ylabel::before{content:""; flex:none; width:7px; height:7px; border-radius:50%; background:var(--cat-color);}
+.tla-ylabel:hover{color:var(--cat-color); background:var(--surface);}
+.tla-scroll{overflow-x:auto; flex:1; cursor:grab;}
+.tla-scroll.grabbing{cursor:grabbing;}
+.tla-canvas{position:relative;}
+.tla-hgrid{position:absolute; left:0; height:1px; background:var(--border-soft);}
+.tla-vgrid{position:absolute; top:0; width:1px; background:var(--border-soft);}
+.tla-vline{position:absolute; left:0; top:0; width:1.5px; background:var(--text-faint);}
+.tla-hline{position:absolute; left:0; height:1.5px; background:var(--text-faint);}
+.tla-arrow-up{position:absolute; left:-3.5px; width:0; height:0; border-left:3.5px solid transparent; border-right:3.5px solid transparent; border-bottom:6px solid var(--text-faint); margin-top:-6px;}
+.tla-arrow-right{position:absolute; margin-top:-3.5px; width:0; height:0; border-top:3.5px solid transparent; border-bottom:3.5px solid transparent; border-left:6px solid var(--text-faint);}
+.tla-xrow{position:absolute; left:0;}
+.tla-xlabel{position:absolute; top:0; text-align:center; padding-top:8px;}
+.tla-year{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text);}
+.tla-age{font-size:9px; color:var(--text-dim); margin-top:2px; white-space:nowrap;}
+.tla-dot{
+  position:absolute; width:9px; height:9px; border-radius:50%; background:var(--cat-color);
+  border:1.5px solid var(--surface); box-shadow:0 1px 3px rgba(20,20,15,.25); transform:translate(-50%,-50%);
+  cursor:pointer; transition:transform .12s; z-index:1;
+}
+.tla-dot:hover{transform:translate(-50%,-50%) scale(1.6); z-index:5;}
+.tla-dot-label{
+  position:absolute; transform:translate(-50%,0); font-size:9px; color:var(--text-dim); white-space:nowrap;
+  pointer-events:none; max-width:60px; overflow:hidden; text-overflow:ellipsis;
+}
 .cat-manage-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px; max-height:280px; overflow-y:auto;}
 .cat-manage-row{display:flex; align-items:center; gap:9px;}
 .cat-merge-select{font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:6px; padding:4px 6px; background:var(--surface); flex:none; max-width:88px;}
@@ -558,11 +604,13 @@ table.data tr:hover{background:var(--surface-2)}
 </style>
 </head>
 <body>
+<div id="bgImageLayer" class="bg-image-layer"></div>
 <div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
 <div class="topbar">
   <div class="brand"><span class="mark">P</span>Private Space</div>
   <div style="display:flex; align-items:center; gap:14px;">
     <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+    <button class="bg-settings-btn" onclick="openBgSettings()" title="自定义背景图">🖼️</button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
   </div>
 </div>
@@ -938,7 +986,7 @@ function destinationById(id){
 function render(){
   var app=document.getElementById("app");
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
-  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); }
+  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); }
   else if(VIEW==="itemDetail"){
     app.innerHTML = renderItemDetailPage();
     var __tab = findTab(activeTabKey);
@@ -1479,6 +1527,62 @@ window.previewAvatar = function(){
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+/* ---- 网页背景图：可上传自定义图片，调节透明度，全局生效 ---- */
+function applyBackgroundImage(){
+  var layer = document.getElementById("bgImageLayer");
+  if(!layer) return;
+  var img = DATA.settings && DATA.settings.bgImage;
+  layer.style.backgroundImage = img ? ('url('+img+')') : "none";
+  var op = (DATA.settings && DATA.settings.bgOpacity!==undefined) ? DATA.settings.bgOpacity : 0.15;
+  layer.style.opacity = img ? op : 0;
+}
+window.openBgSettings = function(){
+  var img = DATA.settings && DATA.settings.bgImage;
+  var op = (DATA.settings && DATA.settings.bgOpacity!==undefined) ? DATA.settings.bgOpacity : 0.15;
+  var root = document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>背景图设置</h3>'+
+    '<div class="bg-preview-box" style="'+(img?('background-image:url('+img+')'):'')+'">'+(img?'':'还没有背景图')+'</div>'+
+    '<label class="btn ghost" style="display:block; text-align:center; margin-top:12px; cursor:pointer;">📤 '+(img?'更换图片':'上传图片')+'<input type="file" accept="image/*" style="display:none" onchange="uploadBgImage(this)"></label>'+
+    '<div class="bg-opacity-row">'+
+      '<span class="cat-fixed-hint">透明度</span>'+
+      '<input type="range" min="0" max="100" value="'+Math.round(op*100)+'" oninput="previewBgOpacity(this.value)" onchange="commitBgOpacity(this.value)">'+
+      '<span class="bg-opacity-val" id="bgOpacityVal">'+Math.round(op*100)+'%</span>'+
+    '</div>'+
+    '<div class="sub" style="margin-top:8px">数值越小越淡，越大越接近原图清晰度，建议偏淡一点，不影响阅读内容。</div>'+
+    '<div class="modal-actions">'+(img?'<button type="button" class="btn danger" onclick="removeBgImage()">移除背景图</button>':'')+'<button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.uploadBgImage = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    DATA.settings = DATA.settings || {};
+    DATA.settings.bgImage = e.target.result;
+    if(DATA.settings.bgOpacity===undefined) DATA.settings.bgOpacity = 0.15;
+    try{ save(); }catch(err){ toast("保存失败：本地存储空间不足"); return; }
+    applyBackgroundImage();
+    toast("背景图已更新");
+    if(document.getElementById("mmask")){ openBgSettings(); }
+  };
+  reader.readAsDataURL(file);
+};
+window.removeBgImage = function(){
+  if(DATA.settings){ delete DATA.settings.bgImage; }
+  save(); applyBackgroundImage(); closeModal(); toast("已移除背景图");
+};
+window.previewBgOpacity = function(val){
+  var layer = document.getElementById("bgImageLayer");
+  if(layer && DATA.settings && DATA.settings.bgImage){ layer.style.opacity = val/100; }
+  var label = document.getElementById("bgOpacityVal");
+  if(label){ label.textContent = val+"%"; }
+};
+window.commitBgOpacity = function(val){
+  DATA.settings = DATA.settings || {};
+  DATA.settings.bgOpacity = val/100;
+  save();
 };
 window.uploadAvatar = function(input){
   var file = input.files[0]; if(!file) return;
@@ -2188,13 +2292,18 @@ function renderTimelineSection(){
   var tv = getTimelineView(timelineFilter);
   var orientation = tv.orientation;
   var granularity = tv.granularity;
+  var isAll = timelineFilter==="all";
 
   var head = '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("timeline"))+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\'timeline\')" title="重命名">✎</button></div>'+
-    '<div class="sub">按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。</div></div>'+
+    '<div class="sub">'+(isAll
+      ? '"全部"是一张坐标图：横轴是时间和你的年纪，纵轴是各个类别，一眼看到某个年纪各方面都发生了什么。点某个类别单独看，会变成可以展开的树状轴。'
+      : ('按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。'))+
+    '</div></div>'+
     '<div style="display:flex; gap:6px;">'+
     '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>'+
-    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>'+
+    (isAll ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>')+
+    '<button class="btn solid small" onclick="editTimelineEntry()">+</button>'+
     '</div>'+
   '</div>';
 
@@ -2206,15 +2315,20 @@ function renderTimelineSection(){
     '<button class="gear-btn" onclick="openCategoryManager()" title="管理类别">⚙</button>'+
   '</div>';
 
-  var usePeriods = (timelineFilter==="school" || timelineFilter==="work" || timelineFilter==="residence");
-  var layout = buildTimelineLayout(items, granularity, usePeriods);
-  var axis = orientation==="vertical"
-    ? renderTimelineAxisVertical(layout.yearGroups, layout.yearOrder, layout.periodItems, granularity)
-    : renderTimelineAxisHorizontal(layout.yearGroups, layout.yearOrder, layout.periodItems, layout.yearIndex, granularity);
-
-  var hint = items.length
-    ? ''
-    : '<div class="hz-detail-hint">还没有记录，点击'+(orientation==="vertical"?'下方':'时间轴上')+'的「+」添加第一段经历</div>';
+  var axis, hint;
+  if(isAll){
+    axis = renderTimelineMatrix(items, granularity);
+    hint = items.length ? '' : '<div class="hz-detail-hint">还没有记录，点击右上角「+」添加第一段经历</div>';
+  } else {
+    var usePeriods = (timelineFilter==="school" || timelineFilter==="work" || timelineFilter==="residence");
+    var layout = buildTimelineLayout(items, granularity, usePeriods);
+    axis = orientation==="vertical"
+      ? renderTimelineAxisVertical(layout.yearGroups, layout.yearOrder, layout.periodItems, granularity)
+      : renderTimelineAxisHorizontal(layout.yearGroups, layout.yearOrder, layout.periodItems, layout.yearIndex, granularity);
+    hint = items.length
+      ? ''
+      : '<div class="hz-detail-hint">还没有记录，点击'+(orientation==="vertical"?'下方':'时间轴上')+'的「+」添加第一段经历</div>';
+  }
 
   var mapCta = "";
   if(timelineFilter==="travel"){
@@ -2222,6 +2336,93 @@ function renderTimelineSection(){
   }
 
   return head + filterRow + axis + hint + mapCta;
+}
+/* ---- "全部"视图：横轴是时间(年份+对应年纪)，纵轴是各个类别，格子里是那一年那个类别发生的事 ---- */
+function familyBirthYear(){
+  var f = (DATA.basicInfo||[]).filter(function(x){ return x.label && x.label.indexOf("生日")!==-1; })[0];
+  if(!f || !f.value) return null;
+  var p = parseFlexibleDate(f.value);
+  return p ? p.y : null;
+}
+function ageGrowthIcon(age){
+  if(age<3) return "👶";
+  if(age<12) return "👧";
+  if(age<18) return "🧑‍🎓";
+  if(age<60) return "👩";
+  return "👵";
+}
+function renderTimelineMatrix(items, granularity){
+  var layout = buildTimelineLayout(items, granularity, false); // "全部"里一律只取开始时间，不画时间段括弧
+  var yearOrder = layout.yearOrder;
+  if(!yearOrder.length) return '';
+  var cats = DATA.timelineCategories;
+  var birthYear = familyBirthYear();
+
+  var COL_W = 96, ROW_H = 44, PAD_B = 46;
+  var chartW = yearOrder.length*COL_W;
+  var chartH = cats.length*ROW_H;
+
+  var catY = {}; cats.forEach(function(c,i){ catY[c.key] = i*ROW_H + ROW_H/2; });
+  var yearX = {}; yearOrder.forEach(function(yk,i){ yearX[yk] = i*COL_W + COL_W/2; });
+
+  /* 纵轴：类别标签，固定在左边不随横向滚动 */
+  var yAxisLabels = cats.map(function(c,i){
+    return '<div class="tla-ylabel" style="top:'+(i*ROW_H)+'px; height:'+ROW_H+'px; --cat-color:'+c.color+'" onclick="setTimelineFilter(\''+c.key+'\')" title="点击单独看这个类别">'+esc(c.label)+'</div>';
+  }).join('');
+
+  /* 横轴：年份 + 对应年纪（带随年纪变化的小图标），网格线 */
+  var xAxisLabels = yearOrder.map(function(yk,i){
+    var ageHtml = "";
+    if(birthYear!==null){
+      var y = parseInt(String(yk).split("-")[0],10);
+      if(!isNaN(y) && y>=birthYear){ var age=y-birthYear; ageHtml = '<div class="tla-age">'+ageGrowthIcon(age)+' '+age+'岁</div>'; }
+    }
+    return '<div class="tla-xlabel" style="left:'+(i*COL_W)+'px; width:'+COL_W+'px">'+
+      '<div class="tla-year">'+esc(timeUnitLabel(yk))+'</div>'+ageHtml+
+    '</div>';
+  }).join('');
+  var vGrid = ""; for(var vi=0; vi<=yearOrder.length; vi++){ vGrid += '<div class="tla-vgrid" style="left:'+(vi*COL_W)+'px; height:'+chartH+'px"></div>'; }
+  var hGrid = ""; for(var hi=0; hi<=cats.length; hi++){ hGrid += '<div class="tla-hgrid" style="top:'+(hi*ROW_H)+'px; width:'+chartW+'px"></div>'; }
+
+  /* 事件散点：同一格子里有多条就左右错开 */
+  var byCell = {};
+  items.forEach(function(t){
+    var yk = timeUnitKey(t.date, granularity);
+    var ck = t.category || "other";
+    var key = ck+"|"+yk;
+    byCell[key] = byCell[key] || [];
+    byCell[key].push(t);
+  });
+  var dots = "";
+  Object.keys(byCell).forEach(function(key){
+    var idx = key.indexOf("|");
+    var ck = key.slice(0,idx), yk = key.slice(idx+1);
+    if(catY[ck]===undefined || yearX[yk]===undefined) return;
+    var list = byCell[key];
+    var cat = tlCategory(ck);
+    list.forEach(function(t,i){
+      var dx = (i - (list.length-1)/2) * 15;
+      var x = yearX[yk]+dx, y = catY[ck];
+      dots += '<div class="tla-dot" style="left:'+x+'px; top:'+y+'px; --cat-color:'+cat.color+'" onclick="openTimelineEntry(\''+t.id+'\')" title="'+esc(timeUnitLabel(yk))+' · '+esc(t.keyword||"")+'"></div>'+
+        (list.length<=2 ? '<div class="tla-dot-label" style="left:'+x+'px; top:'+(y+10)+'px">'+esc((t.keyword||"").slice(0,4))+'</div>' : '');
+    });
+  });
+
+  return '<div class="tl-axis-wrap">'+
+    '<div class="tla-yaxis-col" style="height:'+(chartH+PAD_B)+'px">'+yAxisLabels+'</div>'+
+    '<div class="tla-scroll" id="tlMatrixScroll">'+
+      '<div class="tla-canvas" style="width:'+chartW+'px; height:'+(chartH+PAD_B)+'px">'+
+        hGrid+vGrid+
+        '<div class="tla-vline" style="height:'+chartH+'px"></div>'+
+        '<div class="tla-hline" style="top:'+chartH+'px; width:'+chartW+'px"></div>'+
+        '<div class="tla-arrow-up" style="top:'+chartH+'px"></div>'+
+        '<div class="tla-arrow-right" style="top:'+chartH+'px; left:'+chartW+'px"></div>'+
+        dots+
+        '<div class="tla-xrow" style="top:'+chartH+'px;">'+xAxisLabels+'</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>'+
+  (birthYear===null ? '<div class="hz-detail-hint" style="margin-top:10px">在"基本信息"里填一个带"生日"字样的字段，横轴就能自动带出年纪啦</div>' : '');
 }
 /* ================= 通用标签页系统：任意板块的条目都可以点开变成顶部可关闭的标签页 ================= */
 function findTab(key){ return openTabs.filter(function(t){return t.key===key;})[0]; }
@@ -3316,6 +3517,7 @@ async function boot(){
     save();
   }
   render();
+  applyBackgroundImage();
 }
 boot();
 </script>
