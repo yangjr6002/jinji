@@ -324,6 +324,10 @@ table.data tr:hover{background:var(--surface-2)}
 .cat-fixed-hint{font-size:10px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace; flex:none; white-space:nowrap;}
 .cat-dot{width:12px; height:12px; border-radius:50%; flex:none;}
 .cat-color-input{width:20px; height:20px; padding:0; border:1px solid var(--border); border-radius:50%; flex:none; cursor:pointer; background:none; overflow:hidden;}
+.swatch-grid{display:flex; flex-wrap:wrap; gap:4px; max-width:230px;}
+.swatch{width:16px; height:16px; border-radius:4px; cursor:pointer; border:1.5px solid transparent; flex:none; transition:.1s;}
+.swatch:hover{transform:scale(1.2);}
+.swatch.active{border-color:var(--surface); box-shadow:0 0 0 1.5px var(--text);}
 .cat-name-input{flex:1; padding:7px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
 .cat-name-input:focus{outline:none; border-color:var(--accent);}
 .cat-add-row{display:flex; gap:8px; padding-top:10px; border-top:1px solid var(--border-soft);}
@@ -651,6 +655,21 @@ var DEFAULT_TL_CATEGORIES = [
   {key:"other", label:"其他", color:"#8C8C8C"}
 ];
 var CATEGORY_COLOR_PALETTE = ["#2F5D50","#4A5A8C","#8C6D3F","#8C4A4A","#A0527A","#3D7A99","#7A9C3D","#9C3D6E","#5C3D9C","#8C8C8C"];
+/* 48 色色块，代替系统调色盘：12 个色相 x 4 种深浅/饱和度组合，风格跟现有的低饱和配色保持一致 */
+var SWATCH_PALETTE = (function(){
+  var hues = [0,30,60,90,120,150,180,205,230,255,285,320];
+  var variants = [{s:50,l:38},{s:55,l:52},{s:35,l:65},{s:15,l:45}];
+  var out = [];
+  hues.forEach(function(h){ variants.forEach(function(v){ out.push('hsl('+h+','+v.s+'%,'+v.l+'%)'); }); });
+  return out;
+})();
+/* 生成一整块 48 色的色块选择器；callTemplate 里用 {c} 占位实际颜色值，点哪个色块就把 {c} 换成那个颜色执行 */
+function colorSwatchGrid(currentColor, callTemplate){
+  return '<div class="swatch-grid">'+SWATCH_PALETTE.map(function(c){
+    var active = c===currentColor;
+    return '<span class="swatch'+(active?" active":"")+'" style="background:'+c+'" onclick="'+callTemplate.split("{c}").join(c)+'" title="'+c+'"></span>';
+  }).join('')+'</div>';
+}
 var DEFAULT_WORK_TAGS = [
   {key:"parttime", label:"兼职", color:"#B3483C"},
   {key:"fulltime", label:"正职", color:"#3D6FB4"},
@@ -2078,22 +2097,29 @@ document.addEventListener("mouseout", function(e){
 window.setTimelineFilter = function(key){
   timelineFilter = key; render();
 };
+var __catColorOpenKey = null;
+window.toggleCatColorPicker = function(key){
+  __catColorOpenKey = (__catColorOpenKey===key) ? null : key;
+  openCategoryManager();
+};
 window.openCategoryManager = function(){
   var root=document.getElementById("modalRoot");
   var rows = DATA.timelineCategories.map(function(c){
     var mergeOptions = DATA.timelineCategories.filter(function(o){return o.key!==c.key;})
       .map(function(o){ return '<option value="'+esc(o.key)+'">'+esc(o.label)+'</option>'; }).join('');
     var shownInMatrix = c.showInMatrix!==false;
+    var pickerOpen = __catColorOpenKey===c.key;
     return '<div class="cat-manage-row" ondragover="tlCatDragOver(event)" ondrop="tlCatDrop(event,\''+c.key+'\')">'+
       '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序（也会改变「全部」坐标图纵轴的顺序）">⠿</span>'+
       '<input type="checkbox" class="mod-visible-check" '+(shownInMatrix?"checked":"")+' onchange="toggleCategoryInMatrix(\''+c.key+'\')" title="是否在「全部」坐标图纵轴里展示">'+
-      '<input type="color" class="cat-color-input" value="'+esc(c.color)+'" onchange="updateCategoryColor(\''+c.key+'\', this.value)" title="改这个类别的默认颜色">'+
+      '<span class="cat-color-input" style="background:'+c.color+'" onclick="toggleCatColorPicker(\''+c.key+'\')" title="改这个类别的默认颜色"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
       (DATA.timelineCategories.length>1 ? ('<select class="cat-merge-select" onchange="if(this.value){mergeCategory(\''+c.key+'\', this.value);} this.selectedIndex=0;">'+
         '<option value="">合并到…</option>'+mergeOptions+
       '</select>') : '')+
       '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+'>删除</button>'+
-    '</div>';
+    '</div>'+
+    (pickerOpen ? colorSwatchGrid(c.color, "updateCategoryColor('"+c.key+"','{c}')") : '');
   }).join('');
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>时间经历 · 类别管理</h3>'+
@@ -2909,11 +2935,11 @@ function renderTimelineEditModal(){
       }).join('')+
     '</div></div>';
   }
-  var customColorFieldHtml = '<div class="field"><label class="field-label-row">自定义颜色（可选，填了会盖过标签/类别的默认颜色，时间轴上这条经历的方框和字都用这个色）</label>'+
-    '<div style="display:flex; align-items:center; gap:8px;">'+
-    '<input type="color" value="'+esc(d.customColor||"#8A8577")+'" onchange="updateDraftBasic(\'customColor\',this.value)" style="width:36px; height:28px; padding:0; border:1px solid var(--border); border-radius:6px; background:none; cursor:pointer;">'+
-    (d.customColor ? '<button type="button" class="btn small ghost" onclick="updateDraftBasic(\'customColor\',\'\'); renderTimelineEditModal();">清除，用回默认颜色</button>' : '<span class="sub">不填就用默认颜色</span>')+
-    '</div></div>';
+  var customColorFieldHtml = '<div class="field"><label class="field-label-row">自定义颜色（可选，选了会盖过标签/类别的默认颜色，时间轴上这条经历的方框和字都用这个色）'+
+    (d.customColor ? '<button type="button" class="btn small ghost" onclick="updateDraftBasic(\'customColor\',\'\'); renderTimelineEditModal();" style="margin-left:auto">清除，用回默认颜色</button>' : '')+
+    '</label>'+
+    colorSwatchGrid(d.customColor||"", "updateDraftBasic('customColor','{c}'); renderTimelineEditModal();")+
+    '</div>';
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
     '<h3>'+(d.id?"编辑经历":"添加经历")+'</h3>'+
     '<div class="field"><label>时间（必填，如 1997-06-10 或 2024-03）</label><input type="text" value="'+esc(d.date)+'" onchange="updateDraftBasic(\'date\',this.value)"></div>'+
@@ -2945,14 +2971,21 @@ window.updateDraftJobType = function(key){
   renderTimelineEditModal();
 };
 /* 状态标签（兼职/正职/实习/学习……）管理：改名、删除、新增，跟时间经历类别管理是同一套思路 */
+var __workTagColorOpenKey = null;
+window.toggleWorkTagColorPicker = function(key){
+  __workTagColorOpenKey = (__workTagColorOpenKey===key) ? null : key;
+  openWorkTagManager();
+};
 window.openWorkTagManager = function(){
   var root = document.getElementById("modalRoot");
   var rows = (DATA.workTags||[]).map(function(w){
+    var pickerOpen = __workTagColorOpenKey===w.key;
     return '<div class="cat-manage-row">'+
-      '<input type="color" class="cat-color-input" value="'+esc(w.color)+'" onchange="updateWorkTagColor(\''+w.key+'\', this.value)" title="改这个标签的颜色">'+
+      '<span class="cat-color-input" style="background:'+w.color+'" onclick="toggleWorkTagColorPicker(\''+w.key+'\')" title="改这个标签的颜色"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(w.label)+'" onchange="renameWorkTag(\''+w.key+'\', this.value)">'+
       '<button type="button" class="btn small danger" onclick="deleteWorkTag(\''+w.key+'\')" '+((DATA.workTags||[]).length<=1?"disabled":"")+'>删除</button>'+
-    '</div>';
+    '</div>'+
+    (pickerOpen ? colorSwatchGrid(w.color, "updateWorkTagColor('"+w.key+"','{c}')") : '');
   }).join('');
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>状态类型 · 标签管理</h3>'+
