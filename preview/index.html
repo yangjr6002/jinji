@@ -1355,15 +1355,23 @@ function packLanesWithOverflow(list){
   var maxLane = 0;
   groups.forEach(function(group){
     if(group.length===1){ group[0].lane = "base"; return; }
-    var sorted = group.slice().sort(function(a,b){ return a.width-b.width; });
-    var laneEnds = [];
-    sorted.forEach(function(m){
-      var lane = 0;
-      while(lane<1 && laneEnds[lane]!==undefined && laneEnds[lane] > m.x1) lane++;
+    /* 先按开始时间顺序贪心分两条泳道，保证同一条泳道里的经历彼此绝对不重叠——
+       之前按"时长"排序分配，遇到一条长经历同时跟两条互相不重叠的短经历重叠时，
+       会把长的和其中一条短的错误分进同一条泳道，出现两个方框重叠的显示 bug。
+       分完泳道后再看哪条泳道里经历平均时长更短，把那条泳道换算成"额外的那一行"，
+       跟原来"短的挤上面一行"的设计保持一致 */
+    var byStart = group.slice().sort(function(a,b){ return a.x1-b.x1; });
+    var laneEnds = [-Infinity, -Infinity];
+    byStart.forEach(function(m){
+      var lane = laneEnds[0]<=m.x1 ? 0 : (laneEnds[1]<=m.x1 ? 1 : (laneEnds[0]<=laneEnds[1] ? 0 : 1));
       laneEnds[lane] = m.x2 + 6;
       m.lane = lane;
-      maxLane = Math.max(maxLane, lane);
     });
+    var widths = [[],[]];
+    group.forEach(function(m){ widths[m.lane].push(m.width); });
+    var avg = widths.map(function(arr){ return arr.length ? arr.reduce(function(a,b){ return a+b; },0)/arr.length : Infinity; });
+    if(avg[0] > avg[1]){ group.forEach(function(m){ m.lane = m.lane===0 ? 1 : 0; }); }
+    group.forEach(function(m){ maxLane = Math.max(maxLane, m.lane); });
   });
   list.forEach(function(m){ if(m.lane==="base"){ m.lane = maxLane; } });
   return maxLane;
