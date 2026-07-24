@@ -310,12 +310,11 @@ table.data tr:hover{background:var(--surface-2)}
 .tla-xlabel{position:absolute; top:0; text-align:center; padding-top:8px;}
 .tla-year{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text);}
 .tla-age{font-size:9px; color:var(--text-dim); margin-top:2px; white-space:nowrap;}
-.tla-dot{
-  position:absolute; width:9px; height:9px; border-radius:50%; background:var(--cat-color);
-  border:1.5px solid var(--surface); box-shadow:0 1px 3px rgba(20,20,15,.25); transform:translate(-50%,-50%);
-  cursor:pointer; transition:transform .12s; z-index:1;
+.tla-bar{
+  position:absolute; border-radius:3px; background:var(--cat-color); transform:translateX(-50%);
+  box-shadow:0 1px 3px rgba(20,20,15,.25); cursor:pointer; transition:transform .12s; z-index:1;
 }
-.tla-dot:hover{transform:translate(-50%,-50%) scale(1.6); z-index:5;}
+.tla-bar:hover{transform:translateX(-50%) scaleX(1.5); z-index:5;}
 .tla-dot-label{
   position:absolute; transform:translate(-50%,0); font-size:9px; color:var(--text-dim); white-space:nowrap;
   pointer-events:none; max-width:60px; overflow:hidden; text-overflow:ellipsis;
@@ -1210,7 +1209,6 @@ window.confirmFamArrow = function(nodeId, dir){
 };
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
-  if(child && (child.parentIds||[]).length>=2){ toast("最多添加 2 条父母分支"); return; }
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
   var nx = (child&&typeof child.x==="number") ? child.x + (((child.parentIds||[]).length)*40 - 20) : 30;
@@ -1432,14 +1430,13 @@ function renderFamilyMemberModal(){
   var root = document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
     '<h3>'+esc(self?(self.name||self.relation||"这位成员"):"关联父母")+' · 关联父母</h3>'+
-    '<div class="field"><label>父母（最多选 2 位，没有就不选）</label><div class="fam-parent-list">'+parentOptions+'</div></div>'+
+    '<div class="field"><label>父母（可以选多位，没有就不选）</label><div class="fam-parent-list">'+parentOptions+'</div></div>'+
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveFamilyMember()">保存</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 }
 window.toggleFamilyParent = function(id, checked){
   if(checked){
-    if(familyDraft.parentIds.length>=2){ toast("最多选 2 位父母"); renderFamilyMemberModal(); return; }
     familyDraft.parentIds.push(id);
   } else {
     familyDraft.parentIds = familyDraft.parentIds.filter(function(x){return x!==id;});
@@ -1922,6 +1919,15 @@ function timelineEntryColor(t){
   }
   return tlCategory(t.category||"other").color;
 }
+/* 住所的固定/移动已经靠上下两行区分了，行内颜色就不用再统一成标签色——
+   改成按每条经历自己的 id 算一个稳定的颜色（同一条经历每次刷新颜色不变），
+   这样同一行里哪怕好几段重叠在一起，也能靠颜色分清楚是哪一段 */
+function colorForResidenceEntry(t){
+  var s = String(t.id||"");
+  var hash = 0;
+  for(var i=0;i<s.length;i++){ hash = (hash*31 + s.charCodeAt(i)) >>> 0; }
+  return CATEGORY_COLOR_PALETTE[hash % CATEGORY_COLOR_PALETTE.length];
+}
 /* 关键词上的悬浮提示：把补充内容（自定义字段）显示出来，类似 Excel 单元格注释；没有补充内容就不加提示 */
 function keywordWithTip(text, t){
   var fields = t.fields||[];
@@ -1964,8 +1970,10 @@ window.openCategoryManager = function(){
   var rows = DATA.timelineCategories.map(function(c){
     var mergeOptions = DATA.timelineCategories.filter(function(o){return o.key!==c.key;})
       .map(function(o){ return '<option value="'+esc(o.key)+'">'+esc(o.label)+'</option>'; }).join('');
+    var shownInMatrix = c.showInMatrix!==false;
     return '<div class="cat-manage-row" ondragover="tlCatDragOver(event)" ondrop="tlCatDrop(event,\''+c.key+'\')">'+
-      '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序">⠿</span>'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="tlCatDragStart(event,\''+c.key+'\')" ondragend="tlCatDragEnd(event)" title="拖动排序（也会改变「全部」坐标图纵轴的顺序）">⠿</span>'+
+      '<input type="checkbox" class="mod-visible-check" '+(shownInMatrix?"checked":"")+' onchange="toggleCategoryInMatrix(\''+c.key+'\')" title="是否在「全部」坐标图纵轴里展示">'+
       '<span class="cat-dot" style="background:'+c.color+'"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameCategory(\''+c.key+'\', this.value)">'+
       (DATA.timelineCategories.length>1 ? ('<select class="cat-merge-select" onchange="if(this.value){mergeCategory(\''+c.key+'\', this.value);} this.selectedIndex=0;">'+
@@ -1976,6 +1984,7 @@ window.openCategoryManager = function(){
   }).join('');
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>时间经历 · 类别管理</h3>'+
+    '<div class="sub" style="margin-bottom:10px">左边的勾选框决定这个类别要不要出现在"全部"坐标图的纵轴里；拖动⠿排序，纵轴顺序会跟着变。</div>'+
     '<div class="cat-manage-list">'+rows+'</div>'+
     '<div class="cat-add-row">'+
       '<input type="text" id="newCatName" placeholder="新类别名称" maxlength="8">'+
@@ -2001,6 +2010,13 @@ window.renameCategory = function(key, value){
   var c = DATA.timelineCategories.filter(function(x){return x.key===key;})[0];
   if(c){ c.label = value; save(); }
   render(); openCategoryManager();
+};
+/* 控制这个类别要不要出现在"全部"坐标图的纵轴里；不影响这个类别本身或它下面的经历 */
+window.toggleCategoryInMatrix = function(key){
+  var c = DATA.timelineCategories.filter(function(x){return x.key===key;})[0];
+  if(!c) return;
+  c.showInMatrix = (c.showInMatrix===false) ? true : false;
+  save(); render(); openCategoryManager();
 };
 window.deleteCategory = function(key){
   if(DATA.timelineCategories.length<=1) return;
@@ -2233,7 +2249,8 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var fillClass = (t.category==="work"||t.category==="residence") ? " tl-period-fill" : "";
     if(isFixed){ fillClass += " tl-period-soft"; }
     var top = 4 + m.lane*ROW_H;
-    return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    var color = isFixed ? colorForResidenceEntry(t) : timelineEntryColor(t);
+    return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
@@ -2241,7 +2258,8 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
   var belowBrackets = belowMeta.map(function(m){
     var t = m.t;
     var top = belowZoneTop + m.lane*ROW_H;
-    return '<div class="tl-period tl-period-fill" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+timelineEntryColor(t)+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    var color = colorForResidenceEntry(t);
+    return '<div class="tl-period tl-period-fill" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
@@ -2355,7 +2373,7 @@ function renderTimelineMatrix(items, granularity){
   var layout = buildTimelineLayout(items, granularity, false); // "全部"里一律只取开始时间，不画时间段括弧
   var yearOrder = layout.yearOrder;
   if(!yearOrder.length) return '';
-  var cats = DATA.timelineCategories;
+  var cats = DATA.timelineCategories.filter(function(c){ return c.showInMatrix!==false; });
   var birthYear = familyBirthYear();
 
   var COL_W = 96, ROW_H = 44, PAD_B = 46;
@@ -2393,6 +2411,8 @@ function renderTimelineMatrix(items, granularity){
     byCell[key] = byCell[key] || [];
     byCell[key].push(t);
   });
+  /* 用条状（矩形色块）代替圆点，颜色按类别区分，更像柱状图而不是散点图 */
+  var BAR_W = 12, BAR_H = ROW_H-14;
   var dots = "";
   Object.keys(byCell).forEach(function(key){
     var idx = key.indexOf("|");
@@ -2401,10 +2421,10 @@ function renderTimelineMatrix(items, granularity){
     var list = byCell[key];
     var cat = tlCategory(ck);
     list.forEach(function(t,i){
-      var dx = (i - (list.length-1)/2) * 15;
+      var dx = (i - (list.length-1)/2) * (BAR_W+4);
       var x = yearX[yk]+dx, y = catY[ck];
-      dots += '<div class="tla-dot" style="left:'+x+'px; top:'+y+'px; --cat-color:'+cat.color+'" onclick="openTimelineEntry(\''+t.id+'\')" title="'+esc(timeUnitLabel(yk))+' · '+esc(t.keyword||"")+'"></div>'+
-        (list.length<=2 ? '<div class="tla-dot-label" style="left:'+x+'px; top:'+(y+10)+'px">'+esc((t.keyword||"").slice(0,4))+'</div>' : '');
+      dots += '<div class="tla-bar" style="left:'+x+'px; top:'+(y-BAR_H/2)+'px; width:'+BAR_W+'px; height:'+BAR_H+'px; --cat-color:'+cat.color+'" onclick="openTimelineEntry(\''+t.id+'\')" title="'+esc(timeUnitLabel(yk))+' · '+esc(t.keyword||"")+'"></div>'+
+        (list.length<=2 ? '<div class="tla-dot-label" style="left:'+x+'px; top:'+(y+BAR_H/2+4)+'px">'+esc((t.keyword||"").slice(0,4))+'</div>' : '');
     });
   });
 
