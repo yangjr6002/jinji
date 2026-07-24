@@ -2510,16 +2510,18 @@ function renderTimelineMatrix(items, granularity){
     var t = m.t;
     var ck = t.category||"other";
     if(catY[ck]===undefined) return "";
-    var cat = tlCategory(ck);
     var x1 = toX(m.startNum);
     var x2 = toX(m.endNum!==null ? m.endNum : m.startNum);
     var w = Math.max(x2-x1, 14);
     var isResidence = ck==="residence";
     var isMobileRes = isResidence && t.residenceType==="mobile";
     var y = catY[ck] + (isResidence ? (isMobileRes ? -RES_OFFSET : RES_OFFSET) : 0);
-    var color = isResidence ? colorForResidenceEntry(t) : cat.color;
+    /* 颜色/填充方式跟各自板块保持一致：工作按状态类型（兼职/正职/实习）上色，住所按每条经历单独上色，
+       其余类别用类别本色；只有工作和住所是实心填充条，跟专属板块里的展现形式对齐 */
+    var color = isResidence ? colorForResidenceEntry(t) : timelineEntryColor(t);
+    var fillClass = (ck==="work"||ck==="residence") ? " tl-period-fill" : "";
     var softClass = (isResidence && !isMobileRes) ? " tl-period-soft" : "";
-    return '<div class="tl-period tl-period-fill tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
+    return '<div class="tl-period'+fillClass+' tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
