@@ -308,10 +308,10 @@ table.data tr:hover{background:var(--surface-2)}
 .tla-arrow-up{position:absolute; left:-3.5px; width:0; height:0; border-left:3.5px solid transparent; border-right:3.5px solid transparent; border-bottom:6px solid var(--text-faint); margin-top:-6px;}
 .tla-arrow-right{position:absolute; margin-top:-3.5px; width:0; height:0; border-top:3.5px solid transparent; border-bottom:3.5px solid transparent; border-left:6px solid var(--text-faint);}
 .tla-xrow{position:absolute; left:0;}
-.tla-xlabel{position:absolute; top:0; text-align:center; padding-top:8px;}
+.tla-xlabel{position:absolute; top:0; text-align:center; padding-top:26px;}
 .tla-year{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text);}
 .tla-age{font-size:9px; color:var(--text-dim); margin-top:2px; white-space:nowrap;}
-.tla-month-sub{position:absolute; top:30px; transform:translateX(-50%); font-size:8.5px; color:var(--text-dim); white-space:nowrap; text-align:center;}
+.tla-month-sub{position:absolute; top:6px; transform:translateX(-50%); font-size:8.5px; color:var(--text-dim); white-space:nowrap; text-align:center;}
 .tla-bar{ z-index:1; transition:transform .12s; }
 .tla-bar:hover{ transform:scaleY(1.6); z-index:5; }
 .tla-dot-label{
@@ -2591,6 +2591,48 @@ function timeUnitSnapshotTip(yk){
   if(!lines.length) return "";
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
 }
+/* "全部"矩阵图的悬浮窗挂在年份大字上（不是月份小字上）：一行年龄，然后同一年份如果有好几个月份的事，
+   每个月份各自一行，格式"M月 工作/学校关键词(状态标签) 🏠住所关键词"，没有月份区分就只有一行不用重复标月份 */
+function timeUnitYearSnapshotTip(yStr){
+  var y = parseInt(yStr,10);
+  if(isNaN(y)) return "";
+  var birthYear = familyBirthYear();
+  var byMonth = {};
+  function addEntry(t, cat){
+    var p1 = parseFlexibleDate(t.date);
+    if(!p1) return;
+    var p2 = t.dateEnd ? parseFlexibleDate(t.dateEnd) : null;
+    var startNum = p1.y + (p1.m-1)/12;
+    var endNum = p2 ? (p2.y + (p2.m-1)/12) : startNum;
+    if(endNum < y || startNum > y+0.9999) return;
+    var m = (p1.y===y) ? p1.m : 1;
+    byMonth[m] = byMonth[m] || {work:[], resi:[]};
+    byMonth[m][cat].push(t);
+  }
+  (DATA.lifeTimeline||[]).forEach(function(t){
+    var c = t.category||"";
+    if(c==="work"||c==="school") addEntry(t,"work");
+    if(c==="residence") addEntry(t,"resi");
+  });
+  var months = Object.keys(byMonth).map(Number).sort(function(a,b){ return a-b; });
+  var lines = [];
+  if(birthYear!==null && y>=birthYear) lines.push((y-birthYear)+"岁");
+  var showMonth = months.length>1;
+  months.forEach(function(m){
+    var bucket = byMonth[m];
+    var parts = [];
+    if(showMonth) parts.push(m+"月");
+    bucket.work.forEach(function(t){
+      var label = t.keyword||"";
+      if(t.category==="work" && t.jobType){ var w = workTag(t.jobType); if(w) label += "("+w.label+")"; }
+      if(label) parts.push(label);
+    });
+    bucket.resi.forEach(function(t){ if(t.keyword) parts.push("🏠"+t.keyword); });
+    if(parts.length) lines.push(parts.join(" "));
+  });
+  if(!lines.length) return "";
+  return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
+}
 function ageGrowthIcon(age){
   if(age<3) return "👶";
   if(age<12) return "👧";
@@ -2625,7 +2667,7 @@ function renderTimelineMatrix(items, granularity){
   var allNums = [];
   metas.forEach(function(m){ allNums.push(m.startNum); if(m.endNum!==null) allNums.push(m.endNum); });
   var minNumeric = Math.min.apply(Math, allNums);
-  var PAD_L = 40, ROW_H = 44, PAD_B = 52, BAR_H = 10;
+  var PAD_L = 40, ROW_H = 44, PAD_B = 58, BAR_H = 10;
   function toX(n){ return PAD_L + (n-minNumeric)*unitsPerYear*HZ_SPACING; }
 
   metas.forEach(function(m){
@@ -2664,17 +2706,11 @@ function renderTimelineMatrix(items, granularity){
   }).join('');
 
   /* 横轴：按实际出现过的年份/年月刻度，用连续比例尺定位，带对应年纪（带随年纪变化的小图标），网格线。
-     刻度尺样式：同一年份如果因为好几个月份分裂成了好几个小坐标，年份只显示一次大字，
-     下面每个月份坐标显示"M月"小字，鼠标悬浮任意坐标可以看到当年的年龄/住哪/在干什么 */
+     刻度尺样式：年份固定贴在下面一行（不管有没有分裂到月份，位置都一样），月份坐标贴在更靠近轴线的一侧；
+     鼠标悬浮挂在年份大字上，同一年份有好几个月份的事就按月份分行列出来，不挂在月份小字上 */
   var seenKeys = {}, xKeys = [];
   metas.forEach(function(m){ if(!seenKeys[m.startKey]){ seenKeys[m.startKey]=true; xKeys.push(m.startKey); } });
   xKeys.sort(function(a,b){ return timeUnitNumeric(a)-timeUnitNumeric(b); });
-  function xTipSpan(k, innerHtml){
-    var tip = timeUnitSnapshotTip(k);
-    if(!tip) return innerHtml;
-    var tipAttr = esc('<div class="tl-tip-row"><b>'+esc(timeUnitLabel(k))+'</b></div>'+tip);
-    return '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+innerHtml+'</span>';
-  }
   var yearGroupsForRuler = {};
   xKeys.forEach(function(yk){
     var y = yk.split("-")[0];
@@ -2684,24 +2720,23 @@ function renderTimelineMatrix(items, granularity){
     var keys = yearGroupsForRuler[y];
     var isSplit = keys.some(function(k){ return k.indexOf("-")!==-1; });
     var headerX = toX(parseInt(y,10));
-    var ageHtml = "";
     var yNum = parseInt(y,10);
+    var ageHtml = "";
     if(birthYear!==null && !isNaN(yNum) && yNum>=birthYear){
       var age = yNum-birthYear;
       ageHtml = '<div class="tla-age">'+ageGrowthIcon(age)+' '+age+'岁</div>';
     }
-    if(!isSplit){
-      var yk = keys[0];
-      return '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+
-        xTipSpan(yk, '<div class="tla-year">'+esc(timeUnitLabel(yk))+'</div>')+ageHtml+
-      '</div>';
+    var tip = timeUnitYearSnapshotTip(y);
+    var yearLabelHtml = '<div class="tla-year">'+esc(y)+'</div>';
+    if(tip){
+      var tipAttr = esc('<div class="tl-tip-row"><b>'+esc(y)+'年</b></div>'+tip);
+      yearLabelHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+yearLabelHtml+'</span>';
     }
-    var header = '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+
-      '<div class="tla-year">'+esc(y)+'</div>'+ageHtml+
-    '</div>';
+    var header = '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+yearLabelHtml+ageHtml+'</div>';
+    if(!isSplit) return header;
     var subs = keys.filter(function(k){ return k.indexOf("-")!==-1; }).map(function(k){
       var x = toX(timeUnitNumeric(k));
-      return '<div class="tla-month-sub" style="left:'+x+'px">'+xTipSpan(k, esc(monthOnlyLabel(k)))+'</div>';
+      return '<div class="tla-month-sub" style="left:'+x+'px">'+esc(monthOnlyLabel(k))+'</div>';
     }).join('');
     return header+subs;
   }).join('');
