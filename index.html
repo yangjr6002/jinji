@@ -2592,7 +2592,7 @@ function timeUnitSnapshotTip(yk){
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
 }
 /* "全部"矩阵图的悬浮窗挂在年份大字上（不是月份小字上）：一行年龄，然后同一年份如果有好几个月份的事，
-   每个月份各自一行，格式"M月 工作/学校关键词(状态标签) 🏠住所关键词"，没有月份区分就只有一行不用重复标月份 */
+   每个月份各自一行，格式"M月 工作/学校关键词(状态标签) 📍住所关键词"，没有月份区分就只有一行不用重复标月份 */
 function timeUnitYearSnapshotTip(yStr){
   var y = parseInt(yStr,10);
   if(isNaN(y)) return "";
@@ -2628,7 +2628,7 @@ function timeUnitYearSnapshotTip(yStr){
       if(t.category==="work" && t.jobType){ var w = workTag(t.jobType); if(w) label += "("+w.label+")"; }
       if(label) parts.push(label);
     });
-    bucket.resi.forEach(function(t){ if(t.keyword) parts.push("🏠"+t.keyword); });
+    bucket.resi.forEach(function(t){ if(t.keyword) parts.push("📍"+t.keyword); });
     if(parts.length) lines.push(parts.join(" "));
   });
   if(!lines.length) return "";
