@@ -301,6 +301,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tla-scroll.grabbing{cursor:grabbing;}
 .tla-canvas{position:relative;}
 .tla-hgrid{position:absolute; left:0; height:1px; background:var(--border-soft);}
+.tla-res-axis{opacity:.4;}
 .tla-vgrid{position:absolute; top:0; width:1px; background:var(--border-soft);}
 .tla-vline{position:absolute; left:0; top:0; width:1.5px; background:var(--text-faint);}
 .tla-hline{position:absolute; left:0; height:1.5px; background:var(--text-faint);}
@@ -2259,12 +2260,12 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     return {t:t, x1:x1, x2:x1+width, width:width, lane:0};
   }).filter(Boolean);
   var isMobileResidence = function(m){ return m.t.category==="residence" && m.t.residenceType==="mobile"; };
-  /* 轴线上方只要是"住所"类别（不管有没有选固定/移动标签，只要不是移动住所）就一律钉死在同一行，
-     不能让它们跟别的经历一起走"重叠自动分两行"那套逻辑，否则没打标签的住所经历一重叠就会多出一行 */
-  var isAboveResidence = function(m){ return m.t.category==="residence" && !isMobileResidence(m); };
-  var belowMeta = periodMeta.filter(isMobileResidence);
-  var aboveMeta = periodMeta.filter(function(m){ return !isMobileResidence(m); });
-  var aboveOther = aboveMeta.filter(function(m){ return !isAboveResidence(m); });
+  /* 固定住所（含未打标签的住所）钉在轴线下方一行；移动住所钉在轴线上方一行，
+     都不走"重叠自动分两行"那套逻辑，否则一重叠就会多出一行 */
+  var isFixedResidence = function(m){ return m.t.category==="residence" && !isMobileResidence(m); };
+  var belowMeta = periodMeta.filter(isFixedResidence);
+  var aboveMeta = periodMeta.filter(function(m){ return !isFixedResidence(m); });
+  var aboveOther = aboveMeta.filter(function(m){ return !isMobileResidence(m); });
   function packLanesWithOverflow(list){
     list.sort(function(a,b){ return a.x1-b.x1; });
     var groups = [], curGroup = null, curGroupEnd = -Infinity;
@@ -2322,11 +2323,10 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
 
   var aboveBrackets = aboveMeta.map(function(m){
     var t = m.t;
-    var isFixed = t.category==="residence";
+    var isMobile = isMobileResidence(m);
     var fillClass = (t.category==="work"||t.category==="residence") ? " tl-period-fill" : "";
-    if(isFixed){ fillClass += " tl-period-soft"; }
     var top = 4 + m.lane*ROW_H;
-    var color = isFixed ? colorForResidenceEntry(t) : timelineEntryColor(t);
+    var color = isMobile ? colorForResidenceEntry(t) : timelineEntryColor(t);
     return '<div class="tl-period'+fillClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
@@ -2336,7 +2336,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var t = m.t;
     var top = belowZoneTop + m.lane*ROW_H;
     var color = colorForResidenceEntry(t);
-    return '<div class="tl-period tl-period-fill" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
+    return '<div class="tl-period tl-period-fill tl-period-soft" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+top+'px; --period-color:'+color+'" title="'+esc(t.date)+' ~ '+esc(t.dateEnd)+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
@@ -2499,6 +2499,11 @@ function renderTimelineMatrix(items, granularity){
     return '<div class="tla-vgrid" style="left:'+toX(timeUnitNumeric(yk))+'px; height:'+chartH+'px"></div>';
   }).join('');
   var hGrid = ""; for(var hi=0; hi<=cats.length; hi++){ hGrid += '<div class="tla-hgrid" style="top:'+(hi*ROW_H)+'px; width:'+chartW+'px"></div>'; }
+  /* "住所"这一行跟专属板块里一样分轴线上下：固定住所在下面（颜色淡一点），移动住所在上面；
+     行中间加一条弱化的轴线，呼应住所板块里的时间轴线，但不抢视觉重点 */
+  var resRowAxis = catY["residence"]!==undefined
+    ? '<div class="tla-hgrid tla-res-axis" style="top:'+catY["residence"]+'px; width:'+chartW+'px"></div>' : '';
+  var RES_OFFSET = 9;
 
   /* 细长的条状色块：有结束时间的按真实时长算宽度，没有的就是一段最短宽度的细条；同一类别里重叠的直接叠在一起，靠颜色区分 */
   var dots = metas.map(function(m){
@@ -2509,8 +2514,12 @@ function renderTimelineMatrix(items, granularity){
     var x1 = toX(m.startNum);
     var x2 = toX(m.endNum!==null ? m.endNum : m.startNum);
     var w = Math.max(x2-x1, 14);
-    var y = catY[ck];
-    return '<div class="tl-period tl-period-fill tla-bar" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+cat.color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
+    var isResidence = ck==="residence";
+    var isMobileRes = isResidence && t.residenceType==="mobile";
+    var y = catY[ck] + (isResidence ? (isMobileRes ? -RES_OFFSET : RES_OFFSET) : 0);
+    var color = isResidence ? colorForResidenceEntry(t) : cat.color;
+    var softClass = (isResidence && !isMobileRes) ? " tl-period-soft" : "";
+    return '<div class="tl-period tl-period-fill tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+x1+'px; top:'+(y-BAR_H/2)+'px; width:'+w+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
@@ -2520,7 +2529,7 @@ function renderTimelineMatrix(items, granularity){
     '<div class="tla-yaxis-col" style="height:'+(chartH+PAD_B)+'px">'+yAxisLabels+'</div>'+
     '<div class="tla-scroll" id="tlMatrixScroll">'+
       '<div class="tla-canvas" style="width:'+chartW+'px; height:'+(chartH+PAD_B)+'px">'+
-        hGrid+vGrid+
+        hGrid+vGrid+resRowAxis+
         '<div class="tla-vline" style="height:'+chartH+'px"></div>'+
         '<div class="tla-hline" style="top:'+chartH+'px; width:'+chartW+'px"></div>'+
         '<div class="tla-arrow-up" style="top:'+chartH+'px"></div>'+
