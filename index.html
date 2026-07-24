@@ -629,6 +629,8 @@ table.data tr:hover{background:var(--surface-2)}
   <div class="brand"><span class="mark">P</span>Private Space</div>
   <div style="display:flex; align-items:center; gap:14px;">
     <div class="crumb" id="crumb" onclick="go('home')">首页</div>
+    <button class="gear-btn" onclick="undoAction()" title="撤销（Ctrl/Cmd+Z）">↩️</button>
+    <button class="gear-btn" onclick="redoAction()" title="重做（Ctrl/Cmd+Shift+Z）">↪️</button>
     <button class="bg-settings-btn" onclick="openBgSettings()" title="自定义背景图">🖼️</button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
   </div>
@@ -896,14 +898,58 @@ async function loadDataAsync(){
   if(!raw){ return null; }
   try{ return normalizeData(JSON.parse(raw)); }catch(e){ return null; }
 }
-function save(){
-  var payload = JSON.stringify(DATA);
+/* 撤销/重做：每次 save() 都跟上一次保存的快照比一下，不一样就把"上一次"的快照推进撤销栈，
+   当前这份变成新的"上一次"；撤销/重做本身移动这两个栈，但不再往栈里重复推入新记录 */
+var undoStack = [], redoStack = [];
+var __lastSnapshot = null;
+var UNDO_MAX = 50;
+function persistToStorage(payload){
   if(hasArtifactStorage){
     window.storage.set(STORE_KEY, payload, false).catch(function(){ warnStorageOnce(); });
   } else {
     try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(); }
   }
 }
+function save(){
+  var payload = JSON.stringify(DATA);
+  if(__lastSnapshot!==null && payload!==__lastSnapshot){
+    undoStack.push(__lastSnapshot);
+    if(undoStack.length>UNDO_MAX) undoStack.shift();
+    redoStack = [];
+  }
+  __lastSnapshot = payload;
+  persistToStorage(payload);
+}
+window.undoAction = function(){
+  if(!undoStack.length){ toast("没有可撤销的操作了"); return; }
+  var prev = undoStack.pop();
+  redoStack.push(__lastSnapshot);
+  __lastSnapshot = prev;
+  DATA = JSON.parse(prev);
+  persistToStorage(prev);
+  render();
+  toast("已撤销");
+};
+window.redoAction = function(){
+  if(!redoStack.length){ toast("没有可重做的操作了"); return; }
+  var next = redoStack.pop();
+  undoStack.push(__lastSnapshot);
+  __lastSnapshot = next;
+  DATA = JSON.parse(next);
+  persistToStorage(next);
+  render();
+  toast("已重做");
+};
+document.addEventListener("keydown", function(e){
+  var mod = e.metaKey || e.ctrlKey;
+  if(!mod) return;
+  var tag = (e.target && e.target.tagName) || "";
+  var isEditable = tag==="INPUT" || tag==="TEXTAREA" || (e.target && e.target.isContentEditable);
+  if(isEditable) return; // 光标在输入框里的时候，让浏览器自己处理文本撤销，不要抢
+  var key = (e.key||"").toLowerCase();
+  if(key==="z" && !e.shiftKey){ e.preventDefault(); undoAction(); }
+  else if((key==="z" && e.shiftKey) || key==="y"){ e.preventDefault(); redoAction(); }
+});
 function uid(){ return Math.random().toString(36).slice(2,9); }
 /* 通用：把数组里 fromId 这一项挪到 targetId 那一项的位置（fromId/targetId 匹配元素的 id 或 key 字段） */
 function reorderById(arr, fromId, targetId){
@@ -3906,6 +3952,7 @@ async function boot(){
   } else {
     save();
   }
+  __lastSnapshot = JSON.stringify(DATA);
   render();
   applyBackgroundImage();
 }
