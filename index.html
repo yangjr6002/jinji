@@ -2194,25 +2194,39 @@ function timeUnitLabel(key){
   var parts = key.split("-");
   return parts[1] ? (parts[0]+"年"+parseInt(parts[1],10)+"月") : parts[0];
 }
-/* 同一年份里如果有好几条经历分别发生在不同月份（比如那年搬了两次家），光标个年份区分不出来，
-   就把这一年具体涉及到的月份都标注在刻度上；只在"按年"颗粒度下才需要，"按月"本来就已经够细了 */
-function yearLabelWithMonthDetail(yk, items, granularity){
-  var base = timeUnitLabel(yk);
-  if(granularity==="month" || yk==="未知") return base;
-  var months = {};
+/* 同一年份里如果有好几条经历分别发生在不同月份（比如那年搬了两次家），"按年"颗粒度下这些经历原本
+   会全部落在同一个坐标点上；这里找出哪些年份需要精确到月，好让下面 effectiveTimeUnitKey 把这些
+   经历各自摆到自己真实的月份坐标上，而不是挤在一起、只在文字上标注月份 */
+function buildYearMonthKeyMap(items, granularity){
+  var map = {};
+  if(granularity==="month") return map;
+  var monthsByYear = {};
   (items||[]).forEach(function(t){
-    if(timeUnitKey(t.date, "year")===yk){
-      var p = parseFlexibleDate(t.date);
-      if(p && p.precision!=="year") months[p.m] = true;
-    }
-    if(t.dateEnd && timeUnitKey(t.dateEnd, "year")===yk){
-      var p2 = parseFlexibleDate(t.dateEnd);
-      if(p2 && p2.precision!=="year") months[p2.m] = true;
-    }
+    [t.date, t.dateEnd].forEach(function(ds){
+      if(!ds) return;
+      var yk = timeUnitKey(ds, "year");
+      if(yk==="未知") return;
+      var p = parseFlexibleDate(ds);
+      if(!p) return;
+      monthsByYear[yk] = monthsByYear[yk] || {};
+      monthsByYear[yk][p.m] = true;
+    });
   });
-  var list = Object.keys(months).map(Number).sort(function(a,b){ return a-b; });
-  if(list.length<=1) return base;
-  return base+"("+list.map(function(m){ return m+"月"; }).join("/")+")";
+  Object.keys(monthsByYear).forEach(function(yk){
+    if(Object.keys(monthsByYear[yk]).length>1) map[yk] = true;
+  });
+  return map;
+}
+/* 结合上面的判断结果算出某个日期实际该用的坐标 key：需要精确到月的年份就用"年-月"，
+   其它年份还是维持原来紧凑的纯年份坐标，不用所有年份都精确到月 */
+function effectiveTimeUnitKey(dateStr, granularity, yearMonthMap){
+  var raw = timeUnitKey(dateStr, granularity);
+  if(granularity==="month" || raw==="未知") return raw;
+  if(yearMonthMap && yearMonthMap[raw]){
+    var p = parseFlexibleDate(dateStr);
+    if(p) return String(p.y)+"-"+pad2(p.m);
+  }
+  return raw;
 }
 /* 把经历拆成"某个时间点"和"一段时间段"（填了结束时间的），并算出一份包含所有相关时间单位、按真实时间先后排序的轴，
    时间段的起止单位哪怕自己没有其他经历，也会在轴上占个位置，用来拉括弧 */
@@ -2223,15 +2237,17 @@ function buildTimelineLayout(items, granularity, allowPeriods){
     var pEnd = (allowPeriods && t.dateEnd) ? parseFlexibleDate(t.dateEnd) : null;
     if(pEnd){ periodItems.push(t); } else { pointItems.push(t); }
   });
+  /* 同一年份换过好几个地方的，坐标要精确到月份，不能全挤在同一个点上 */
+  var yearMonthMap = buildYearMonthKeyMap(items, granularity);
   var yearGroups = {}, yearSet = {};
   pointItems.forEach(function(t){
-    var yKey = timeUnitKey(t.date, granularity);
+    var yKey = effectiveTimeUnitKey(t.date, granularity, yearMonthMap);
     yearGroups[yKey] = yearGroups[yKey] || [];
     yearGroups[yKey].push(t);
     yearSet[yKey] = true;
   });
   periodItems.forEach(function(t){
-    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
+    var y1 = effectiveTimeUnitKey(t.date, granularity, yearMonthMap), y2 = effectiveTimeUnitKey(t.dateEnd, granularity, yearMonthMap);
     yearSet[y1]=true; yearSet[y2]=true;
     yearGroups[y1] = yearGroups[y1] || [];
     yearGroups[y2] = yearGroups[y2] || [];
@@ -2279,9 +2295,11 @@ window.toggleYearExpand = function(yKey){
 function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIndex, granularity){
   var maxLeaves = 0;
   yearOrder.forEach(function(yk){ if(expandedYears[yk]) maxLeaves = Math.max(maxLeaves, (yearGroups[yk]||[]).length); });
-  /* 给年份刻度判断"这一年是不是有好几个月份"用的完整经历列表（点状经历+时间段经历） */
+  /* 重建跟 buildTimelineLayout 里一致的"哪些年份要精确到月"判断，因为这里的 periodMeta 要重新算一遍
+     每条时间段经历的起止坐标 key，必须跟 yearGroups/yearOrder 用的是同一套 key，坐标才能对得上 */
   var allItemsFlat = (periodItems||[]).slice();
   Object.keys(yearGroups).forEach(function(yk2){ allItemsFlat = allItemsFlat.concat(yearGroups[yk2]); });
+  var yearMonthMap = buildYearMonthKeyMap(allItemsFlat, granularity);
 
   /* 横坐标完全按真实时间比例尺来画（连续数值），不是按"用到的年份"顺序均匀摆——中间跳过的年份，
      间距也会正确地拉开，柱状图的宽度真实反映时长。日期认不出来的（"未知"）依次排在最右边。 */
@@ -2309,7 +2327,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
      年份点在最下面，轴线到年份点之间用一条淡淡的竖线连一下，看得出对应关系。 */
   var ROW_H = 30;
   var periodMeta = (periodItems||[]).map(function(t){
-    var y1 = timeUnitKey(t.date, granularity), y2 = timeUnitKey(t.dateEnd, granularity);
+    var y1 = effectiveTimeUnitKey(t.date, granularity, yearMonthMap), y2 = effectiveTimeUnitKey(t.dateEnd, granularity, yearMonthMap);
     if(xByKey[y1]===undefined || xByKey[y2]===undefined) return null;
     var x1 = Math.min(xByKey[y1], xByKey[y2]), x2raw = Math.max(xByKey[y1], xByKey[y2]);
     var width = Math.max(x2raw-x1, 30);
@@ -2345,7 +2363,7 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
     return '<div class="hz-point'+(isOpen?" open":"")+'" data-year="'+esc(yk)+'" style="left:'+xByKey[yk]+'px; top:'+yearTop+'px" title="点击'+(isOpen?"收起":"展开")+'">'+
       '<div class="hz-dot hz-year-dot"></div>'+
-      '<div class="hz-date hz-year-label">'+esc(yearLabelWithMonthDetail(yk, allItemsFlat, granularity))+badge+'</div>'+
+      '<div class="hz-date hz-year-label">'+esc(timeUnitLabel(yk))+badge+'</div>'+
       branches+
     '</div>';
   }).join('');
@@ -2383,20 +2401,21 @@ function renderTimelineAxisHorizontal(yearGroups, yearOrder, periodItems, yearIn
     '</div></div>';
 }
 function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granularity){
+  var allItemsFlat = (periodItems||[]).slice();
+  Object.keys(yearGroups).forEach(function(yk2){ allItemsFlat = allItemsFlat.concat(yearGroups[yk2]); });
+  var yearMonthMap = buildYearMonthKeyMap(allItemsFlat, granularity);
   var periodsByStartYear = {};
   (periodItems||[]).forEach(function(t){
-    var y1 = timeUnitKey(t.date, granularity);
+    var y1 = effectiveTimeUnitKey(t.date, granularity, yearMonthMap);
     periodsByStartYear[y1] = periodsByStartYear[y1] || [];
     periodsByStartYear[y1].push(t);
   });
-  var allItemsFlat = (periodItems||[]).slice();
-  Object.keys(yearGroups).forEach(function(yk2){ allItemsFlat = allItemsFlat.concat(yearGroups[yk2]); });
   var rows = yearOrder.map(function(yk){
     var group = yearGroups[yk]||[];
     var isOpen = !!expandedYears[yk];
     var badge = group.length ? ('<span class="hz-year-count">'+group.length+'</span>') : '';
     var row = '<div class="tlv-year-row'+(isOpen?" open":"")+'" onclick="toggleYearExpand(\''+yk+'\')" title="点击'+(isOpen?"收起":"展开")+'">'+
-      '<span class="tlv-year-label">'+esc(yearLabelWithMonthDetail(yk, allItemsFlat, granularity))+badge+'</span>'+
+      '<span class="tlv-year-label">'+esc(timeUnitLabel(yk))+badge+'</span>'+
     '</div>';
     var periodRows = (periodsByStartYear[yk]||[]).map(function(t){
       var fillClass = (t.category==="work"||t.category==="residence") ? " tlv-period-fill" : "";
@@ -2487,12 +2506,19 @@ function renderTimelineMatrix(items, granularity){
   var unitsPerYear = granularity==="month" ? 12 : 1;
 
   /* 横轴改成跟横向时间轴一样的连续时间比例尺——柱子严格按开始/结束时间定位和算宽度，
-     不再是"一个格子一个点"，而是细长的条状，跟"工作"/"住所"那边的展示方式保持一致 */
+     不再是"一个格子一个点"，而是细长的条状，跟"工作"/"住所"那边的展示方式保持一致。
+     同一年份换过好几个地方的，坐标要精确到月份区分开——这里按类别分别判断，因为不同类别本来就在不同行，
+     不会互相重叠，只有同一类别、同一年份里有好几个月才需要把坐标精确到月 */
+  var itemsByCat = {};
+  items.forEach(function(t){ var ck=t.category||"other"; (itemsByCat[ck]=itemsByCat[ck]||[]).push(t); });
+  var yearMonthMapByCat = {};
+  Object.keys(itemsByCat).forEach(function(ck){ yearMonthMapByCat[ck] = buildYearMonthKeyMap(itemsByCat[ck], granularity); });
   var metas = items.map(function(t){
-    var startKey = timeUnitKey(t.date, granularity);
+    var map = yearMonthMapByCat[t.category||"other"];
+    var startKey = effectiveTimeUnitKey(t.date, granularity, map);
     var startNum = timeUnitNumeric(startKey);
     if(startNum===null) return null;
-    var endKey = t.dateEnd ? timeUnitKey(t.dateEnd, granularity) : null;
+    var endKey = t.dateEnd ? effectiveTimeUnitKey(t.dateEnd, granularity, map) : null;
     var endNum = endKey ? timeUnitNumeric(endKey) : null;
     return {t:t, startKey:startKey, startNum:startNum, endNum:endNum};
   }).filter(Boolean);
@@ -2551,7 +2577,7 @@ function renderTimelineMatrix(items, granularity){
       if(!isNaN(y) && y>=birthYear){ var age=y-birthYear; ageHtml = '<div class="tla-age">'+ageGrowthIcon(age)+' '+age+'岁</div>'; }
     }
     return '<div class="tla-xlabel" style="left:'+(x-48)+'px; width:96px">'+
-      '<div class="tla-year">'+esc(yearLabelWithMonthDetail(yk, items, granularity))+'</div>'+ageHtml+
+      '<div class="tla-year">'+esc(timeUnitLabel(yk))+'</div>'+ageHtml+
     '</div>';
   }).join('');
   var vGrid = xKeys.map(function(yk){
