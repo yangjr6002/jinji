@@ -1436,6 +1436,12 @@ function makeCurlyBracePath(x1,y1,x2,y2,w,q){
   return "M "+x1+" "+y1+" Q "+qx1+" "+qy1+" "+qx2+" "+qy2+" T "+tx1+" "+ty1+
     " M "+x2+" "+y2+" Q "+qx3+" "+qy3+" "+qx4+" "+qy4+" T "+tx1+" "+ty1;
 }
+/* 平滑的贝塞尔曲线连线，跟思维导图那种圆润的连接线一样，不用直来直去的直线；
+   控制点取两端 x 的中点、y 各自沿用自己的端点，不管两个点是竖着叠还是横着排都能拐出一条自然的 S 形 */
+function famCurvePath(x1,y1,x2,y2){
+  var mx = (x1+x2)/2;
+  return "M"+x1+","+y1+" C"+mx+","+y1+" "+mx+","+y2+" "+x2+","+y2;
+}
 function drawFamilyLines(){
   var canvas = document.getElementById("famTreeCanvas");
   var svg = document.getElementById("famLinesSvg");
@@ -1494,8 +1500,8 @@ function drawFamilyLines(){
         var dx = parentCx-childCx, dy = parentCy-childCy;
         var from = famRectEdgePoint(chr, cr, dx, dy);
         var to = famRectEdgePoint(pr, cr, -dx, -dy);
-        /* 直线，箭头指向父/母那一端，代表"本人 → 父/母"这条关系 */
-        svgHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line" marker-end="url(#famArrow)"/>';
+        /* 平滑曲线，箭头指向父/母那一端，代表"本人 → 父/母"这条关系 */
+        svgHtml += '<path d="'+famCurvePath(from.x,from.y,to.x,to.y)+'" class="fam-line" marker-end="url(#famArrow)"/>';
       });
     }
   });
@@ -1506,7 +1512,7 @@ function drawFamilyLines(){
     if(g.children.length===1){
       /* 只有一个孩子用不上大括号，直接一条线牵下去就好 */
       var only = g.children[0];
-      svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+only.x+'" y2="'+only.y+'" class="fam-line-brace"/>';
+      svgHtml += '<path d="'+famCurvePath(g.mid.x,g.mid.y,only.x,only.y)+'" class="fam-line-brace"/>';
       return;
     }
     var braceDepth = 12;
@@ -1516,9 +1522,9 @@ function drawFamilyLines(){
     var midX = (minX+maxX)/2, tipY = baseY - braceDepth;
     /* 真正的大括号曲线，尖角朝上顶着父母那条线，两端刚好落在孩子们所在的那条基线上 */
     svgHtml += '<path d="'+makeCurlyBracePath(maxX, baseY, minX, baseY, braceDepth, 0.5)+'" class="fam-line-brace" fill="none"/>';
-    svgHtml += '<line x1="'+g.mid.x+'" y1="'+g.mid.y+'" x2="'+midX+'" y2="'+tipY+'" class="fam-line-brace"/>';
+    svgHtml += '<path d="'+famCurvePath(g.mid.x,g.mid.y,midX,tipY)+'" class="fam-line-brace"/>';
     g.children.forEach(function(c){
-      svgHtml += '<line x1="'+c.x+'" y1="'+baseY+'" x2="'+c.x+'" y2="'+c.y+'" class="fam-line-brace"/>';
+      svgHtml += '<path d="'+famCurvePath(c.x,baseY,c.x,c.y)+'" class="fam-line-brace"/>';
     });
   });
   svg.innerHTML = svgHtml;
