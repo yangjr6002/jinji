@@ -2600,34 +2600,20 @@ function timeUnitSnapshotTip(yk){
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
 }
 /* "全部"矩阵图的悬浮窗挂在年份大字上（不是月份小字上）：一行年龄，然后只列这一年真正"新发生"的变化
-   （经历的开始时间就落在这一年，不是从更早年份延续过来的），每条经历单独一行，格式统一成：
-   "M月：进入xxx学习/兼职/实习/正职"（工作/学校）或"M月：搬进xxx"（住所，只算移动住所）。
+   （经历的开始时间就落在这一年，不是从更早年份延续过来的）。同一个月份如果学校工作和住所都有变化，
+   合并成一行，用顿号/逗号隔开，比如"3月：进入xx学习，搬进xxx"，不用分成两行重复标月份；
    只要经历本身精确到了月份就一定要显示出来，不能因为这一年只有一件事就把月份省掉；
-   真的只填了年份、没填月份的经历才不显示月份前缀。 */
+   真的只填了年份、没填月份的经历才不显示月份前缀，单独占一行。 */
 function timeUnitYearSnapshotTip(yStr){
   var y = parseInt(yStr,10);
   if(isNaN(y)) return "";
   var birthYear = familyBirthYear();
-  var entries = [];
+  var byMonth = {}, monthOrder = [], noMonthTexts = [];
   function addEntry(t, cat){
     var p1 = parseFlexibleDate(t.date);
-    if(!p1 || p1.y!==y) return; // 只算这一年新开始的变化，不算从更早年份延续过来的
-    entries.push({m: p1.precision==="year" ? null : p1.m, cat:cat, t:t});
-  }
-  (DATA.lifeTimeline||[]).forEach(function(t){
-    var c = t.category||"";
-    if(c==="work"||c==="school") addEntry(t,"work");
-    /* 固定住所不用挤进这个小结里，只有移动住所才值得单独标注 */
-    if(c==="residence" && t.residenceType==="mobile") addEntry(t,"resi");
-  });
-  entries.sort(function(a,b){ return (a.m||0)-(b.m||0); });
-  var lines = [];
-  if(birthYear!==null && y>=birthYear) lines.push((y-birthYear)+"岁");
-  entries.forEach(function(e){
-    var t = e.t;
-    if(!t.keyword) return;
+    if(!p1 || p1.y!==y || !t.keyword) return; // 只算这一年新开始、有关键词的变化
     var text;
-    if(e.cat==="work"){
+    if(cat==="work"){
       var suffix = "工作";
       if(t.category==="school"){ suffix = "学习"; }
       else if(t.jobType){ var w = workTag(t.jobType); if(w) suffix = w.label; }
@@ -2635,8 +2621,21 @@ function timeUnitYearSnapshotTip(yStr){
     } else {
       text = "搬进"+t.keyword;
     }
-    lines.push(e.m ? (e.m+"月："+text) : text);
+    if(p1.precision==="year"){ noMonthTexts.push(text); return; }
+    if(!byMonth[p1.m]){ byMonth[p1.m] = []; monthOrder.push(p1.m); }
+    byMonth[p1.m].push(text);
+  }
+  (DATA.lifeTimeline||[]).forEach(function(t){
+    var c = t.category||"";
+    if(c==="work"||c==="school") addEntry(t,"work");
+    /* 固定住所不用挤进这个小结里，只有移动住所才值得单独标注 */
+    if(c==="residence" && t.residenceType==="mobile") addEntry(t,"resi");
   });
+  monthOrder.sort(function(a,b){ return a-b; });
+  var lines = [];
+  if(birthYear!==null && y>=birthYear) lines.push((y-birthYear)+"岁");
+  monthOrder.forEach(function(m){ lines.push(m+"月："+byMonth[m].join("，")); });
+  noMonthTexts.forEach(function(text){ lines.push(text); });
   if(!lines.length) return "";
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
 }
