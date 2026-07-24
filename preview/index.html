@@ -1442,6 +1442,20 @@ function famCurvePath(x1,y1,x2,y2){
   var mx = (x1+x2)/2;
   return "M"+x1+","+y1+" C"+mx+","+y1+" "+mx+","+y2+" "+x2+","+y2;
 }
+/* 算两个人节点连线的中点（沿两个中心点方向贴着方框边），大括号要从这个中点往下牵；
+   跟配偶虚线是两回事——哪怕这两个人没有正式登记为配偶，只要他们是同一个孩子的两个父母，
+   也用这个共用的中点画一条大括号，不然孩子会从两个父母那各拉一条线出来，线一多就乱 */
+function famPairMidpoint(idA, idB, cr){
+  var aEl = document.getElementById("famnode-"+idA), bEl = document.getElementById("famnode-"+idB);
+  if(!aEl || !bEl) return null;
+  var ar = aEl.getBoundingClientRect(), br = bEl.getBoundingClientRect();
+  var acx = ar.left + ar.width/2 - cr.left, acy = ar.top + ar.height/2 - cr.top;
+  var bcx = br.left + br.width/2 - cr.left, bcy = br.top + br.height/2 - cr.top;
+  var dx = bcx-acx, dy = bcy-acy;
+  var from = famRectEdgePoint(ar, cr, dx, dy);
+  var to = famRectEdgePoint(br, cr, -dx, -dy);
+  return {x:(from.x+to.x)/2, y:(from.y+to.y)/2, bottomY:Math.max(ar.bottom,br.bottom)-cr.top};
+}
 function drawFamilyLines(){
   var canvas = document.getElementById("famTreeCanvas");
   var svg = document.getElementById("famLinesSvg");
@@ -1476,8 +1490,9 @@ function drawFamilyLines(){
       spouseMid[pairKey] = {x:(from.x+to.x)/2, y:(from.y+to.y)/2, bottomY:Math.max(ar.bottom,br.bottom)-cr.top};
     });
   });
-  /* 亲子关系：如果两个父母正好是夫妻，就用大括号从夫妻中点一起牵出所有孩子（xmind 那种分支感）；
-     否则（单亲，或两个父母没登记为配偶）还是画各自一条直线，跟原来一样 */
+  /* 亲子关系：只要一个孩子正好有两个父母（不管这两人有没有正式登记为配偶），就用大括号从这两人
+     中间共用的一个点一起牵出所有孩子（xmind 那种分支感），孩子不会从两个父母那各拉一条线出来；
+     只有单亲（父母数量不是 2）才画一条直线，跟原来一样 */
   var coupleGroups = {};
   (DATA.familyMembers||[]).forEach(function(p){
     if(!p.parentIds || !p.parentIds.length) return;
@@ -1487,8 +1502,9 @@ function drawFamilyLines(){
     var childCx = chr.left + chr.width/2 - cr.left, childCy = chr.top + chr.height/2 - cr.top;
     var pids = p.parentIds;
     var coupleKey = pids.length===2 ? familySpousePairKey(pids[0], pids[1]) : null;
-    if(coupleKey && spouseMid[coupleKey]){
-      coupleGroups[coupleKey] = coupleGroups[coupleKey] || {mid:spouseMid[coupleKey], children:[]};
+    var pairMid = coupleKey ? famPairMidpoint(pids[0], pids[1], cr) : null;
+    if(pairMid){
+      coupleGroups[coupleKey] = coupleGroups[coupleKey] || {mid:pairMid, children:[]};
       var topPoint = famRectEdgePoint(chr, cr, 0, -1);
       coupleGroups[coupleKey].children.push(topPoint);
     } else {
