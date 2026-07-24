@@ -312,7 +312,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tla-year{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--text);}
 .tla-age{font-size:9px; color:var(--text-dim); margin-top:2px; white-space:nowrap;}
 .tla-month-sub{position:absolute; top:6px; transform:translateX(-50%); font-size:8.5px; color:var(--text-dim); white-space:nowrap; text-align:center;}
-.tla-bar{ z-index:1; transition:transform .12s; }
+.tla-bar{ z-index:1; transition:transform .12s; cursor:default; }
 .tla-bar:hover{ transform:scaleY(1.6); z-index:5; }
 .tla-dot-label{
   position:absolute; transform:translate(-50%,0); font-size:9px; color:var(--text-dim); white-space:nowrap;
@@ -2520,7 +2520,7 @@ function renderTimelineSection(){
     '<div style="display:flex; gap:6px;">'+
     '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>'+
     (isAll ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>')+
-    '<button class="btn solid small" onclick="editTimelineEntry()">+</button>'+
+    (isAll ? '' : '<button class="btn solid small" onclick="editTimelineEntry()">+</button>')+
     '</div>'+
   '</div>';
 
@@ -2591,8 +2591,10 @@ function timeUnitSnapshotTip(yk){
   if(!lines.length) return "";
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
 }
-/* "全部"矩阵图的悬浮窗挂在年份大字上（不是月份小字上）：一行年龄，然后同一年份如果有好几个月份的事，
-   每个月份各自一行，格式"M月 工作/学校关键词(状态标签) 📍住所关键词"，没有月份区分就只有一行不用重复标月份 */
+/* "全部"矩阵图的悬浮窗挂在年份大字上（不是月份小字上）：一行年龄，然后只列这一年真正"新发生"的变化
+   （经历的开始时间就落在这一年，不是从更早年份延续过来的），格式统一成一句话：
+   工作/学校 -> "进入xxx学习/兼职/实习/正职"；住所（只算移动住所）-> "搬进xxx"。
+   同一年份有好几个月份的变化就各自一行，只有一个月份就不用重复标月份 */
 function timeUnitYearSnapshotTip(yStr){
   var y = parseInt(yStr,10);
   if(isNaN(y)) return "";
@@ -2600,14 +2602,9 @@ function timeUnitYearSnapshotTip(yStr){
   var byMonth = {};
   function addEntry(t, cat){
     var p1 = parseFlexibleDate(t.date);
-    if(!p1) return;
-    var p2 = t.dateEnd ? parseFlexibleDate(t.dateEnd) : null;
-    var startNum = p1.y + (p1.m-1)/12;
-    var endNum = p2 ? (p2.y + (p2.m-1)/12) : startNum;
-    if(endNum < y || startNum > y+0.9999) return;
-    var m = (p1.y===y) ? p1.m : 1;
-    byMonth[m] = byMonth[m] || {work:[], resi:[]};
-    byMonth[m][cat].push(t);
+    if(!p1 || p1.y!==y) return; // 只算这一年新开始的变化，不算从更早年份延续过来的
+    byMonth[p1.m] = byMonth[p1.m] || {work:[], resi:[]};
+    byMonth[p1.m][cat].push(t);
   }
   (DATA.lifeTimeline||[]).forEach(function(t){
     var c = t.category||"";
@@ -2624,12 +2621,14 @@ function timeUnitYearSnapshotTip(yStr){
     var parts = [];
     if(showMonth) parts.push(m+"月");
     bucket.work.forEach(function(t){
-      var label = t.keyword||"";
-      if(t.category==="work" && t.jobType){ var w = workTag(t.jobType); if(w) label += "("+w.label+")"; }
-      if(label) parts.push(label);
+      if(!t.keyword) return;
+      var suffix = "工作";
+      if(t.category==="school"){ suffix = "学习"; }
+      else if(t.jobType){ var w = workTag(t.jobType); if(w) suffix = w.label; }
+      parts.push("进入"+t.keyword+suffix);
     });
-    bucket.resi.forEach(function(t){ if(t.keyword) parts.push("📍"+t.keyword); });
-    if(parts.length) lines.push(parts.join(" "));
+    bucket.resi.forEach(function(t){ if(t.keyword) parts.push("搬进"+t.keyword); });
+    if(parts.length) lines.push(parts.join("；"));
   });
   if(!lines.length) return "";
   return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
@@ -2769,7 +2768,7 @@ function renderTimelineMatrix(items, granularity){
     var color = isResidence ? colorForResidenceEntry(t) : timelineEntryColor(t);
     var fillClass = (ck==="work"||ck==="residence") ? " tl-period-fill" : "";
     var softClass = (isResidence && !isMobileRes) ? " tl-period-soft" : "";
-    return '<div class="tl-period'+fillClass+' tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+(y-BAR_H/2)+'px; height:'+BAR_H+'px; --period-color:'+color+'" onclick="openTimelineEntry(\''+t.id+'\')">'+
+    return '<div class="tl-period'+fillClass+' tla-bar'+softClass+'" data-id="'+t.id+'" style="left:'+m.x1+'px; width:'+m.width+'px; top:'+(y-BAR_H/2)+'px; height:'+BAR_H+'px; --period-color:'+color+'">'+
       '<div class="tl-period-bracket"></div>'+
       '<div class="tl-period-label">'+keywordWithTip(t.keyword||"时间段", t)+'</div>'+
     '</div>';
