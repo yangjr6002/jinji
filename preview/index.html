@@ -1186,75 +1186,145 @@ function renderBasicInfoPage(){
     table + familySection
   );
 }
-/* ---- 家庭关系树状图：真正的父母子女连线，自动按辈分分行，用SVG画连接线（经典家谱图那种） ---- */
-/* 自动排版：跟思维导图一样，辈分（有没有父母、父母是第几代）决定横向第几列，
-   同一列内兄弟姐妹/配偶按访问顺序纵向排开，每次渲染都重新算一遍——
-   不再是"手动拖到哪算哪"，新增节点、新增关系之后自动排整齐，不会越加越乱 */
-var FAM_GEN_W = 190, FAM_ROW_H = 64, FAM_SPOUSE_GAP = 148, FAM_PAD = 24;
+/* ---- 家庭关系树状图：真正的父母子女连线，用SVG画连接线（经典家谱图那种） ---- */
+/* 自动排版：跟思维导图一样，从"自己"（第一个添加的成员）为中心向外发散——
+   父母那条线走左半边，子女那条线走右半边，配偶紧贴右边，其它旁支（兄弟姐妹等）走上方，
+   同一大类里如果有好几条独立分支（比如爸爸这边和妈妈这边），各自分配一个角度，像思维导图一样
+   朝不同方向展开，不是全部挤在同一条水平线上。每次渲染都重新算一遍，新增节点自动排好，不会越加越乱 */
+var FAM_RADIUS = 190, FAM_NODE_GAP = 76, FAM_SPOUSE_GAP = 148;
 function computeFamilyAutoLayout(members){
+  if(!members.length) return {};
   var byId = {}; members.forEach(function(p){ byId[p.id]=p; });
-  var gen = {};
-  function getGen(id, visiting){
-    if(gen[id]!==undefined) return gen[id];
+  var centerId = members[0].id;
+  /* 建一张不分方向的关系图（父母/子女/配偶都算一条边），从中心做广度优先搜索，
+     记录每个人离中心几步、以及是通过中心的"哪一个直接邻居"连过去的——那个直接邻居就是这个人所在的"分支" */
+  var adj = {};
+  function addEdge(a,b){ (adj[a]=adj[a]||[]).push(b); (adj[b]=adj[b]||[]).push(a); }
+  members.forEach(function(p){
+    (p.parentIds||[]).forEach(function(pid){ if(byId[pid]) addEdge(p.id,pid); });
+    (p.spouseIds||[]).forEach(function(sid){ if(byId[sid]) addEdge(p.id,sid); });
+  });
+  var dist = {}, branchOf = {}, visited = {};
+  visited[centerId]=true; dist[centerId]=0; branchOf[centerId]=null;
+  var queue = [centerId];
+  while(queue.length){
+    var cur = queue.shift();
+    (adj[cur]||[]).forEach(function(nid){
+      if(visited[nid]) return;
+      visited[nid] = true;
+      dist[nid] = dist[cur]+1;
+      branchOf[nid] = (cur===centerId) ? nid : branchOf[cur];
+      queue.push(nid);
+    });
+  }
+  /* 没连上中心的（孤立的小家庭）各自单独算一遍，自己就是自己的"分支" */
+  members.forEach(function(p){
+    if(visited[p.id]) return;
+    visited[p.id] = true; dist[p.id] = 1; branchOf[p.id] = p.id;
+    var q2 = [p.id];
+    while(q2.length){
+      var c2 = q2.shift();
+      (adj[c2]||[]).forEach(function(nid){
+        if(visited[nid]) return;
+        visited[nid] = true; dist[nid] = dist[c2]+1; branchOf[nid] = branchOf[c2];
+        q2.push(nid);
+      });
+    }
+  });
+  /* 离中心几步（上面的 dist）只用来决定"分支内怎么排角度顺序"，真正决定离中心多远（半径）的
+     必须是辈分差，不能直接用 dist——比如兄弟姐妹是从"爸爸"那条边绕过去的，dist 会跟祖父母一样远，
+     但辈分其实跟"自己"一样，不该被摆到跟祖父母一样远的地方，那样看着会像"兄弟姐妹是长辈" */
+  var absGen = {};
+  function getAbsGen(id, visiting){
+    if(absGen[id]!==undefined) return absGen[id];
     visiting = visiting || {};
-    if(visiting[id]){ return 0; }
+    if(visiting[id]) return 0;
     visiting[id] = true;
     var p = byId[id];
     var parents = (p.parentIds||[]).filter(function(pid){ return byId[pid]; });
-    if(!parents.length){ gen[id]=0; return 0; }
+    if(!parents.length){ absGen[id]=0; return 0; }
     var g = 0;
-    parents.forEach(function(pid){ g = Math.max(g, getGen(pid, visiting)+1); });
-    gen[id] = g;
+    parents.forEach(function(pid){ g = Math.max(g, getAbsGen(pid, visiting)+1); });
+    absGen[id] = g;
     return g;
   }
-  members.forEach(function(p){ getGen(p.id); });
-  /* 配偶辈分对齐（取两人里较大的那个），跑几轮让配偶链也能稳定下来 */
+  members.forEach(function(p){ getAbsGen(p.id); });
   for(var iter=0; iter<3; iter++){
     members.forEach(function(p){
       (p.spouseIds||[]).forEach(function(sid){
         if(byId[sid]){
-          var g = Math.max(gen[p.id], gen[sid]);
-          gen[p.id]=g; gen[sid]=g;
+          var g = Math.max(absGen[p.id], absGen[sid]);
+          absGen[p.id]=g; absGen[sid]=g;
         }
       });
     });
   }
-  var childrenOf = {};
-  members.forEach(function(p){
-    (p.parentIds||[]).forEach(function(pid){ (childrenOf[pid]=childrenOf[pid]||[]).push(p.id); });
-  });
-  var order = {}, xOffset = {}, nextSlot = 0, visited = {};
-  function visit(id, extraX){
-    if(visited[id]) return;
-    visited[id] = true;
-    order[id] = nextSlot++;
-    xOffset[id] = extraX||0;
-    var spouses = byId[id].spouseIds||[];
-    var lastX = extraX||0;
-    spouses.forEach(function(sid){
-      if(byId[sid] && !visited[sid]){
-        visited[sid] = true;
-        order[sid] = nextSlot++;
-        lastX += FAM_SPOUSE_GAP;
-        xOffset[sid] = lastX;
-      }
-    });
-    var kids = {};
-    [id].concat(spouses).forEach(function(pid){
-      (childrenOf[pid]||[]).forEach(function(cid){ kids[cid]=true; });
-    });
-    Object.keys(kids).forEach(function(cid){ visit(cid); });
+  var relGen = {};
+  members.forEach(function(p){ relGen[p.id] = absGen[p.id]-absGen[centerId]; });
+  /* 分支相对中心是"父母/子女/配偶/其它"哪一类，决定它优先分到哪个角度扇区 */
+  var center = byId[centerId];
+  function branchType(rootId){
+    if((center.parentIds||[]).indexOf(rootId)!==-1) return "parent";
+    if((byId[rootId].parentIds||[]).indexOf(centerId)!==-1) return "child";
+    if((center.spouseIds||[]).indexOf(rootId)!==-1) return "spouse";
+    return "other";
   }
-  members.filter(function(p){ return gen[p.id]===0; }).forEach(function(p){ visit(p.id); });
-  members.forEach(function(p){ visit(p.id); }); // 兜底：孤立节点或没走到的也给个位置
-  var pos = {};
-  members.forEach(function(p){
-    pos[p.id] = {
-      x: FAM_PAD + gen[p.id]*FAM_GEN_W + (xOffset[p.id]||0),
-      y: FAM_PAD + order[p.id]*FAM_ROW_H
-    };
+  var branches = {};
+  Object.keys(branchOf).forEach(function(id){
+    var b = branchOf[id];
+    if(b===null) return;
+    branches[b] = branches[b] || {ids:[], type: branchType(b)};
+    branches[b].ids.push(id);
   });
-  return pos;
+  var groups = {parent:[], child:[], spouse:[], other:[]};
+  Object.keys(branches).forEach(function(k){ groups[branches[k].type].push(k); });
+  var angleOf = {};
+  function spread(keys, startDeg, endDeg){
+    if(!keys.length) return;
+    var step = (endDeg-startDeg)/keys.length;
+    keys.forEach(function(k,i){ angleOf[k] = (startDeg + step*(i+0.5)) * Math.PI/180; });
+  }
+  spread(groups.parent, 145, 215);   // 父母那条线：左边扇区，好几支（爸爸/妈妈）会自动分开角度
+  spread(groups.child, -40, 40);     // 子女：右边扇区
+  spread(groups.spouse, -8, 8);      // 配偶：紧贴正右方
+  spread(groups.other, 75, 105);     // 兄弟姐妹等旁支：上方
+
+  /* 半径按辈分差算，跟中心同一辈（配偶、兄弟姐妹）统一用一个较小的固定半径，
+     不会因为绕的路远（dist）就被摆得跟祖父母一样远 */
+  function radiusFor(id){
+    var rg = relGen[id];
+    return rg===0 ? FAM_RADIUS*0.55 : Math.abs(rg)*FAM_RADIUS;
+  }
+  var pos = {}; pos[centerId] = {x:0, y:0};
+  Object.keys(branches).forEach(function(bk){
+    var angle = angleOf[bk];
+    var ids = branches[bk].ids.slice().sort(function(a,b){ return dist[a]-dist[b]; });
+    var perpAngle = angle + Math.PI/2;
+    var seenAtDepth = {}, countAtDepth = {};
+    ids.forEach(function(id){ countAtDepth[relGen[id]] = (countAtDepth[relGen[id]]||0)+1; });
+    ids.forEach(function(id){
+      var rg = relGen[id];
+      var idx = seenAtDepth[rg] = (seenAtDepth[rg]||0);
+      seenAtDepth[rg] = idx+1;
+      var gapUnit = branches[bk].type==="spouse" ? FAM_SPOUSE_GAP : FAM_NODE_GAP;
+      var perpOffset = (idx - (countAtDepth[rg]-1)/2) * gapUnit;
+      var r = radiusFor(id);
+      pos[id] = {
+        x: Math.cos(angle)*r + Math.cos(perpAngle)*perpOffset,
+        y: Math.sin(angle)*r + Math.sin(perpAngle)*perpOffset
+      };
+    });
+  });
+  /* 挪成画布坐标（不能有负数），留一点边距 */
+  var minX=0, minY=0;
+  Object.keys(pos).forEach(function(id){ minX=Math.min(minX,pos[id].x); minY=Math.min(minY,pos[id].y); });
+  var PAD = 90;
+  var final = {};
+  members.forEach(function(p){
+    var v = pos[p.id] || {x:0,y:0};
+    final[p.id] = {x: Math.round(v.x-minX+PAD), y: Math.round(v.y-minY+PAD)};
+  });
+  return final;
 }
 /* 整个画布的缩放：双指捏合/触控板 Ctrl+滚轮/上面的按钮都能调，只是视觉缩放（transform:scale），
    不影响节点实际坐标，缩放值不用存到数据里，每次打开这个板块从 100% 开始就好 */
