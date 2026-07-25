@@ -479,13 +479,11 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-spouse-label:focus{outline:none; background:var(--surface-2);}
 .fam-node{
   position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:8px 16px; box-shadow:var(--shadow); cursor:grab; text-align:center;
-  min-width:64px; min-height:38px; max-width:360px; max-height:220px;
-  resize:both; overflow:hidden;
-  transition:border-color .12s, box-shadow .12s;
-  z-index:1; touch-action:none; user-select:none;
+  padding:8px 16px; box-shadow:var(--shadow); text-align:center;
+  min-width:64px; min-height:38px; max-width:220px;
+  transition:left .18s ease, top .18s ease, border-color .12s, box-shadow .12s;
+  z-index:1; user-select:none;
 }
-.fam-node:active{cursor:grabbing;}
 .fam-node:hover{border-color:var(--accent); box-shadow:var(--shadow-lg);}
 .fam-node-relation, .fam-node-name{
   display:block; width:100%; box-sizing:border-box; text-align:center; cursor:text;
@@ -1065,7 +1063,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
-  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); setupFamilyNodeResize(); }
+  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -1184,56 +1182,84 @@ function renderBasicInfoPage(){
   );
 }
 /* ---- 家庭关系树状图：真正的父母子女连线，自动按辈分分行，用SVG画连接线（经典家谱图那种） ---- */
-function computeFamilyGenerations(members){
+/* 自动排版：跟思维导图一样，辈分（有没有父母、父母是第几代）决定横向第几列，
+   同一列内兄弟姐妹/配偶按访问顺序纵向排开，每次渲染都重新算一遍——
+   不再是"手动拖到哪算哪"，新增节点、新增关系之后自动排整齐，不会越加越乱 */
+var FAM_GEN_W = 190, FAM_ROW_H = 64, FAM_SPOUSE_GAP = 148, FAM_PAD = 24;
+function computeFamilyAutoLayout(members){
   var byId = {}; members.forEach(function(p){ byId[p.id]=p; });
-  var depthCache = {};
-  function depth(id, visiting){
-    if(depthCache[id]!==undefined) return depthCache[id];
+  var gen = {};
+  function getGen(id, visiting){
+    if(gen[id]!==undefined) return gen[id];
     visiting = visiting || {};
     if(visiting[id]){ return 0; }
     visiting[id] = true;
     var p = byId[id];
-    if(!p || !p.parentIds || !p.parentIds.length){ depthCache[id]=0; return 0; }
-    var maxD = -1;
-    p.parentIds.forEach(function(pid){ if(byId[pid]){ maxD = Math.max(maxD, depth(pid, visiting)); } });
-    var d = maxD+1;
-    depthCache[id] = d;
-    return d;
+    var parents = (p.parentIds||[]).filter(function(pid){ return byId[pid]; });
+    if(!parents.length){ gen[id]=0; return 0; }
+    var g = 0;
+    parents.forEach(function(pid){ g = Math.max(g, getGen(pid, visiting)+1); });
+    gen[id] = g;
+    return g;
   }
-  var rows = {};
-  members.forEach(function(p){ var d = depth(p.id); rows[d] = rows[d] || []; rows[d].push(p); });
-  var maxDepth = 0;
-  Object.keys(rows).forEach(function(k){ maxDepth = Math.max(maxDepth, parseInt(k,10)); });
-  var rowsArr = [];
-  for(var i=0;i<=maxDepth;i++){ rowsArr.push(rows[i]||[]); }
-  return rowsArr;
-}
-/* 只给还没有位置的成员算一个初始位置（自己在上，祖辈在下），算完就存到数据里，
-   之后就完全自由拖动，不再受行/列限制 */
-function ensureFamilyPositions(){
-  var members = DATA.familyMembers || [];
-  var needsLayout = members.filter(function(p){ return typeof p.x!=="number" || typeof p.y!=="number"; });
-  if(!needsLayout.length) return false;
-  var genRows = computeFamilyGenerations(members).slice().reverse();
-  genRows.forEach(function(row, ri){
-    row.forEach(function(p, ci){
-      if(typeof p.x!=="number" || typeof p.y!=="number"){
-        p.x = ci*128 + 30;
-        p.y = ri*110 + 24;
+  members.forEach(function(p){ getGen(p.id); });
+  /* 配偶辈分对齐（取两人里较大的那个），跑几轮让配偶链也能稳定下来 */
+  for(var iter=0; iter<3; iter++){
+    members.forEach(function(p){
+      (p.spouseIds||[]).forEach(function(sid){
+        if(byId[sid]){
+          var g = Math.max(gen[p.id], gen[sid]);
+          gen[p.id]=g; gen[sid]=g;
+        }
+      });
+    });
+  }
+  var childrenOf = {};
+  members.forEach(function(p){
+    (p.parentIds||[]).forEach(function(pid){ (childrenOf[pid]=childrenOf[pid]||[]).push(p.id); });
+  });
+  var order = {}, xOffset = {}, nextSlot = 0, visited = {};
+  function visit(id, extraX){
+    if(visited[id]) return;
+    visited[id] = true;
+    order[id] = nextSlot++;
+    xOffset[id] = extraX||0;
+    var spouses = byId[id].spouseIds||[];
+    var lastX = extraX||0;
+    spouses.forEach(function(sid){
+      if(byId[sid] && !visited[sid]){
+        visited[sid] = true;
+        order[sid] = nextSlot++;
+        lastX += FAM_SPOUSE_GAP;
+        xOffset[sid] = lastX;
       }
     });
+    var kids = {};
+    [id].concat(spouses).forEach(function(pid){
+      (childrenOf[pid]||[]).forEach(function(cid){ kids[cid]=true; });
+    });
+    Object.keys(kids).forEach(function(cid){ visit(cid); });
+  }
+  members.filter(function(p){ return gen[p.id]===0; }).forEach(function(p){ visit(p.id); });
+  members.forEach(function(p){ visit(p.id); }); // 兜底：孤立节点或没走到的也给个位置
+  var pos = {};
+  members.forEach(function(p){
+    pos[p.id] = {
+      x: FAM_PAD + gen[p.id]*FAM_GEN_W + (xOffset[p.id]||0),
+      y: FAM_PAD + order[p.id]*FAM_ROW_H
+    };
   });
-  return true;
+  return pos;
 }
 function renderFamilyTree(){
   var members = DATA.familyMembers || [];
-  if(ensureFamilyPositions()){ save(); }
+  var layout = computeFamilyAutoLayout(members);
   var maxX = 0, maxY = 0;
-  members.forEach(function(p){ maxX=Math.max(maxX,p.x||0); maxY=Math.max(maxY,p.y||0); });
-  var canvasW = Math.max(maxX+150, 320), canvasH = Math.max(maxY+90, 160);
+  members.forEach(function(p){ var pos=layout[p.id]; maxX=Math.max(maxX,pos.x); maxY=Math.max(maxY,pos.y); });
+  var canvasW = Math.max(maxX+220, 320), canvasH = Math.max(maxY+90, 160);
   var nodesHtml = members.map(function(p){
-    var sizeStyle = (p.w?(' width:'+p.w+'px;'):'')+(p.h?(' height:'+p.h+'px;'):'');
-    return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+(p.x||0)+'px; top:'+(p.y||0)+'px;'+sizeStyle+'" onpointerdown="famNodeDragStart(event,\''+p.id+'\')">'+
+    var pos = layout[p.id];
+    return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+pos.x+'px; top:'+pos.y+'px;">'+
       '<button class="fam-node-del" onclick="event.stopPropagation(); deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
       '<button class="fam-node-link" onclick="event.stopPropagation(); editFamilyLinks(\''+p.id+'\')" title="关联父母">🔗</button>'+
       '<input type="text" class="fam-node-relation" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
@@ -1252,7 +1278,7 @@ function renderFamilyTree(){
     '</svg>'+
     '<div class="fam-spouse-label-layer" id="famSpouseLabelLayer"></div>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来，跟思维导图一样。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；位置跟思维导图一样自动排版（辈分决定第几列，同辈纵向排开），不用手动拖。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
@@ -1264,13 +1290,12 @@ window.clearAllFamilyMembers = function(){
     save(); render(); toast("已清空，点「+ 添加成员」重新开始");
   }, "确认清空家庭关系树", "确定清空");
 };
+/* 位置全部交给 computeFamilyAutoLayout 每次渲染时重新计算，这里只管建立数据关系，不用再猜 x/y */
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
-  var nx = (child&&typeof child.x==="number") ? child.x + (((child.parentIds||[]).length)*40 - 20) : 30;
-  var ny = (child&&typeof child.y==="number") ? Math.max(0, child.y - 110) : 30;
-  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], x:nx, y:ny});
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[]});
   if(child){ child.parentIds = child.parentIds || []; child.parentIds.push(newId); }
   save(); render();
 };
@@ -1278,81 +1303,33 @@ window.addFamilyChildBranch = function(parentId){
   var parent = (DATA.familyMembers||[]).filter(function(x){return x.id===parentId;})[0];
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
-  var nx = (parent&&typeof parent.x==="number") ? parent.x : 30;
-  var ny = (parent&&typeof parent.y==="number") ? parent.y + 110 : 30;
-  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:parent?[parent.id]:[], x:nx, y:ny});
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:parent?[parent.id]:[]});
   save(); render();
 };
 window.addFamilySiblingBranch = function(personId){
   var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
-  var nx = (person&&typeof person.x==="number") ? person.x + 140 : 30;
-  var ny = (person&&typeof person.y==="number") ? person.y : 30;
-  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:(person&&person.parentIds)?person.parentIds.slice():[], x:nx, y:ny});
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:(person&&person.parentIds)?person.parentIds.slice():[]});
   save(); render();
 };
 window.addFamilySpouseBranch = function(personId){
   var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
-  var existingSpouses = (person&&person.spouseIds)?person.spouseIds.length:0;
-  var nx = (person&&typeof person.x==="number") ? Math.max(0, person.x - 140 - existingSpouses*40) : 30;
-  var ny = (person&&typeof person.y==="number") ? person.y : 30;
-  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], spouseIds:person?[person.id]:[], x:nx, y:ny});
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], spouseIds:person?[person.id]:[]});
   if(person){ person.spouseIds = person.spouseIds || []; person.spouseIds.push(newId); }
   save(); render();
 };
 window.addFamilyMember = function(){
   DATA.familyMembers = DATA.familyMembers || [];
-  var maxY = 0; DATA.familyMembers.forEach(function(p){ maxY = Math.max(maxY, p.y||0); });
-  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], spouseIds:[], x:30, y:DATA.familyMembers.length?maxY+110:30});
+  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], spouseIds:[]});
   save(); render();
 };
 window.updateFamilyMemberField = function(id, key, value){
   var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
   p[key] = value; save();
 };
-/* 自由拖动：按住节点(除了删除/新增按钮、关联按钮和输入框本身)拖到任意位置，松手后记住坐标 */
-var __famDrag = null;
-window.famNodeDragStart = function(e, id){
-  if(e.target.tagName==="INPUT") return;
-  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add"))) return;
-  var node = document.getElementById("famnode-"+id);
-  if(!node) return;
-  var rect = node.getBoundingClientRect();
-  /* 右下角留给浏览器原生的拖拽改大小手柄用，这块区域不要触发"移动节点" */
-  if(rect.right-e.clientX<16 && rect.bottom-e.clientY<16) return;
-  __famDrag = {id:id, startX:e.clientX, startY:e.clientY, origLeft:parseFloat(node.style.left)||0, origTop:parseFloat(node.style.top)||0, moved:false};
-  document.addEventListener("pointermove", famNodeDragMove);
-  document.addEventListener("pointerup", famNodeDragEnd);
-};
-function famNodeDragMove(e){
-  if(!__famDrag) return;
-  var dx = e.clientX-__famDrag.startX, dy = e.clientY-__famDrag.startY;
-  if(Math.abs(dx)>3 || Math.abs(dy)>3) __famDrag.moved = true;
-  var node = document.getElementById("famnode-"+__famDrag.id);
-  if(node){
-    node.style.left = Math.max(0,(__famDrag.origLeft+dx))+"px";
-    node.style.top = Math.max(0,(__famDrag.origTop+dy))+"px";
-  }
-  drawFamilyLines();
-}
-function famNodeDragEnd(){
-  if(!__famDrag) return;
-  document.removeEventListener("pointermove", famNodeDragMove);
-  document.removeEventListener("pointerup", famNodeDragEnd);
-  if(__famDrag.moved){
-    var p = (DATA.familyMembers||[]).filter(function(x){return x.id===__famDrag.id;})[0];
-    var node = document.getElementById("famnode-"+__famDrag.id);
-    if(p && node){
-      p.x = parseFloat(node.style.left)||0;
-      p.y = parseFloat(node.style.top)||0;
-      save();
-    }
-  }
-  __famDrag = null;
-}
 /* 算出连线跟方框边缘的交点（沿着两个中心点的连线方向），这样线永远贴着方框边出发，
    不管方框多大、拖到哪个方向，线都会自动指向正确的方向，不会穿过方框内部 */
 function famRectEdgePoint(rect, cr, dirX, dirY){
@@ -1427,7 +1404,7 @@ function famPairMidpoint(idA, idB, cr){
   var dx = bcx-acx, dy = bcy-acy;
   var from = famRectEdgePoint(ar, cr, dx, dy);
   var to = famRectEdgePoint(br, cr, -dx, -dy);
-  return {x:(from.x+to.x)/2, y:(from.y+to.y)/2, bottomY:Math.max(ar.bottom,br.bottom)-cr.top};
+  return {x:(from.x+to.x)/2, y:(from.y+to.y)/2, rightX:Math.max(ar.right,br.right)-cr.left};
 }
 function drawFamilyLines(){
   var canvas = document.getElementById("famTreeCanvas");
@@ -1459,7 +1436,7 @@ function drawFamilyLines(){
       var from = famRectEdgePoint(ar, cr, dx, dy);
       var to = famRectEdgePoint(br, cr, -dx, -dy);
       svgHtml += '<line x1="'+from.x+'" y1="'+from.y+'" x2="'+to.x+'" y2="'+to.y+'" class="fam-line-spouse"/>';
-      spouseMid[pairKey] = {x:(from.x+to.x)/2, y:(from.y+to.y)/2, bottomY:Math.max(ar.bottom,br.bottom)-cr.top};
+      spouseMid[pairKey] = {x:(from.x+to.x)/2, y:(from.y+to.y)/2};
     });
   });
   /* 亲子关系：只要一个孩子正好有两个父母（不管这两人有没有正式登记为配偶），就用大括号从这两人
@@ -1477,8 +1454,9 @@ function drawFamilyLines(){
     var pairMid = coupleKey ? famPairMidpoint(pids[0], pids[1], cr) : null;
     if(pairMid){
       coupleGroups[coupleKey] = coupleGroups[coupleKey] || {mid:pairMid, children:[]};
-      var topPoint = famRectEdgePoint(chr, cr, 0, -1);
-      coupleGroups[coupleKey].children.push(topPoint);
+      /* 孩子在父母右边这一列，所以牵线要接在孩子方框朝左（父母那一侧）的边缘 */
+      var leftPoint = famRectEdgePoint(chr, cr, -1, 0);
+      coupleGroups[coupleKey].children.push(leftPoint);
     } else {
       pids.forEach(function(pid){
         var pe = document.getElementById("famnode-"+pid);
@@ -1496,23 +1474,24 @@ function drawFamilyLines(){
   Object.keys(coupleGroups).forEach(function(key){
     var g = coupleGroups[key];
     if(!g.children.length) return;
-    var baseY = g.mid.bottomY + 26;
+    /* 孩子在父母右边一列，大括号要横过来：竖着展开、尖角朝左顶着父母 */
+    var baseX = g.mid.rightX + 26;
     if(g.children.length===1){
-      /* 只有一个孩子用不上大括号，直接一条线牵下去就好 */
+      /* 只有一个孩子用不上大括号，直接一条线牵过去就好 */
       var only = g.children[0];
       svgHtml += '<path d="'+famCurvePath(g.mid.x,g.mid.y,only.x,only.y)+'" class="fam-line-brace"/>';
       return;
     }
     var braceDepth = 12;
-    var xs = g.children.map(function(c){ return c.x; }).concat([g.mid.x]);
-    var minX = Math.min.apply(Math, xs), maxX = Math.max.apply(Math, xs);
-    if(maxX-minX < 40){ minX -= 20; maxX += 20; }
-    var midX = (minX+maxX)/2, tipY = baseY - braceDepth;
-    /* 真正的大括号曲线，尖角朝上顶着父母那条线，两端刚好落在孩子们所在的那条基线上 */
-    svgHtml += '<path d="'+makeCurlyBracePath(maxX, baseY, minX, baseY, braceDepth, 0.5)+'" class="fam-line-brace" fill="none"/>';
-    svgHtml += '<path d="'+famCurvePath(g.mid.x,g.mid.y,midX,tipY)+'" class="fam-line-brace"/>';
+    var ys = g.children.map(function(c){ return c.y; }).concat([g.mid.y]);
+    var minY = Math.min.apply(Math, ys), maxY = Math.max.apply(Math, ys);
+    if(maxY-minY < 40){ minY -= 20; maxY += 20; }
+    var midY = (minY+maxY)/2, tipX = baseX - braceDepth;
+    /* 真正的大括号曲线，尖角朝左顶着父母那条线，两端刚好落在孩子们所在的那一竖列上 */
+    svgHtml += '<path d="'+makeCurlyBracePath(baseX, maxY, baseX, minY, -braceDepth, 0.5)+'" class="fam-line-brace" fill="none"/>';
+    svgHtml += '<path d="'+famCurvePath(g.mid.x,g.mid.y,tipX,midY)+'" class="fam-line-brace"/>';
     g.children.forEach(function(c){
-      svgHtml += '<path d="'+famCurvePath(c.x,baseY,c.x,c.y)+'" class="fam-line-brace"/>';
+      svgHtml += '<path d="'+famCurvePath(baseX,c.y,c.x,c.y)+'" class="fam-line-brace"/>';
     });
   });
   svg.innerHTML = svgHtml;
@@ -1536,28 +1515,6 @@ window.updateFamilySpouseLabel = function(pairKey, text){
   DATA.familySpouseLabels[pairKey] = (text||"").trim();
   save();
 };
-/* 方框右下角可以拖拽改大小（原生 CSS resize），改完记住宽高，下次渲染继续用这个尺寸 */
-var __famResizeObservers = [];
-function setupFamilyNodeResize(){
-  if(typeof ResizeObserver === "undefined") return;
-  __famResizeObservers.forEach(function(ro){ ro.disconnect(); });
-  __famResizeObservers = [];
-  document.querySelectorAll(".fam-node").forEach(function(node){
-    var id = node.id.replace("famnode-","");
-    var ro = new ResizeObserver(function(){
-      var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
-      if(!p) return;
-      var w = Math.round(node.offsetWidth), h = Math.round(node.offsetHeight);
-      if(p.w===w && p.h===h) return;
-      p.w = w; p.h = h;
-      clearTimeout(node.__famSaveTimer);
-      node.__famSaveTimer = setTimeout(function(){ save(); }, 400);
-      drawFamilyLines();
-    });
-    ro.observe(node);
-    __famResizeObservers.push(ro);
-  });
-}
 /* 姓名/关系已经改成节点上直接编辑；这个弹窗负责"关联关系"——先选关系类型（父母/子女/兄弟姐妹/配偶），
    再从已有成员里勾选具体是谁，双重选项（关系+人）确定一条连接，勾选即生效，不用额外点保存 */
 var familyLinkTab = "parent";
