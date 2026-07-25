@@ -464,8 +464,10 @@ table.data tr:hover{background:var(--surface-2)}
 .bi-add-row td{padding:8px 4px 2px; border-bottom:none;}
 
 /* family tree: 经典的节点+连线家谱图 */
-.fam-tree-wrap{overflow:auto; padding:8px 0 4px; max-height:70vh; border:1px solid var(--border-soft); border-radius:12px;}
-.fam-tree-canvas{position:relative; margin:10px;}
+.fam-tree-wrap{overflow:auto; padding:8px 0 4px; max-height:70vh; border:1px solid var(--border-soft); border-radius:12px; touch-action:pan-x pan-y;}
+.fam-tree-zoombar{display:flex; align-items:center; gap:6px; padding:0 10px 8px; font-size:11px; color:var(--text-dim);}
+.fam-tree-zoombar #famZoomLabel{min-width:36px; text-align:center; font-family:'IBM Plex Mono',monospace;}
+.fam-tree-canvas{position:relative; margin:10px; transform-origin:0 0;}
 .fam-lines{position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible;}
 .fam-line{stroke:#B7B4AA; stroke-width:1.5; fill:none;}
 .fam-line-spouse{stroke:#A0527A; stroke-width:1.5; stroke-dasharray:3,3; fill:none;}
@@ -479,11 +481,13 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-spouse-label:focus{outline:none; background:var(--surface-2);}
 .fam-node{
   position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:10px;
-  padding:8px 16px; box-shadow:var(--shadow); text-align:center;
-  min-width:64px; min-height:38px; max-width:220px;
-  transition:left .18s ease, top .18s ease, border-color .12s, box-shadow .12s;
-  z-index:1; user-select:none;
+  padding:8px 16px; box-shadow:var(--shadow); cursor:grab; text-align:center;
+  min-width:64px; min-height:38px; max-width:360px; max-height:220px;
+  resize:both; overflow:hidden;
+  transition:border-color .12s, box-shadow .12s;
+  z-index:1; touch-action:none; user-select:none;
 }
+.fam-node:active{cursor:grabbing;}
 .fam-node:hover{border-color:var(--accent); box-shadow:var(--shadow-lg);}
 .fam-node-relation, .fam-node-name{
   display:block; width:100%; box-sizing:border-box; text-align:center; cursor:text;
@@ -495,15 +499,16 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node-relation:hover, .fam-node-name:hover{border-color:var(--border);}
 .fam-node-relation:focus, .fam-node-name:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .fam-hint{font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.6;}
-.fam-node-del, .fam-node-link{
+.fam-node-del, .fam-node-link, .fam-node-reset{
   position:absolute; top:2px; width:15px; height:15px; border:none; background:transparent;
   color:var(--text-faint); font-size:8px; border-radius:4px; opacity:0; transition:.12s;
 }
 .fam-node-del{right:2px;}
 .fam-node-link{left:2px; font-size:9px;}
-.fam-node:hover .fam-node-del, .fam-node:hover .fam-node-link{opacity:1;}
+.fam-node-reset{left:16px; font-size:10px;}
+.fam-node:hover .fam-node-del, .fam-node:hover .fam-node-link, .fam-node:hover .fam-node-reset{opacity:1;}
 .fam-node-del:hover{background:var(--danger-soft); color:var(--danger);}
-.fam-node-link:hover{background:var(--accent-soft); color:var(--accent);}
+.fam-node-link:hover, .fam-node-reset:hover{background:var(--accent-soft); color:var(--accent);}
 /* 方框四边各一个"+"，点一下立刻生成对应方向的节点+连线，不用先选菜单也不用二次确认 */
 .fam-node-add{
   position:absolute; width:17px; height:17px;
@@ -1063,7 +1068,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
-  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); }
+  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); setupFamilyNodeResize(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -1251,17 +1256,61 @@ function computeFamilyAutoLayout(members){
   });
   return pos;
 }
+/* 整个画布的缩放：双指捏合/触控板 Ctrl+滚轮/上面的按钮都能调，只是视觉缩放（transform:scale），
+   不影响节点实际坐标，缩放值不用存到数据里，每次打开这个板块从 100% 开始就好 */
+var famZoom = 1;
+window.famZoomBy = function(delta){
+  famZoom = Math.max(0.4, Math.min(2.5, famZoom+delta));
+  applyFamZoom();
+};
+window.famZoomReset = function(){ famZoom = 1; applyFamZoom(); };
+function applyFamZoom(){
+  var canvas = document.getElementById("famTreeCanvas");
+  var label = document.getElementById("famZoomLabel");
+  if(canvas) canvas.style.transform = "scale("+famZoom+")";
+  if(label) label.textContent = Math.round(famZoom*100)+"%";
+}
+/* 双指捏合缩放：记住两指之间的初始距离，移动时按距离变化比例调整缩放值 */
+var __famPinch = null;
+function famTouchDist(t0, t1){ return Math.hypot(t1.clientX-t0.clientX, t1.clientY-t0.clientY); }
+document.addEventListener("touchstart", function(e){
+  if(!e.target.closest || !e.target.closest("#famTreeWrap")) return;
+  if(e.touches.length===2){ __famPinch = {dist:famTouchDist(e.touches[0],e.touches[1]), zoom:famZoom}; }
+}, {passive:true});
+document.addEventListener("touchmove", function(e){
+  if(!__famPinch || e.touches.length!==2) return;
+  e.preventDefault();
+  var d = famTouchDist(e.touches[0],e.touches[1]);
+  famZoom = Math.max(0.4, Math.min(2.5, __famPinch.zoom * (d/__famPinch.dist)));
+  applyFamZoom();
+}, {passive:false});
+document.addEventListener("touchend", function(e){ if(e.touches.length<2) __famPinch = null; });
+/* 触控板双指缩放在浏览器里会触发带 ctrlKey 的 wheel 事件，一并支持 */
+document.addEventListener("wheel", function(e){
+  if(!e.ctrlKey) return;
+  if(!e.target.closest || !e.target.closest("#famTreeWrap")) return;
+  e.preventDefault();
+  famZoom = Math.max(0.4, Math.min(2.5, famZoom - e.deltaY*0.01));
+  applyFamZoom();
+}, {passive:false});
 function renderFamilyTree(){
   var members = DATA.familyMembers || [];
   var layout = computeFamilyAutoLayout(members);
+  /* 自动排版给新节点定初始位置；一旦手动拖动过，就记住拖完的坐标，之后一直用这个坐标，
+     不会被自动排版再挪回去——两种方式都能用，不用二选一 */
   var maxX = 0, maxY = 0;
-  members.forEach(function(p){ var pos=layout[p.id]; maxX=Math.max(maxX,pos.x); maxY=Math.max(maxY,pos.y); });
+  members.forEach(function(p){
+    var pos = (typeof p.x==="number" && typeof p.y==="number") ? {x:p.x,y:p.y} : layout[p.id];
+    maxX=Math.max(maxX,pos.x); maxY=Math.max(maxY,pos.y);
+  });
   var canvasW = Math.max(maxX+220, 320), canvasH = Math.max(maxY+90, 160);
   var nodesHtml = members.map(function(p){
-    var pos = layout[p.id];
-    return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+pos.x+'px; top:'+pos.y+'px;">'+
+    var pos = (typeof p.x==="number" && typeof p.y==="number") ? {x:p.x,y:p.y} : layout[p.id];
+    var sizeStyle = (p.w?(' width:'+p.w+'px;'):'')+(p.h?(' height:'+p.h+'px;'):'');
+    return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+pos.x+'px; top:'+pos.y+'px;'+sizeStyle+'" onpointerdown="famNodeDragStart(event,\''+p.id+'\')">'+
       '<button class="fam-node-del" onclick="event.stopPropagation(); deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
       '<button class="fam-node-link" onclick="event.stopPropagation(); editFamilyLinks(\''+p.id+'\')" title="关联父母">🔗</button>'+
+      (typeof p.x==="number" ? '<button class="fam-node-reset" onclick="event.stopPropagation(); resetFamilyNodePosition(\''+p.id+'\')" title="取消手动位置，改回自动排版">⟲</button>' : '')+
       '<input type="text" class="fam-node-relation" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
       '<input type="text" class="fam-node-name" value="'+esc(p.name||"")+'" placeholder="姓名" onchange="updateFamilyMemberField(\''+p.id+'\',\'name\',this.value)">'+
       '<button class="fam-node-add fam-dir-up" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="加父母">+</button>'+
@@ -1270,7 +1319,12 @@ function renderFamilyTree(){
       '<button class="fam-node-add fam-dir-right" onclick="event.stopPropagation(); addFamilySiblingBranch(\''+p.id+'\')" title="加兄弟姐妹">+</button>'+
     '</div>';
   }).join('');
-  return '<div class="fam-tree-wrap"><div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px;">'+
+  return '<div class="fam-tree-wrap" id="famTreeWrap">'+
+    '<div class="fam-tree-zoombar"><button type="button" class="btn small ghost" onclick="famZoomBy(-0.15)">－</button>'+
+      '<span id="famZoomLabel">'+Math.round(famZoom*100)+'%</span>'+
+      '<button type="button" class="btn small ghost" onclick="famZoomBy(0.15)">＋</button>'+
+      '<button type="button" class="btn small ghost" onclick="famZoomReset()">重置</button></div>'+
+    '<div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px; transform:scale('+famZoom+');">'+
     '<svg class="fam-lines" id="famLinesSvg">'+
       '<defs>'+
         '<marker id="famArrow" markerWidth="7" markerHeight="7" refX="5.5" refY="2.5" orient="auto"><path d="M0,0 L5.5,2.5 L0,5 Z" fill="#B7B4AA"/></marker>'+
@@ -1278,12 +1332,18 @@ function renderFamilyTree(){
     '</svg>'+
     '<div class="fam-spouse-label-layer" id="famSpouseLabelLayer"></div>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；位置跟思维导图一样自动排版（辈分决定第几列，同辈纵向排开），不用手动拖。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；新节点跟思维导图一样自动排版（辈分决定第几列），也可以直接拖动任意节点手动摆放（拖过的节点左上角会多一个⟲，点一下能改回自动排版），方框右下角还能拖着改大小。双指在画布上捏合/张开可以缩放整个画面（触控板按住Ctrl滚动也行），也可以用上面的－/＋按钮。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>';
 }
+window.resetFamilyNodePosition = function(id){
+  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
+  if(!p) return;
+  delete p.x; delete p.y;
+  save(); render();
+};
 window.clearAllFamilyMembers = function(){
   confirmDelete("确定要清空整个家庭关系树吗？所有成员和连线都会一起删掉，清空后不能撤销。", function(){
     DATA.familyMembers = [];
@@ -1330,6 +1390,70 @@ window.updateFamilyMemberField = function(id, key, value){
   var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
   p[key] = value; save();
 };
+/* 自由拖动：在自动排版的基础上，按住节点(除了删除/新增/关联/重置按钮和输入框本身)也能拖到任意位置，
+   松手后记住坐标，下次渲染就一直用这个手动坐标（除非点了⟲改回自动排版）。
+   移动距离要除以当前缩放倍数，不然画布缩小之后拖动会感觉"手比画面动得快" */
+var __famDrag = null;
+window.famNodeDragStart = function(e, id){
+  if(e.target.tagName==="INPUT") return;
+  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-reset") || e.target.closest(".fam-node-add"))) return;
+  var node = document.getElementById("famnode-"+id);
+  if(!node) return;
+  var rect = node.getBoundingClientRect();
+  /* 右下角留给浏览器原生的拖拽改大小手柄用，这块区域不要触发"移动节点" */
+  if(rect.right-e.clientX<16 && rect.bottom-e.clientY<16) return;
+  __famDrag = {id:id, startX:e.clientX, startY:e.clientY, origLeft:parseFloat(node.style.left)||0, origTop:parseFloat(node.style.top)||0, moved:false};
+  document.addEventListener("pointermove", famNodeDragMove);
+  document.addEventListener("pointerup", famNodeDragEnd);
+};
+function famNodeDragMove(e){
+  if(!__famDrag) return;
+  var dx = (e.clientX-__famDrag.startX)/famZoom, dy = (e.clientY-__famDrag.startY)/famZoom;
+  if(Math.abs(dx)>3 || Math.abs(dy)>3) __famDrag.moved = true;
+  var node = document.getElementById("famnode-"+__famDrag.id);
+  if(node){
+    node.style.left = Math.max(0,(__famDrag.origLeft+dx))+"px";
+    node.style.top = Math.max(0,(__famDrag.origTop+dy))+"px";
+  }
+  drawFamilyLines();
+}
+function famNodeDragEnd(){
+  if(!__famDrag) return;
+  document.removeEventListener("pointermove", famNodeDragMove);
+  document.removeEventListener("pointerup", famNodeDragEnd);
+  if(__famDrag.moved){
+    var p = (DATA.familyMembers||[]).filter(function(x){return x.id===__famDrag.id;})[0];
+    var node = document.getElementById("famnode-"+__famDrag.id);
+    if(p && node){
+      p.x = parseFloat(node.style.left)||0;
+      p.y = parseFloat(node.style.top)||0;
+      save(); render();
+    }
+  }
+  __famDrag = null;
+}
+/* 方框右下角可以拖拽改大小（原生 CSS resize），改完记住宽高，下次渲染继续用这个尺寸 */
+var __famResizeObservers = [];
+function setupFamilyNodeResize(){
+  if(typeof ResizeObserver === "undefined") return;
+  __famResizeObservers.forEach(function(ro){ ro.disconnect(); });
+  __famResizeObservers = [];
+  document.querySelectorAll(".fam-node").forEach(function(node){
+    var id = node.id.replace("famnode-","");
+    var ro = new ResizeObserver(function(){
+      var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
+      if(!p) return;
+      var w = Math.round(node.offsetWidth), h = Math.round(node.offsetHeight);
+      if(p.w===w && p.h===h) return;
+      p.w = w; p.h = h;
+      clearTimeout(node.__famSaveTimer);
+      node.__famSaveTimer = setTimeout(function(){ save(); }, 400);
+      drawFamilyLines();
+    });
+    ro.observe(node);
+    __famResizeObservers.push(ro);
+  });
+}
 /* 算出连线跟方框边缘的交点（沿着两个中心点的连线方向），这样线永远贴着方框边出发，
    不管方框多大、拖到哪个方向，线都会自动指向正确的方向，不会穿过方框内部 */
 function famRectEdgePoint(rect, cr, dirX, dirY){
