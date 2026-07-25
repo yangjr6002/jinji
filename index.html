@@ -506,25 +506,19 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node:hover .fam-node-del, .fam-node:hover .fam-node-link{opacity:1;}
 .fam-node-del:hover{background:var(--danger-soft); color:var(--danger);}
 .fam-node-link:hover{background:var(--accent-soft); color:var(--accent);}
-.fam-node-add-menu{
-  position:absolute; right:-9px; bottom:-9px; width:18px; height:18px;
+/* 方框四边各一个"+"，点一下立刻生成对应方向的节点+连线，不用先选菜单也不用二次确认 */
+.fam-node-add{
+  position:absolute; width:17px; height:17px;
   border:1.5px solid var(--border); background:var(--surface); color:var(--text-faint);
   border-radius:50%; font-size:11px; line-height:1; opacity:0; transition:.12s; z-index:3; cursor:pointer;
 }
-.fam-node:hover .fam-node-add-menu{opacity:1;}
-.fam-node-add-menu:hover, .fam-node-add-menu.active{
-  opacity:1; border-color:var(--accent); color:var(--accent); background:var(--accent-soft);
-}
-.fam-add-menu{
-  position:absolute; left:100%; bottom:-9px; margin-left:6px; z-index:4;
-  display:flex; flex-direction:column; gap:2px; padding:4px;
-  background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-lg);
-}
-.fam-add-menu button{
-  border:none; background:none; text-align:left; padding:5px 10px; font-size:12px; color:var(--text);
-  border-radius:5px; cursor:pointer; white-space:nowrap;
-}
-.fam-add-menu button:hover{background:var(--accent-soft); color:var(--accent);}
+.fam-dir-up{left:50%; top:-9px; transform:translateX(-50%);}
+.fam-dir-down{left:50%; bottom:-9px; transform:translateX(-50%);}
+.fam-dir-left{top:50%; left:-9px; transform:translateY(-50%);}
+.fam-dir-right{top:50%; right:-9px; transform:translateY(-50%);}
+.fam-node:hover .fam-node-add{opacity:1;}
+.fam-node-add:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
+.fam-dir-left:hover{border-color:#A0527A; color:#A0527A; background:#F7ECF1;}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
@@ -1236,19 +1230,15 @@ function renderFamilyTree(){
   var canvasW = Math.max(maxX+150, 320), canvasH = Math.max(maxY+90, 160);
   var nodesHtml = members.map(function(p){
     var sizeStyle = (p.w?(' width:'+p.w+'px;'):'')+(p.h?(' height:'+p.h+'px;'):'');
-    var menuOpen = famAddMenuFor===p.id;
     return '<div class="fam-node" id="famnode-'+p.id+'" style="left:'+(p.x||0)+'px; top:'+(p.y||0)+'px;'+sizeStyle+'" onpointerdown="famNodeDragStart(event,\''+p.id+'\')">'+
       '<button class="fam-node-del" onclick="event.stopPropagation(); deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
       '<button class="fam-node-link" onclick="event.stopPropagation(); editFamilyLinks(\''+p.id+'\')" title="关联父母">🔗</button>'+
       '<input type="text" class="fam-node-relation" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
       '<input type="text" class="fam-node-name" value="'+esc(p.name||"")+'" placeholder="姓名" onchange="updateFamilyMemberField(\''+p.id+'\',\'name\',this.value)">'+
-      '<button class="fam-node-add-menu'+(menuOpen?" active":"")+'" onclick="event.stopPropagation(); toggleFamAddMenu(\''+p.id+'\')" title="添加关系">+</button>'+
-      (menuOpen ? '<div class="fam-add-menu" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">'+
-        '<button type="button" onclick="famAddMenuFor=null; addFamilyParentBranch(\''+p.id+'\')">+ 父母</button>'+
-        '<button type="button" onclick="famAddMenuFor=null; addFamilyChildBranch(\''+p.id+'\')">+ 子女</button>'+
-        '<button type="button" onclick="famAddMenuFor=null; addFamilySpouseBranch(\''+p.id+'\')">+ 配偶</button>'+
-        '<button type="button" onclick="famAddMenuFor=null; addFamilySiblingBranch(\''+p.id+'\')">+ 兄弟姐妹</button>'+
-      '</div>' : '')+
+      '<button class="fam-node-add fam-dir-up" onclick="event.stopPropagation(); addFamilyParentBranch(\''+p.id+'\')" title="加父母">+</button>'+
+      '<button class="fam-node-add fam-dir-down" onclick="event.stopPropagation(); addFamilyChildBranch(\''+p.id+'\')" title="加子女">+</button>'+
+      '<button class="fam-node-add fam-dir-left" onclick="event.stopPropagation(); addFamilySpouseBranch(\''+p.id+'\')" title="加配偶">+</button>'+
+      '<button class="fam-node-add fam-dir-right" onclick="event.stopPropagation(); addFamilySiblingBranch(\''+p.id+'\')" title="加兄弟姐妹">+</button>'+
     '</div>';
   }).join('');
   return '<div class="fam-tree-wrap"><div class="fam-tree-canvas" id="famTreeCanvas" style="width:'+canvasW+'px; height:'+canvasH+'px;">'+
@@ -1259,7 +1249,7 @@ function renderFamilyTree(){
     '</svg>'+
     '<div class="fam-spouse-label-layer" id="famSpouseLabelLayer"></div>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。点右下角"+"直接选要加父母/子女/配偶还是兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系（中间的字可以点开改），灰色线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来，跟思维导图一样。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
@@ -1271,19 +1261,12 @@ window.clearAllFamilyMembers = function(){
     save(); render(); toast("已清空，点「+ 添加成员」重新开始");
   }, "确认清空家庭关系树", "确定清空");
 };
-/* 一步生成：点节点右下角的"+"，直接弹一个小菜单选要加父母/子女/配偶还是兄弟姐妹，
-   选哪个就立刻生成对应节点，不用先猜方向、再点箭头确认 */
-var famAddMenuFor = null;
-window.toggleFamAddMenu = function(nodeId){
-  famAddMenuFor = (famAddMenuFor===nodeId) ? null : nodeId;
-  render();
-};
 window.addFamilyParentBranch = function(childId){
   var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
   var nx = (child&&typeof child.x==="number") ? child.x + (((child.parentIds||[]).length)*40 - 20) : 30;
-  var ny = (child&&typeof child.y==="number") ? child.y + 110 : 30;
+  var ny = (child&&typeof child.y==="number") ? Math.max(0, child.y - 110) : 30;
   DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], x:nx, y:ny});
   if(child){ child.parentIds = child.parentIds || []; child.parentIds.push(newId); }
   save(); render();
@@ -1293,7 +1276,7 @@ window.addFamilyChildBranch = function(parentId){
   var newId = uid();
   DATA.familyMembers = DATA.familyMembers || [];
   var nx = (parent&&typeof parent.x==="number") ? parent.x : 30;
-  var ny = (parent&&typeof parent.y==="number") ? Math.max(0, parent.y - 110) : 30;
+  var ny = (parent&&typeof parent.y==="number") ? parent.y + 110 : 30;
   DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:parent?[parent.id]:[], x:nx, y:ny});
   save(); render();
 };
@@ -1331,7 +1314,7 @@ window.updateFamilyMemberField = function(id, key, value){
 var __famDrag = null;
 window.famNodeDragStart = function(e, id){
   if(e.target.tagName==="INPUT") return;
-  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add-menu") || e.target.closest(".fam-add-menu"))) return;
+  if(e.target.closest && (e.target.closest(".fam-node-del") || e.target.closest(".fam-node-link") || e.target.closest(".fam-node-add"))) return;
   var node = document.getElementById("famnode-"+id);
   if(!node) return;
   var rect = node.getBoundingClientRect();
