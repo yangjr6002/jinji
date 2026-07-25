@@ -519,6 +519,9 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-node:hover .fam-node-add{opacity:1;}
 .fam-node-add:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
 .fam-dir-left:hover{border-color:#A0527A; color:#A0527A; background:#F7ECF1;}
+.fam-link-tabs{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
+.fam-link-tab{padding:5px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; cursor:pointer;}
+.fam-link-tab.active{border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:600;}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
@@ -1249,7 +1252,7 @@ function renderFamilyTree(){
     '</svg>'+
     '<div class="fam-spouse-label-layer" id="famSpouseLabelLayer"></div>'+nodesHtml+
     '</div></div>'+
-    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚），左上角🔗调整已有的父母关联；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来，跟思维导图一样。</div>'+
+    '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；节点可以随便拖动摆放。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来，跟思维导图一样。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
@@ -1555,43 +1558,97 @@ function setupFamilyNodeResize(){
     __famResizeObservers.push(ro);
   });
 }
-/* 姓名/关系已经改成节点上直接编辑；这个弹窗现在只负责"关联父母"这一件结构性的事 */
-var familyDraft = null;
+/* 姓名/关系已经改成节点上直接编辑；这个弹窗负责"关联关系"——先选关系类型（父母/子女/兄弟姐妹/配偶），
+   再从已有成员里勾选具体是谁，双重选项（关系+人）确定一条连接，勾选即生效，不用额外点保存 */
+var familyLinkTab = "parent";
+function famAreSiblings(a, b){
+  var ap = (a&&a.parentIds)||[], bp = (b&&b.parentIds)||[];
+  if(!ap.length || !bp.length) return false;
+  return ap.some(function(pid){ return bp.indexOf(pid)!==-1; });
+}
 window.editFamilyLinks = function(id){
-  var item = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!item) return;
-  familyDraft = {id:item.id, parentIds:(item.parentIds||[]).slice()};
-  renderFamilyMemberModal();
+  familyLinkTab = "parent";
+  renderFamilyLinkModal(id);
 };
-function renderFamilyMemberModal(){
-  var d = familyDraft;
-  var self = (DATA.familyMembers||[]).filter(function(x){return x.id===d.id;})[0];
-  var others = (DATA.familyMembers||[]).filter(function(p){ return p.id!==d.id; });
-  var parentOptions = others.map(function(p){
-    var checked = d.parentIds.indexOf(p.id)>=0;
-    return '<label class="fam-parent-opt"><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleFamilyParent(\''+p.id+'\', this.checked)"> '+
+window.switchFamilyLinkTab = function(id, tab){
+  familyLinkTab = tab;
+  renderFamilyLinkModal(id);
+};
+function renderFamilyLinkModal(id){
+  var self = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
+  if(!self) return;
+  var others = (DATA.familyMembers||[]).filter(function(p){ return p.id!==id; });
+  var tabs = [
+    {key:"parent", label:"父母"},
+    {key:"child", label:"子女"},
+    {key:"sibling", label:"兄弟姐妹"},
+    {key:"spouse", label:"配偶"}
+  ];
+  var tabHints = {
+    parent:"选中的人会变成TA的父母",
+    child:"选中的人会变成TA的子女",
+    sibling:"选中的人会跟TA共享同一批父母，从而成为兄弟姐妹（前提是至少一方已经有父母）",
+    spouse:"选中的人会跟TA互相登记为配偶"
+  };
+  function isChecked(p){
+    if(familyLinkTab==="parent") return (self.parentIds||[]).indexOf(p.id)>=0;
+    if(familyLinkTab==="child") return (p.parentIds||[]).indexOf(self.id)>=0;
+    if(familyLinkTab==="spouse") return (self.spouseIds||[]).indexOf(p.id)>=0;
+    if(familyLinkTab==="sibling") return famAreSiblings(self, p);
+    return false;
+  }
+  var tabsHtml = tabs.map(function(t){
+    return '<button type="button" class="fam-link-tab'+(familyLinkTab===t.key?" active":"")+'" onclick="switchFamilyLinkTab(\''+id+'\',\''+t.key+'\')">'+t.label+'</button>';
+  }).join('');
+  var optionsHtml = others.map(function(p){
+    var checked = isChecked(p);
+    return '<label class="fam-parent-opt"><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleFamilyLink(\''+id+'\',\''+p.id+'\', this.checked)"> '+
       (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</label>';
   }).join('') || '<div class="sub">还没有其他成员可选</div>';
   var root = document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
-    '<h3>'+esc(self?(self.name||self.relation||"这位成员"):"关联父母")+' · 关联父母</h3>'+
-    '<div class="field"><label>父母（可以选多位，没有就不选）</label><div class="fam-parent-list">'+parentOptions+'</div></div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveFamilyMember()">保存</button></div>'+
+    '<h3>'+esc(self.name||self.relation||"这位成员")+' · 关联关系</h3>'+
+    '<div class="fam-link-tabs">'+tabsHtml+'</div>'+
+    '<div class="sub" style="margin-bottom:8px">'+tabHints[familyLinkTab]+'</div>'+
+    '<div class="field"><div class="fam-parent-list">'+optionsHtml+'</div></div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 }
-window.toggleFamilyParent = function(id, checked){
-  if(checked){
-    familyDraft.parentIds.push(id);
-  } else {
-    familyDraft.parentIds = familyDraft.parentIds.filter(function(x){return x!==id;});
+window.toggleFamilyLink = function(selfId, otherId, checked){
+  var self = (DATA.familyMembers||[]).filter(function(x){return x.id===selfId;})[0];
+  var other = (DATA.familyMembers||[]).filter(function(x){return x.id===otherId;})[0];
+  if(!self || !other) return;
+  if(familyLinkTab==="parent"){
+    self.parentIds = self.parentIds || [];
+    if(checked){ if(self.parentIds.indexOf(otherId)===-1) self.parentIds.push(otherId); }
+    else { self.parentIds = self.parentIds.filter(function(x){return x!==otherId;}); }
+  } else if(familyLinkTab==="child"){
+    other.parentIds = other.parentIds || [];
+    if(checked){ if(other.parentIds.indexOf(selfId)===-1) other.parentIds.push(selfId); }
+    else { other.parentIds = other.parentIds.filter(function(x){return x!==selfId;}); }
+  } else if(familyLinkTab==="spouse"){
+    self.spouseIds = self.spouseIds || [];
+    other.spouseIds = other.spouseIds || [];
+    if(checked){
+      if(self.spouseIds.indexOf(otherId)===-1) self.spouseIds.push(otherId);
+      if(other.spouseIds.indexOf(selfId)===-1) other.spouseIds.push(selfId);
+    } else {
+      self.spouseIds = self.spouseIds.filter(function(x){return x!==otherId;});
+      other.spouseIds = other.spouseIds.filter(function(x){return x!==selfId;});
+    }
+  } else if(familyLinkTab==="sibling"){
+    /* 兄弟姐妹不是单独存的字段，靠"共享父母"来判断——勾选就让对方也拥有自己的父母，
+       取消就把自己的父母从对方的父母列表里摘掉 */
+    var selfParents = self.parentIds || [];
+    other.parentIds = other.parentIds || [];
+    if(checked){
+      selfParents.forEach(function(pid){ if(other.parentIds.indexOf(pid)===-1) other.parentIds.push(pid); });
+    } else {
+      other.parentIds = other.parentIds.filter(function(pid){ return selfParents.indexOf(pid)===-1; });
+    }
   }
-};
-window.saveFamilyMember = function(){
-  var d = familyDraft;
-  var item = (DATA.familyMembers||[]).filter(function(x){return x.id===d.id;})[0];
-  if(item){ item.parentIds = d.parentIds; }
-  familyDraft = null;
-  save(); closeModal(); render(); toast("已保存");
+  save(); renderFamilyLinkModal(selfId);
 };
 window.deleteFamilyMember = function(id){
   confirmDelete("确定删除这位成员吗？和TA相关的连线也会一起消失（不影响其他成员）。", function(){
