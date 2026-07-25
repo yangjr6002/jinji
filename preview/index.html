@@ -1405,6 +1405,7 @@ function renderFamilyTree(){
     '<div class="fam-hint">关系、姓名直接点框里改，改完自动保存；新节点跟思维导图一样自动排版（辈分决定第几列），也可以直接拖动任意节点手动摆放（拖过的节点左上角会多一个⟲，点一下能改回自动排版），方框右下角还能拖着改大小。双指在画布上捏合/张开可以缩放整个画面（触控板按住Ctrl滚动也行），也可以用上面的－/＋按钮。上下左右四个"+"点一下立刻加对应的父母/子女/配偶/兄弟姐妹（配偶可以加多个，方便记录再婚）；左上角🔗关联已有成员——先选关系类型（父母/子女/兄弟姐妹/配偶），再勾选具体是谁，两个已有节点之间也能这样建立关系；粉色虚线是配偶关系（中间的字可以点开改），灰色曲线是亲子关系，两口子共同的孩子会用大括号一起牵出来。</div>'+
     '<div style="display:flex; gap:8px; margin-top:6px;">'+
     '<button class="btn small ghost" onclick="addFamilyMember()">+ 添加成员</button>'+
+    (members.some(function(p){ return typeof p.x==="number"; }) ? '<button class="btn small ghost" onclick="resetAllFamilyPositions()">↺ 重置所有位置</button>' : '')+
     (members.length ? '<button class="btn small danger" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>';
 }
@@ -1413,6 +1414,13 @@ window.resetFamilyNodePosition = function(id){
   if(!p) return;
   delete p.x; delete p.y;
   save(); render();
+};
+/* 之前排版方式换过几次，早期手动拖过（或者更早版本自动分配）的坐标留在数据里，
+   拿旧坐标系的位置去套新的排版逻辑就会显得东一个西一个、很乱。一键清掉所有人的手动坐标，
+   全部改回跟着最新算法自动排版 */
+window.resetAllFamilyPositions = function(){
+  (DATA.familyMembers||[]).forEach(function(p){ delete p.x; delete p.y; });
+  save(); render(); toast("已重置为自动排版");
 };
 window.clearAllFamilyMembers = function(){
   confirmDelete("确定要清空整个家庭关系树吗？所有成员和连线都会一起删掉，清空后不能撤销。", function(){
