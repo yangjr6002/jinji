@@ -1692,7 +1692,8 @@ function renderFamilyLinkModal(id){
     '<div class="fam-link-tabs">'+tabsHtml+'</div>'+
     '<div class="sub" style="margin-bottom:8px">'+tabHints[familyLinkTab]+'</div>'+
     '<div class="field"><div class="fam-parent-list">'+optionsHtml+'</div></div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '<div class="sub" style="margin-top:2px">勾选/取消勾选会立刻生效并保存，不用额外确认</div>'+
+    '<div class="modal-actions"><button type="button" class="btn solid" onclick="closeModal()">确定</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 }
