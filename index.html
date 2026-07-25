@@ -648,9 +648,8 @@ table.data tr:hover{background:var(--surface-2)}
 
 <script>
 /* ================= 数据层 ================= */
-/* localStorage 是按域名隔离的，不看路径——如果不加区分，/preview/ 和正式地址会共用同一份数据，
-   导致在预览环境的操作意外覆盖正式数据。这里按路径里是否带 /preview/ 换一个独立的 key，彻底隔离。 */
-var STORE_KEY = (typeof location!=="undefined" && location.pathname.indexOf("/preview/")!==-1) ? "pw_dossier_data_v6_preview" : "pw_dossier_data_v6";
+/* 单页应用的本机持久化键。备份/恢复用于跨浏览器或清理缓存时迁移数据。 */
+var STORE_KEY = "pw_dossier_data_v6";
 var DEFAULT_TL_CATEGORIES = [
   {key:"growth", label:"成长", color:"#2F5D50"},
   {key:"school", label:"学校", color:"#4A5A8C"},
