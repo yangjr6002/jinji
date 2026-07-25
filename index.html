@@ -10,6 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 <style>
 :root{
   --bg:#FFFFFF;
@@ -527,6 +530,12 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-link-tab.active{border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:600;}
 .fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
+.fam-graph{
+  height:min(64vh,680px); min-height:380px; margin-top:10px; border:1px solid var(--border-soft);
+  border-radius:12px; background:var(--surface); touch-action:none;
+}
+.fam-graph-toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;}
+.fam-graph-note{font-size:11px; color:var(--text-faint); margin-top:8px; line-height:1.6;}
 .hz-detail-actions{display:flex; gap:8px; margin-top:12px; justify-content:flex-end;}
 .hz-detail-hint{margin-top:14px; padding:22px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:12px;}
 
@@ -846,6 +855,9 @@ function normalizeData(d){
     }
   }
   delete d.familyTree;
+  /* 家谱图已改为 Cytoscape 的实时分层布局，旧版手写画布留下的坐标/尺寸不再适用。
+     清理它们，避免备份恢复后又混入过期坐标系；成员和关系数据保持不变。 */
+  d.familyMembers.forEach(function(p){ delete p.x; delete p.y; delete p.w; delete p.h; });
   d.familySpouseLabels = d.familySpouseLabels || {};
   d.moduleCategories = d.moduleCategories || {};
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
@@ -1068,7 +1080,7 @@ function render(){
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
   }
-  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); drawFamilyLines(); setupFamilyNodeResize(); }
+  else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); setupFamilyGraph(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
   else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
@@ -1717,6 +1729,120 @@ window.updateFamilySpouseLabel = function(pairKey, text){
   DATA.familySpouseLabels[pairKey] = (text||"").trim();
   save();
 };
+/* ---- Cytoscape 家谱图：真实成员保持原有数据结构；共同父母仅在渲染时转成虚拟节点，
+   让 Dagre 负责稳定的分层布局，而不是把坐标、连线和缩放都手写一遍。 ---- */
+var familyGraph = null;
+function familyGraphElements(){
+  var members = DATA.familyMembers || [];
+  var byId = {};
+  var nodes = [], edges = [], unions = {};
+  members.forEach(function(p){
+    byId[p.id] = p;
+    nodes.push({data:{id:p.id, label:(p.relation||"未分类")+"\n"+(p.name||"未命名"), kind:"member"}, classes:"member"});
+  });
+  function addEdge(id, source, target, classes, label){
+    edges.push({data:{id:id, source:source, target:target, label:label||""}, classes:classes});
+  }
+  members.forEach(function(child){
+    var parents = (child.parentIds||[]).filter(function(id){ return !!byId[id]; }).sort();
+    if(parents.length<2){
+      if(parents.length===1) addEdge("parent:"+parents[0]+":"+child.id, parents[0], child.id, "family-edge direct-parent");
+      return;
+    }
+    var unionId = "union:"+parents.join("|");
+    if(!unions[unionId]){
+      unions[unionId] = true;
+      nodes.push({data:{id:unionId, label:"", kind:"union"}, classes:"union"});
+      parents.forEach(function(parentId){ addEdge("parent-union:"+parentId+":"+unionId, parentId, unionId, "family-edge parent-union"); });
+    }
+    addEdge("union-child:"+unionId+":"+child.id, unionId, child.id, "family-edge union-child");
+  });
+  var shownSpouses = {};
+  members.forEach(function(p){
+    (p.spouseIds||[]).forEach(function(sid){
+      if(!byId[sid]) return;
+      var pair = familySpousePairKey(p.id, sid);
+      if(shownSpouses[pair]) return;
+      shownSpouses[pair] = true;
+      addEdge("spouse:"+pair, p.id, sid, "spouse-edge", (DATA.familySpouseLabels||{})[pair] || "配偶");
+    });
+  });
+  return {nodes:nodes, edges:edges};
+}
+function renderFamilyTree(){
+  return '<div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div>'+
+    '<div class="fam-graph-toolbar">'+
+      '<button class="btn small ghost" type="button" onclick="addFamilyMember()">+ 添加成员</button>'+
+      '<button class="btn small ghost" type="button" onclick="relayoutFamilyGraph()">↺ 自动排版</button>'+
+      '<button class="btn small ghost" type="button" onclick="fitFamilyGraph()">⤢ 适应画布</button>'+
+      ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
+    '</div>'+
+    '<div class="fam-graph-note">点击成员可编辑姓名、关系或关联已有成员；拖动画布可平移，滚轮/双指可缩放。图形位置由自动布局实时计算，不再保存旧版手动坐标。</div>';
+}
+function familyGraphLayout(){
+  return {name:"dagre", rankDir:"TB", nodeSep:46, rankSep:92, edgeSep:18, padding:42, fit:false, animate:false, ranker:"network-simplex"};
+}
+function runFamilyGraphLayout(){
+  if(!familyGraph) return;
+  /* 配偶边是横向语义边，不应参与世代分层计算；否则多段婚姻会把整个树拉歪。 */
+  familyGraph.elements().not("edge.spouse-edge").layout(familyGraphLayout()).run();
+  /* 大家族若强行塞进一个小屏会让文字不可读；默认聚焦自己（没有则首个成员），需要总览时再点“适应画布”。 */
+  var focusId = familyGraph.getElementById("self").length ? "self" : ((DATA.familyMembers||[])[0]||{}).id;
+  var focus = focusId ? familyGraph.getElementById(focusId) : null;
+  if(focus && focus.length){ familyGraph.zoom(0.82); familyGraph.center(focus); }
+}
+function setupFamilyGraph(){
+  var el = document.getElementById("familyGraph");
+  if(!el) return;
+  if(familyGraph){ familyGraph.destroy(); familyGraph = null; }
+  if(!window.cytoscape || !window.cytoscapeDagre){
+    el.innerHTML = '<div class="map-fallback">家庭关系图库没能加载出来（可能是网络问题或当前环境限制了外部资源）。请刷新后重试。</div>';
+    return;
+  }
+  if(!window.__familyGraphDagreRegistered){ cytoscape.use(cytoscapeDagre); window.__familyGraphDagreRegistered = true; }
+  familyGraph = cytoscape({
+    container:el,
+    elements:familyGraphElements(),
+    minZoom:0.25,
+    maxZoom:2.5,
+    wheelSensitivity:0.18,
+    style:[
+      {selector:"node.member", style:{"shape":"round-rectangle","width":132,"height":52,"background-color":"#FFFDF8","border-width":1,"border-color":"#CBC6BA","label":"data(label)","font-family":"IBM Plex Sans, sans-serif","font-size":12,"font-weight":600,"color":"#292B28","text-valign":"center","text-halign":"center","text-wrap":"wrap","text-max-width":112,"overlay-opacity":0}},
+      {selector:"node.member:selected", style:{"border-color":"#2F5D50","border-width":2,"background-color":"#F1F7F3"}},
+      {selector:"node.union", style:{"shape":"diamond","width":12,"height":12,"background-color":"#B7B4AA","border-width":0,"label":"","overlay-opacity":0}},
+      {selector:"edge.family-edge", style:{"curve-style":"taxi","taxi-direction":"downward","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"overlay-opacity":0}},
+      {selector:"edge.parent-union", style:{"target-arrow-shape":"none","line-style":"dashed"}},
+      {selector:"edge.spouse-edge", style:{"curve-style":"bezier","line-color":"#A0527A","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#A0527A","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}}
+    ],
+    layout:{name:"preset"}
+  });
+  runFamilyGraphLayout();
+  familyGraph.on("tap", "node.member", function(e){ openFamilyMemberEditor(e.target.id()); });
+}
+window.relayoutFamilyGraph = function(){ runFamilyGraphLayout(); };
+window.fitFamilyGraph = function(){ if(familyGraph) familyGraph.fit(familyGraph.elements(), 42); };
+window.openFamilyMemberEditor = function(id){
+  var p = (DATA.familyMembers||[]).filter(function(x){ return x.id===id; })[0];
+  if(!p) return;
+  var root = document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:360px">'+
+    '<h3>编辑家庭成员</h3>'+
+    '<div class="field"><label>关系</label><input id="familyEditRelation" type="text" value="'+esc(p.relation||'')+'" placeholder="如：妈妈"></div>'+
+    '<div class="field"><label>姓名</label><input id="familyEditName" type="text" value="'+esc(p.name||'')+'" placeholder="姓名"></div>'+
+    '<div class="sub" style="margin:8px 0">添加新关联</div>'+
+    '<div class="row-actions" style="justify-content:flex-start; margin-bottom:16px"><button class="btn small ghost" onclick="closeModal();addFamilyParentBranch(\''+id+'\')">+ 父母</button><button class="btn small ghost" onclick="closeModal();addFamilyChildBranch(\''+id+'\')">+ 子女</button><button class="btn small ghost" onclick="closeModal();addFamilySiblingBranch(\''+id+'\')">+ 兄弟姐妹</button><button class="btn small ghost" onclick="closeModal();addFamilySpouseBranch(\''+id+'\')">+ 配偶</button></div>'+
+    '<div class="modal-actions"><button class="btn ghost" onclick="closeModal();editFamilyLinks(\''+id+'\')">关联已有成员</button><button class="btn danger" onclick="closeModal();deleteFamilyMember(\''+id+'\')">删除</button><button class="btn solid" onclick="saveFamilyMemberEditor(\''+id+'\')">保存</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.saveFamilyMemberEditor = function(id){
+  var p = (DATA.familyMembers||[]).filter(function(x){ return x.id===id; })[0];
+  if(!p) return;
+  p.relation = document.getElementById("familyEditRelation").value;
+  p.name = document.getElementById("familyEditName").value;
+  closeModal(); save(); render(); toast("已更新");
+};
+
 /* 姓名/关系已经改成节点上直接编辑；这个弹窗负责"关联关系"——先选关系类型（父母/子女/兄弟姐妹/配偶），
    再从已有成员里勾选具体是谁，双重选项（关系+人）确定一条连接，勾选即生效，不用额外点保存 */
 var familyLinkTab = "parent";
