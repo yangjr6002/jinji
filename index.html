@@ -1208,6 +1208,48 @@ function packLanesWithOverflow(list){
 function familySpousePairKey(aId, bId){ return [aId, bId].sort().join("|"); }
 /* ---- Cytoscape 家谱图：真实成员保持原有数据结构；共同父母仅在渲染时转成虚拟节点，
    让 Dagre 负责稳定的分层布局，而不是把坐标、连线和缩放都手写一遍。 ---- */
+/* 位置全部交给 Cytoscape+Dagre 每次渲染时重新计算，这里只管建立数据关系，不用猜 x/y */
+window.addFamilyParentBranch = function(childId){
+  var child = (DATA.familyMembers||[]).filter(function(x){return x.id===childId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[]});
+  if(child){ child.parentIds = child.parentIds || []; child.parentIds.push(newId); }
+  save(); render();
+};
+window.addFamilyChildBranch = function(parentId){
+  var parent = (DATA.familyMembers||[]).filter(function(x){return x.id===parentId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:parent?[parent.id]:[]});
+  save(); render();
+};
+window.addFamilySiblingBranch = function(personId){
+  var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:(person&&person.parentIds)?person.parentIds.slice():[]});
+  save(); render();
+};
+window.addFamilySpouseBranch = function(personId){
+  var person = (DATA.familyMembers||[]).filter(function(x){return x.id===personId;})[0];
+  var newId = uid();
+  DATA.familyMembers = DATA.familyMembers || [];
+  DATA.familyMembers.push({id:newId, name:"", relation:"", parentIds:[], spouseIds:person?[person.id]:[]});
+  if(person){ person.spouseIds = person.spouseIds || []; person.spouseIds.push(newId); }
+  save(); render();
+};
+window.addFamilyMember = function(){
+  DATA.familyMembers = DATA.familyMembers || [];
+  DATA.familyMembers.push({id:uid(), name:"", relation:"", parentIds:[], spouseIds:[]});
+  save(); render();
+};
+window.clearAllFamilyMembers = function(){
+  confirmDelete("确定要清空整个家庭关系树吗？所有成员和连线都会一起删掉，清空后不能撤销。", function(){
+    DATA.familyMembers = [];
+    save(); render(); toast("已清空，点「+ 添加成员」重新开始");
+  }, "确认清空家庭关系树", "确定清空");
+};
 var familyGraph = null;
 function familyGraphElements(){
   var members = DATA.familyMembers || [];
