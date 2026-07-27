@@ -1386,8 +1386,12 @@ function renderFamilyCardOverlay(){
   div.className = "fam-card";
   div.style.left = pos.x+"px";
   div.style.top = (pos.y + h/2 + 10)+"px";
-  div.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
-  div.addEventListener("click", function(e){ e.stopPropagation(); });
+  /* Cytoscape 会在容器上监听 mousedown/touchstart 并 preventDefault（为了画布拖拽），
+     卡片是容器的子元素，事件一冒泡上去输入框的"获得焦点"这个默认行为就被取消了，
+     表现为"点输入框没反应打不了字"。所以这几类事件都要在卡片这层拦下来，不让它们到 Cytoscape 手里 */
+  ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
+    div.addEventListener(evt, function(e){ e.stopPropagation(); });
+  });
   div.innerHTML =
     '<button type="button" class="fam-card-close" onclick="closeFamilyCard()">✕</button>'+
     '<input type="text" value="'+esc(p.relation||"")+'" placeholder="关系" onchange="updateFamilyMemberField(\''+p.id+'\',\'relation\',this.value)">'+
@@ -1431,8 +1435,12 @@ function renderFamilyEdgeLabelOverlay(){
   div.id = "famEdgeLabelOverlay";
   div.className = "fam-edge-label-editor";
   div.style.left = mx+"px"; div.style.top = my+"px";
-  div.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
-  div.addEventListener("click", function(e){ e.stopPropagation(); });
+  /* Cytoscape 会在容器上监听 mousedown/touchstart 并 preventDefault（为了画布拖拽），
+     卡片是容器的子元素，事件一冒泡上去输入框的"获得焦点"这个默认行为就被取消了，
+     表现为"点输入框没反应打不了字"。所以这几类事件都要在卡片这层拦下来，不让它们到 Cytoscape 手里 */
+  ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
+    div.addEventListener(evt, function(e){ e.stopPropagation(); });
+  });
   div.innerHTML = '<input type="text" value="'+esc(edge.data("label")||"")+'" placeholder="'+(isSpouse?"配偶":"标注关系")+'">';
   wrap.appendChild(div);
   var inputEl = div.querySelector("input");
