@@ -3666,7 +3666,18 @@ function journalExcerpt(content){
 /* 外层分类是书的章节目录那种感觉：都是同一级，一行一个标题，没有"固定分组+小分组"的层级感，
    也不用跳一个额外的弹窗去加分类——标题直接可以点着改名，行末小 × 删除，最下面一行直接加新分类 */
 var journalRenamingKey = null;
+var journalTitleClickTimer = null;
+/* 单击和双击的第一下点击在浏览器里都会先触发一次 click，如果单击直接跳进分类，
+   页面立刻重绘、这个标题元素就没了，双击的第二下点击根本落不到它身上，永远触发不了改名。
+   所以单击先等一下，等的过程中如果双击来了，就取消这次"进入"，只做改名 */
+window.journalTitleSingleClick = function(key){
+  clearTimeout(journalTitleClickTimer);
+  journalTitleClickTimer = setTimeout(function(){
+    enterModuleCategory("journal", key);
+  }, 230);
+};
 window.startRenameJournalCategory = function(key){
+  clearTimeout(journalTitleClickTimer);
   journalRenamingKey = key;
   render();
 };
@@ -3682,7 +3693,7 @@ function renderJournalCategoryList(){
   var rows = cats.map(function(c){
     var titleHtml = journalRenamingKey===c.key
       ? '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameJournalCategory(\''+c.key+'\', this.value)">'
-      : '<span class="journal-toc-title journal-toc-title-click" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
+      : '<span class="journal-toc-title journal-toc-title-click" onclick="journalTitleSingleClick(\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
     return '<div class="journal-toc-item">'+
       titleHtml+
       '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
