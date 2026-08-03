@@ -1380,7 +1380,6 @@ function familyGraphElements(){
 function renderFamilyTree(){
   return '<div class="fam-graph-toolbar">'+
       '<button class="btn small ghost" type="button" onclick="addFamilyMember()">+ 添加成员</button>'+
-      '<button class="btn small ghost" type="button" onclick="relayoutFamilyGraph()">↺ 自动排版</button>'+
       '<button class="btn small ghost" type="button" onclick="fitFamilyGraph()">⤢ 适应画布</button>'+
       '<div class="fam-search-box">'+
         '<input type="text" id="famSearchInput" placeholder="🔍 搜索姓名/关系" oninput="familySearchInput(this.value)" onfocus="familySearchInput(this.value)">'+
@@ -1389,7 +1388,7 @@ function renderFamilyTree(){
       ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>'+
     '<div class="fam-graph-wrap" id="familyGraphWrap"><div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div></div>'+
-    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动。"↺自动排版"会把"自己"这条直系血脉（祖辈-父母-自己-子孙）按代数对齐成一排排整齐的格子，表亲这些旁系亲属交给算法自动摆放。人越来越多找不到时，用上面的搜索框按姓名/关系搜，点结果直接跳过去。</div>';
+    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动，拖动时和其他成员对得比较齐会自动吸附对齐并显示对齐线。人越来越多找不到时，用上面的搜索框按姓名/关系搜，点结果直接跳过去。</div>';
 }
 window.familySearchInput = function(q){
   var box = document.getElementById("famSearchResults");
@@ -1422,62 +1421,6 @@ window.familySearchJumpTo = function(id){
 function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:34, rankSep:70, edgeSep:14, padding:32, fit:false, animate:false, ranker:"network-simplex"};
 }
-/* "自己"往上数到历代祖先、往下数到历代子孙——这条直系血脉才需要严格按代数对齐成一排排格子；
-   表亲、姨舅这些旁系亲属交给 dagre 自己排就行，不用强行对齐 */
-function familyDirectLineGenerations(){
-  var members = DATA.familyMembers||[];
-  var byId = {};
-  members.forEach(function(m){ byId[m.id] = m; });
-  var gen = {};
-  if(!byId["self"]) return gen;
-  gen["self"] = 0;
-  var queue = ["self"];
-  while(queue.length){
-    var id = queue.shift();
-    var m = byId[id]; if(!m) continue;
-    (m.parentIds||[]).forEach(function(pid){
-      if(byId[pid] && !(pid in gen)){ gen[pid] = gen[id]-1; queue.push(pid); }
-    });
-  }
-  queue = ["self"];
-  while(queue.length){
-    var id = queue.shift();
-    members.forEach(function(m){
-      if((m.parentIds||[]).indexOf(id)>=0 && !(m.id in gen)){ gen[m.id] = gen[id]+1; queue.push(m.id); }
-    });
-  }
-  return gen;
-}
-function alignFamilyDirectLineRows(){
-  if(!familyGraph) return;
-  var selfNode = familyGraph.getElementById("self");
-  if(!selfNode.length) return;
-  var gen = familyDirectLineGenerations();
-  var selfY = selfNode.position().y;
-  var rankSep = familyGraphLayout().rankSep;
-  Object.keys(gen).forEach(function(id){
-    var n = familyGraph.getElementById(id);
-    if(!n.length) return;
-    var pos = n.position();
-    n.position({x: pos.x, y: selfY + gen[id]*rankSep});
-  });
-}
-window.relayoutFamilyGraph = function(){
-  if(!familyGraph) return;
-  familyGraph.elements().not("edge.spouse-edge").not("edge.sibling-edge").layout(familyGraphLayout()).run();
-  alignFamilyDirectLineRows();
-  DATA.familyNodePositions = DATA.familyNodePositions || {};
-  var saved = DATA.familyNodePositions;
-  familyGraph.nodes().forEach(function(n){ saved[n.id()] = n.position(); });
-  save();
-  var focusId = familyGraph.getElementById("self").length ? "self" : ((DATA.familyMembers||[])[0]||{}).id;
-  var focus = focusId ? familyGraph.getElementById(focusId) : null;
-  if(focus && focus.length){
-    familyGraph.zoom(0.82);
-    familyGraph.center(focus);
-    familyGraphViewState = {zoom: familyGraph.zoom(), pan: familyGraph.pan()};
-  }
-};
 var familyGraphViewState = null; /* 记住上次的缩放/平移，编辑一次不该把画面弹回起点 */
 /* 新节点还没有保存过位置时，就近摆在已有的关联节点旁边，完全不跑排版算法——已经摆好的节点永远不会被自动挪动 */
 function familyGraphFallbackPosition(nodeId, edges, saved, fallbackIndex){
@@ -1521,6 +1464,28 @@ function applyFamilyGraphPositions(){
   var focus = focusId ? familyGraph.getElementById(focusId) : null;
   if(focus && focus.length){ familyGraph.zoom(0.82); familyGraph.center(focus); }
 }
+/* 拖动成员时如果和另一个成员的横/纵坐标对得很齐，画一条参考线提示已经吸附对齐 */
+function renderFamilyAlignGuides(modelX, modelY){
+  var container = document.getElementById("familyGraph");
+  var old = document.getElementById("famAlignGuides");
+  if(old) old.remove();
+  if(!container || !familyGraph || (modelX===null && modelY===null)) return;
+  var pan = familyGraph.pan(), zoom = familyGraph.zoom();
+  var div = document.createElement("div");
+  div.id = "famAlignGuides";
+  div.style.cssText = "position:absolute; inset:0; pointer-events:none; z-index:4;";
+  var html = "";
+  if(modelX!==null){
+    var rx = pan.x + modelX*zoom;
+    html += '<div style="position:absolute; left:'+rx+'px; top:0; bottom:0; width:1px; background:#E0662F;"></div>';
+  }
+  if(modelY!==null){
+    var ry = pan.y + modelY*zoom;
+    html += '<div style="position:absolute; top:'+ry+'px; left:0; right:0; height:1px; background:#E0662F;"></div>';
+  }
+  div.innerHTML = html;
+  container.appendChild(div);
+}
 function setupFamilyGraph(){
   var el = document.getElementById("familyGraph");
   if(!el) return;
@@ -1558,8 +1523,24 @@ function setupFamilyGraph(){
   });
   familyGraph.on("tap", function(e){ if(e.target===familyGraph){ closeFamilyCard(); closeFamilyEdgeLabel(); } });
   familyGraph.on("pan zoom position", function(){ renderFamilyCardOverlay(); renderFamilyEdgeLabelOverlay(); });
+  familyGraph.on("drag", "node.member", function(e){
+    /* 拖动时跟其他成员对得比较齐（横向/纵向），就像往表格单元格里拖图片会自动吸附一样，顺手吸附对齐并画出参考线 */
+    var n = e.target;
+    var pos = n.position();
+    var threshold = 6/familyGraph.zoom();
+    var snapX = null, snapY = null;
+    familyGraph.nodes(".member").forEach(function(other){
+      if(other.id()===n.id()) return;
+      var op = other.position();
+      if(snapX===null && Math.abs(op.x-pos.x)<threshold) snapX = op.x;
+      if(snapY===null && Math.abs(op.y-pos.y)<threshold) snapY = op.y;
+    });
+    if(snapX!==null || snapY!==null) n.position({x: snapX!==null?snapX:pos.x, y: snapY!==null?snapY:pos.y});
+    renderFamilyAlignGuides(snapX, snapY);
+  });
   familyGraph.on("dragfree", "node.member", function(e){
     /* 手动拖动摆好的位置直接存下来，下次编辑刷新时不会被重新排版顶掉 */
+    renderFamilyAlignGuides(null, null);
     DATA.familyNodePositions = DATA.familyNodePositions || {};
     DATA.familyNodePositions[e.target.id()] = e.target.position();
     save();
