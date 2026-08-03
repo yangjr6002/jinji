@@ -304,7 +304,7 @@ table.data tr:hover{background:var(--surface-2)}
 }
 .tla-ylabel::before{content:""; flex:none; width:7px; height:7px; border-radius:50%; background:var(--cat-color);}
 .tla-ylabel:hover{color:var(--cat-color); background:var(--surface);}
-.tla-scroll{overflow-x:auto; flex:1; cursor:grab;}
+.tla-scroll{overflow-x:auto; overflow-y:hidden; flex:1; cursor:grab;}
 .tla-scroll.grabbing{cursor:grabbing;}
 .tla-canvas{position:relative;}
 .tla-hgrid{position:absolute; left:0; height:1px; background:var(--border-soft);}
@@ -421,7 +421,6 @@ table.data tr:hover{background:var(--surface-2)}
 .tlv-period.tlv-period-fill:hover .tlv-period-label{text-decoration:underline;}
 /* 补充内容的悬浮提示，类似 Excel 单元格注释：只有真的有补充字段的经历才会出现小圆点提示、鼠标移上去才展开 */
 .tl-tip-wrap{position:relative; display:inline-block; cursor:help;}
-.tla-age-tipwrap{display:block;}
 /* 提示框用 position:fixed 单独挂在 body 上，用 JS 算坐标显示——
    不这样做的话，嵌在横向时间轴（overflow-y:hidden 的滚动容器）里的提示框会被裁掉，鼠标移上去看不到内容 */
 .tl-tooltip{
@@ -2913,41 +2912,6 @@ function timeUnitSnapshotTip(yk){
    合并成一行，用顿号/逗号隔开，比如"3月：进入xx学习，搬进xxx"，不用分成两行重复标月份；
    只要经历本身精确到了月份就一定要显示出来，不能因为这一年只有一件事就把月份省掉；
    真的只填了年份、没填月份的经历才不显示月份前缀，单独占一行。 */
-function timeUnitYearSnapshotTip(yStr){
-  var y = parseInt(yStr,10);
-  if(isNaN(y)) return "";
-  var birthYear = familyBirthYear();
-  var byMonth = {}, monthOrder = [], noMonthTexts = [];
-  function addEntry(t, cat){
-    var p1 = parseFlexibleDate(t.date);
-    if(!p1 || p1.y!==y || !t.keyword) return; // 只算这一年新开始、有关键词的变化
-    var text;
-    if(cat==="work"){
-      var suffix = "工作";
-      if(t.category==="school"){ suffix = "学习"; }
-      else if(t.jobType){ var w = workTag(t.jobType); if(w) suffix = w.label; }
-      text = "进入"+t.keyword+suffix;
-    } else {
-      text = "搬进"+t.keyword;
-    }
-    if(p1.precision==="year"){ noMonthTexts.push(text); return; }
-    if(!byMonth[p1.m]){ byMonth[p1.m] = []; monthOrder.push(p1.m); }
-    byMonth[p1.m].push(text);
-  }
-  (DATA.lifeTimeline||[]).forEach(function(t){
-    var c = t.category||"";
-    if(c==="work"||c==="school") addEntry(t,"work");
-    /* 固定住所不用挤进这个小结里，只有移动住所才值得单独标注 */
-    if(c==="residence" && t.residenceType==="mobile") addEntry(t,"resi");
-  });
-  monthOrder.sort(function(a,b){ return a-b; });
-  var lines = [];
-  if(birthYear!==null && y>=birthYear) lines.push((y-birthYear)+"岁");
-  monthOrder.forEach(function(m){ lines.push(m+"月："+byMonth[m].join("，")); });
-  noMonthTexts.forEach(function(text){ lines.push(text); });
-  if(!lines.length) return "";
-  return lines.map(function(l){ return '<div class="tl-tip-row">'+esc(l)+'</div>'; }).join('');
-}
 function ageGrowthIcon(age){
   if(age<3) return "👶";
   if(age<12) return "👧";
@@ -3041,16 +3005,7 @@ function renderTimelineMatrix(items, granularity){
       var age = yNum-birthYear;
       ageHtml = '<div class="tla-age">'+ageGrowthIcon(age)+' '+age+'岁</div>';
     }
-    var tip = timeUnitYearSnapshotTip(y);
     var yearLabelHtml = '<div class="tla-year">'+esc(y)+'</div>';
-    if(tip){
-      var tipAttr = esc('<div class="tl-tip-row"><b>'+esc(y)+'年</b></div>'+tip);
-      yearLabelHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+yearLabelHtml+'</span>';
-      /* 悬浮在年纪表情那一行也能看到同一个事件卡片，不用非得精确停在年份数字上；
-         用 div 包一层而不是 span，.tl-tip-wrap 默认是 inline-block，用 span 包会跟年份那行并排到一条线上，
-         年纪这一行的排版（单独一行）就乱了 */
-      if(ageHtml) ageHtml = '<div class="tl-tip-wrap has-tip tla-age-tipwrap" data-tip="'+tipAttr+'">'+ageHtml+'</div>';
-    }
     var header = '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+yearLabelHtml+ageHtml+'</div>';
     if(!isSplit) return header;
     var subs = keys.filter(function(k){ return k.indexOf("-")!==-1; }).map(function(k){
