@@ -866,6 +866,7 @@ function normalizeData(d){
   });
   d.familySpouseLabels = d.familySpouseLabels || {};
   d.familyEdgeLabels = d.familyEdgeLabels || {};
+  d.familySiblingLabels = d.familySiblingLabels || {};
   d.moduleCategories = d.moduleCategories || {};
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
@@ -1343,6 +1344,23 @@ function familyGraphElements(){
       addEdge("spouse:"+pair, p.id, sid, "spouse-edge", (DATA.familySpouseLabels||{})[pair] || "配偶");
     });
   });
+  /* 兄弟姐妹关系不是单独存的字段，靠共享父母判断；这里补一条虚线直连，方便直接看和标注 */
+  var siblingLabels = DATA.familySiblingLabels || {};
+  var shownSiblings = {};
+  for(var si=0; si<members.length; si++){
+    for(var sj=si+1; sj<members.length; sj++){
+      var a = members[si], b = members[sj];
+      var ap = (a.parentIds||[]).filter(function(id){ return !!byId[id]; });
+      var bp = (b.parentIds||[]).filter(function(id){ return !!byId[id]; });
+      if(!ap.length || !bp.length) continue;
+      var shared = ap.some(function(pid){ return bp.indexOf(pid)!==-1; });
+      if(!shared) continue;
+      var sPair = familySpousePairKey(a.id, b.id);
+      if(shownSiblings[sPair]) continue;
+      shownSiblings[sPair] = true;
+      addEdge("sibling:"+sPair, a.id, b.id, "sibling-edge", siblingLabels[sPair] || "兄弟姐妹");
+    }
+  }
   return {nodes:nodes, edges:edges};
 }
 function renderFamilyTree(){
@@ -1395,15 +1413,16 @@ function setupFamilyGraph(){
       {selector:"node.member", style:{"shape":"round-rectangle","width":132,"height":52,"background-color":"#FFFDF8","border-width":1,"border-color":"#CBC6BA","label":"data(label)","font-family":"IBM Plex Sans, sans-serif","font-size":12,"font-weight":600,"color":"#292B28","text-valign":"center","text-halign":"center","text-wrap":"wrap","text-max-width":112,"overlay-opacity":0}},
       {selector:"node.member:selected", style:{"border-color":"#2F5D50","border-width":2,"background-color":"#F1F7F3"}},
       {selector:"node.union", style:{"shape":"diamond","width":12,"height":12,"background-color":"#B7B4AA","border-width":0,"label":"","overlay-opacity":0}},
-      {selector:"edge.family-edge", style:{"curve-style":"straight","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
+      {selector:"edge.family-edge", style:{"curve-style":"taxi","taxi-direction":"downward","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
       {selector:"edge.parent-union", style:{"target-arrow-shape":"none","line-style":"dashed","label":""}},
-      {selector:"edge.spouse-edge", style:{"curve-style":"bezier","line-color":"#A0527A","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#A0527A","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}}
+      {selector:"edge.spouse-edge", style:{"curve-style":"bezier","line-color":"#A0527A","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#A0527A","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}},
+      {selector:"edge.sibling-edge", style:{"curve-style":"bezier","line-color":"#6E8FA3","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#6E8FA3","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}}
     ],
     layout:{name:"preset"}
   });
   runFamilyGraphLayout();
   familyGraph.on("tap", "node.member", function(e){ toggleFamilyCard(e.target.id()); });
-  familyGraph.on("tap", "edge.family-edge, edge.spouse-edge", function(e){
+  familyGraph.on("tap", "edge.family-edge, edge.spouse-edge, edge.sibling-edge", function(e){
     if(e.target.hasClass("parent-union")) return; // 连到虚拟联姻点的那一小段不用标注
     openFamilyEdgeLabelEditor(e.target.id());
   });
@@ -1494,6 +1513,7 @@ function renderFamilyEdgeLabelOverlay(){
   var sp = edge.source().renderedPosition(), tp = edge.target().renderedPosition();
   var mx = (sp.x+tp.x)/2, my = (sp.y+tp.y)/2;
   var isSpouse = edge.hasClass("spouse-edge");
+  var isSibling = edge.hasClass("sibling-edge");
   var div = document.createElement("div");
   div.id = "famEdgeLabelOverlay";
   div.className = "fam-edge-label-editor";
@@ -1504,7 +1524,7 @@ function renderFamilyEdgeLabelOverlay(){
   ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
     div.addEventListener(evt, function(e){ e.stopPropagation(); });
   });
-  div.innerHTML = '<input type="text" value="'+esc(edge.data("label")||"")+'" placeholder="'+(isSpouse?"配偶":"标注关系")+'">';
+  div.innerHTML = '<input type="text" value="'+esc(edge.data("label")||"")+'" placeholder="'+(isSpouse?"配偶":isSibling?"兄弟姐妹":"标注关系")+'">';
   wrap.appendChild(div);
   var inputEl = div.querySelector("input");
   inputEl.focus(); inputEl.select();
@@ -1519,6 +1539,10 @@ window.saveFamilyEdgeLabel = function(edgeId, text){
       var pairKey = edgeId.replace(/^spouse:/, "");
       DATA.familySpouseLabels = DATA.familySpouseLabels || {};
       DATA.familySpouseLabels[pairKey] = text;
+    } else if(edge.hasClass("sibling-edge")){
+      var sibPairKey = edgeId.replace(/^sibling:/, "");
+      DATA.familySiblingLabels = DATA.familySiblingLabels || {};
+      DATA.familySiblingLabels[sibPairKey] = text;
     } else {
       DATA.familyEdgeLabels = DATA.familyEdgeLabels || {};
       DATA.familyEdgeLabels[edgeId] = text;
