@@ -1388,7 +1388,7 @@ function renderFamilyTree(){
       ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>'+
     '<div class="fam-graph-wrap" id="familyGraphWrap"><div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div></div>'+
-    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动，拖动时和其他成员对得比较齐会自动吸附对齐并显示对齐线。人越来越多找不到时，用上面的搜索框按姓名/关系搜，点结果直接跳过去。</div>';
+    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动，拖动时和其他成员对得比较齐会自动吸附对齐并显示对齐线，按住 shift 拖动能锁死一条水平或竖直的直线。人越来越多找不到时，用上面的搜索框按姓名/关系搜，点结果直接跳过去。</div>';
 }
 window.familySearchInput = function(q){
   var box = document.getElementById("famSearchResults");
@@ -1422,6 +1422,13 @@ function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:34, rankSep:70, edgeSep:14, padding:32, fit:false, animate:false, ranker:"network-simplex"};
 }
 var familyGraphViewState = null; /* 记住上次的缩放/平移，编辑一次不该把画面弹回起点 */
+var famShiftHeld = false, famDragStartPos = null;
+if(!window.__famShiftListenerBound){
+  window.__famShiftListenerBound = true;
+  document.addEventListener("keydown", function(e){ if(e.key==="Shift") famShiftHeld = true; });
+  document.addEventListener("keyup", function(e){ if(e.key==="Shift") famShiftHeld = false; });
+  window.addEventListener("blur", function(){ famShiftHeld = false; });
+}
 /* 新节点还没有保存过位置时，就近摆在已有的关联节点旁边，完全不跑排版算法——已经摆好的节点永远不会被自动挪动 */
 function familyGraphFallbackPosition(nodeId, edges, saved, fallbackIndex){
   for(var i=0;i<edges.length;i++){
@@ -1523,10 +1530,20 @@ function setupFamilyGraph(){
   });
   familyGraph.on("tap", function(e){ if(e.target===familyGraph){ closeFamilyCard(); closeFamilyEdgeLabel(); } });
   familyGraph.on("pan zoom position", function(){ renderFamilyCardOverlay(); renderFamilyEdgeLabelOverlay(); });
+  familyGraph.on("grab", "node.member", function(e){
+    var gp = e.target.position();
+    famDragStartPos = {x:gp.x, y:gp.y}; // 记住按下瞬间的位置（必须拷贝一份，position() 返回的是内部引用，直接存会跟着后面拖动一起变）
+  });
   familyGraph.on("drag", "node.member", function(e){
-    /* 拖动时跟其他成员对得比较齐（横向/纵向），就像往表格单元格里拖图片会自动吸附一样，顺手吸附对齐并画出参考线 */
     var n = e.target;
     var pos = n.position();
+    /* 按住 shift 时把移动方向锁死在水平或竖直上（哪个方向移动得更多就锁哪个），方便拉出一条直线 */
+    if(famShiftHeld && famDragStartPos){
+      var dx = pos.x-famDragStartPos.x, dy = pos.y-famDragStartPos.y;
+      pos = Math.abs(dx)>=Math.abs(dy) ? {x:pos.x, y:famDragStartPos.y} : {x:famDragStartPos.x, y:pos.y};
+      n.position(pos);
+    }
+    /* 拖动时跟其他成员对得比较齐（横向/纵向），就像往表格单元格里拖图片会自动吸附一样，顺手吸附对齐并画出参考线 */
     var threshold = 6/familyGraph.zoom();
     var snapX = null, snapY = null;
     familyGraph.nodes(".member").forEach(function(other){
@@ -1538,6 +1555,7 @@ function setupFamilyGraph(){
     if(snapX!==null || snapY!==null) n.position({x: snapX!==null?snapX:pos.x, y: snapY!==null?snapY:pos.y});
     renderFamilyAlignGuides(snapX, snapY);
   });
+  familyGraph.on("free", "node.member", function(){ famDragStartPos = null; });
   familyGraph.on("dragfree", "node.member", function(e){
     /* 手动拖动摆好的位置直接存下来，下次编辑刷新时不会被重新排版顶掉 */
     renderFamilyAlignGuides(null, null);
