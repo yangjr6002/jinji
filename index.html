@@ -579,9 +579,10 @@ table.data tr:hover{background:var(--surface-2)}
 .journal-list{display:flex; flex-direction:column;}
 .journal-row{display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border-soft);}
 .journal-row:last-child{border-bottom:none;}
+.journal-row-line1{display:flex; align-items:baseline; gap:8px;}
 .journal-title{font-size:14px; font-weight:600; color:var(--text);}
-.journal-meta{font-size:11px; margin-top:3px;}
-.journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5;}
+.journal-meta{font-size:11px; flex:none;}
+.journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .journal-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
 /* 日志详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
 .journal-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
@@ -596,7 +597,7 @@ table.data tr:hover{background:var(--surface-2)}
 .journal-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
 .journal-toc-item:last-of-type{border-bottom:none;}
 .journal-toc-title{
-  flex:1; min-width:0; font-family:'Fraunces',serif; font-size:17px; font-weight:600; color:var(--text);
+  flex:1; min-width:0; font-family:'Fraunces',serif; font-size:14.5px; font-weight:600; color:var(--text);
   border:1px solid transparent; background:transparent; padding:3px 6px; border-radius:5px; cursor:text;
 }
 .journal-toc-title-fixed{cursor:default; padding:3px 6px;}
@@ -3746,8 +3747,10 @@ function renderJournalSection(){
   var rows = scoped.map(function(j){
     return '<div class="journal-row">'+
       '<div style="flex:1; min-width:0;">'+
-        '<span class="row-open-link journal-title" onclick="openItemTab(\'journal\',\''+j.id+'\')">'+esc(j.title||"未命名日志")+'</span>'+
-        '<div class="journal-meta muted">'+esc(j.date||"—")+'</div>'+
+        '<div class="journal-row-line1">'+
+          '<span class="row-open-link journal-title" onclick="openItemTab(\'journal\',\''+j.id+'\')">'+esc(j.title||"未命名日志")+'</span>'+
+          '<span class="journal-meta muted">'+esc(j.date||"—")+'</span>'+
+        '</div>'+
         '<div class="journal-excerpt muted">'+esc(journalExcerpt(j.content))+'</div>'+
       '</div>'+
       '<div class="row-actions"><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
