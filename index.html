@@ -1321,13 +1321,23 @@ window.clearAllFamilyMembers = function(){
   }, "确认清空家庭关系树", "确定清空");
 };
 var familyGraph = null;
+/* 名字不是必填的——很多长辈/远亲根本不知道名字，只知道称呼（关系）。有啥就显示啥，别硬塞"未命名"这种看着像出错的占位字 */
+function famMemberLabel(p){
+  var parts = [];
+  if(p.relation) parts.push(p.relation);
+  if(p.name) parts.push(p.name);
+  return parts.length ? parts.join("\n") : "(未填写)";
+}
+function famMemberShortName(p){
+  return (p.relation?p.relation+' ':'')+(p.name||"");
+}
 function familyGraphElements(){
   var members = DATA.familyMembers || [];
   var byId = {};
   var nodes = [], edges = [], unions = {};
   members.forEach(function(p){
     byId[p.id] = p;
-    nodes.push({data:{id:p.id, label:(p.relation||"未分类")+"\n"+(p.name||"未命名"), kind:"member"}, classes:"member"});
+    nodes.push({data:{id:p.id, label:famMemberLabel(p), kind:"member"}, classes:"member"});
   });
   function addEdge(id, source, target, classes, label){
     edges.push({data:{id:id, source:source, target:target, label:label||""}, classes:classes});
@@ -1401,7 +1411,7 @@ window.familySearchInput = function(q){
   if(!matches.length){ box.innerHTML = '<div class="fam-search-empty">没找到</div>'; return; }
   box.innerHTML = matches.map(function(p){
     return '<div class="fam-search-result" onmousedown="event.preventDefault();familySearchJumpTo(\''+p.id+'\')">'+
-      (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</div>';
+      esc(famMemberShortName(p)||"(未填写)")+'</div>';
   }).join('');
 };
 window.familySearchJumpTo = function(id){
@@ -1779,7 +1789,7 @@ function familyLinkOptionsHtml(id){
   return others.map(function(p){
     var checked = familyLinkIsChecked(self, p);
     return '<label class="fam-parent-opt"><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleFamilyLink(\''+id+'\',\''+p.id+'\', this.checked)"> '+
-      (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</label>';
+      esc(famMemberShortName(p)||"(未填写)")+'</label>';
   }).join('') || '<div class="sub">'+(q?"没找到":"还没有其他成员可选")+'</div>';
 }
 /* 只更新勾选列表这一小块 DOM，不整卡片重画——不然搜索框重建就打不了字了（跟之前卡片输入框的坑一样） */
