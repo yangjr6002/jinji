@@ -3326,17 +3326,23 @@ function journalExcerpt(content){
 }
 function renderJournalSection(){
   var cats = getModuleCategories("journal");
-  var journalActions = '<div style="display:flex; gap:6px;">'+
-    '<button class="gear-btn" onclick="manageModuleCategories(\'journal\',\''+labelFor("journal")+' · 分类管理\')" title="管理分类">⚙</button>'+
-    '<button class="btn solid" onclick="editJournalEntry()">+ 写日志</button>'+
-  '</div>';
-  if(cats.length && !moduleCatView.journal && moduleCatView.journal!==""){
-    return moduleShell("journal","📔","journal","记日常想法的地方，先分类，再进去看这一类下的日志列表。",
-      journalActions,
+  var gearBtn = '<button class="gear-btn" onclick="manageModuleCategories(\'journal\',\''+labelFor("journal")+' · 分类管理\')" title="管理分类">⚙</button>';
+  var addBtn = '<button class="btn solid" onclick="editJournalEntry()">+ 写日志</button>';
+  /* 必须先建分类、点进某一个分类之后才能写日志——外层文件夹视图不给"+"，避免绕过分类直接建"未分类"日志 */
+  if(!cats.length){
+    return moduleShell("journal","📔","journal","记日常想法的地方，先建一个分类，再进去写日志。",
+      gearBtn,
+      emptyState("📔","还没有分类","点击右上角「⚙」先建一个分类，比如「心情随笔」")
+    );
+  }
+  var inCategory = moduleCatView.journal!==null && moduleCatView.journal!==undefined;
+  if(!inCategory){
+    return moduleShell("journal","📔","journal","记日常想法的地方，点进一个分类才能看到/写日志。",
+      gearBtn,
       renderCategoryFolders("journal", DATA.journalEntries, function(it){return it.category||"";})
     );
   }
-  var scoped = (cats.length ? DATA.journalEntries.filter(function(j){ return (j.category||"")===moduleCatView.journal; }) : DATA.journalEntries)
+  var scoped = DATA.journalEntries.filter(function(j){ return (j.category||"")===moduleCatView.journal; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
   var rows = scoped.map(function(j){
     return '<div class="journal-row">'+
@@ -3348,10 +3354,10 @@ function renderJournalSection(){
       '<div class="row-actions"><button class="btn small ghost" onclick="editJournalEntry(\''+j.id+'\')">编辑</button><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
-  var backBar = cats.length ? categoryBackBar("journal") : "";
-  return moduleShell("journal","📔","journal","记日常想法的地方，先分类，再进去看这一类下的日志列表。",
-    journalActions,
-    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("📔","这里还没有日志","点击右上角「写日志」添加"))
+  var backBar = categoryBackBar("journal");
+  return moduleShell("journal","📔","journal","这一分类下的日志列表。",
+    '<div style="display:flex; gap:6px;">'+gearBtn+addBtn+'</div>',
+    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("📔","这个分类下还没有日志","点击右上角「写日志」添加"))
   );
 }
 window.editJournalEntry = function(id){
