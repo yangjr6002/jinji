@@ -1462,7 +1462,9 @@ function applyFamilyGraphPositions(){
     });
     if(changed) save();
   }
-  /* 联姻点位置永远实时算成两个父母的中点，跟着父母的当前位置走，不持久化 */
+  /* 联姻点位置永远实时算成两个父母的中点，跟着父母的当前位置走，不持久化；
+     父母通常左右并排、纵坐标相同，中点的 y 如果直接取平均会跟父母卡在同一条线上，
+     父母到联姻点之间那段虚线就会缩成一个点、跟配偶横线叠在一起看不见——所以要往下偏移一段，让虚线有长度 */
   familyGraph.nodes(".union").forEach(function(u){
     var xs=[], ys=[];
     u.connectedEdges("edge.parent-union").forEach(function(e){
@@ -1470,7 +1472,9 @@ function applyFamilyGraphPositions(){
       xs.push(p.x); ys.push(p.y);
     });
     if(xs.length){
-      u.position({x: xs.reduce(function(a,b){return a+b;},0)/xs.length, y: ys.reduce(function(a,b){return a+b;},0)/ys.length});
+      var avgX = xs.reduce(function(a,b){return a+b;},0)/xs.length;
+      var avgY = ys.reduce(function(a,b){return a+b;},0)/ys.length;
+      u.position({x: avgX, y: avgY + 36});
     }
   });
   if(familyGraphViewState){
