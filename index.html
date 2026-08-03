@@ -479,6 +479,7 @@ table.data tr:hover{background:var(--surface-2)}
   border-radius:12px; background:var(--surface); touch-action:none; overflow:hidden;
 }
 .fam-graph-toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;}
+.fam-toggle{display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-dim); cursor:pointer; white-space:nowrap;}
 .fam-search-box{position:relative; flex:1; min-width:140px;}
 .fam-search-box input{width:100%; box-sizing:border-box; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:13px; color:var(--text);}
 .fam-search-results{position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-lg); max-height:220px; overflow-y:auto;}
@@ -699,7 +700,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","journal"], timelineViewByFilter:{}, categoryViewMode:"list" },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -838,6 +839,7 @@ function normalizeData(d){
     delete d.settings.timelineGranularity;
   }
   d.settings.categoryViewMode = d.settings.categoryViewMode || "list";
+  if(d.settings.familyShowSiblingLines===undefined) d.settings.familyShowSiblingLines = true;
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -1382,6 +1384,7 @@ function renderFamilyTree(){
         '<input type="text" id="famSearchInput" placeholder="🔍 搜索姓名/关系" oninput="familySearchInput(this.value)" onfocus="familySearchInput(this.value)">'+
         '<div id="famSearchResults"></div>'+
       '</div>'+
+      '<label class="fam-toggle"><input type="checkbox" '+(DATA.settings.familyShowSiblingLines!==false?"checked":"")+' onchange="toggleFamilySiblingLines(this.checked)"> 兄弟姐妹虚线</label>'+
       ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>'+
     '<div class="fam-graph-wrap" id="familyGraphWrap"><div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div></div>'+
@@ -1414,6 +1417,10 @@ window.familySearchJumpTo = function(id){
   var box = document.getElementById("famSearchResults");
   if(input) input.value = "";
   if(box) box.innerHTML = "";
+};
+window.toggleFamilySiblingLines = function(checked){
+  DATA.settings.familyShowSiblingLines = checked;
+  save(); render();
 };
 function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:34, rankSep:70, edgeSep:14, padding:32, fit:false, animate:false, ranker:"network-simplex"};
@@ -1534,7 +1541,7 @@ function setupFamilyGraph(){
       {selector:"edge.family-edge", style:{"curve-style":"taxi","taxi-direction":"downward","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
       {selector:"edge.parent-union", style:{"target-arrow-shape":"none","line-style":"dashed","label":""}},
       {selector:"edge.spouse-edge", style:{"curve-style":"bezier","line-color":"#A0527A","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#A0527A","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}},
-      {selector:"edge.sibling-edge", style:{"curve-style":"bezier","line-color":"#6E8FA3","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#6E8FA3","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}}
+      {selector:"edge.sibling-edge", style:{"curve-style":"bezier","line-color":"#6E8FA3","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#6E8FA3","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0,"display":(DATA.settings.familyShowSiblingLines!==false?"element":"none")}}
     ],
     layout:{name:"preset"}
   });
