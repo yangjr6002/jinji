@@ -564,6 +564,24 @@ table.data tr:hover{background:var(--surface-2)}
 .journal-meta{font-size:11px; margin-top:3px;}
 .journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5;}
 .journal-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
+/* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
+.journal-toc{display:flex; flex-direction:column; padding:4px 20px;}
+.journal-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
+.journal-toc-item:last-of-type{border-bottom:none;}
+.journal-toc-title{
+  flex:1; min-width:0; font-family:'Fraunces',serif; font-size:17px; font-weight:600; color:var(--text);
+  border:1px solid transparent; background:transparent; padding:3px 6px; border-radius:5px; cursor:text;
+}
+.journal-toc-title-fixed{cursor:default; padding:3px 6px;}
+.journal-toc-title:hover{border-color:var(--border);}
+.journal-toc-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.journal-toc-enter{font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 2px;}
+.journal-toc-enter:hover{color:var(--accent);}
+.journal-toc-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:5px 7px; border-radius:5px; opacity:0; cursor:pointer; transition:.12s;}
+.journal-toc-item:hover .journal-toc-del{opacity:1;}
+.journal-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
+.journal-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
+.journal-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -3324,22 +3342,62 @@ function journalExcerpt(content){
   var flat = (content||"").replace(/\s+/g," ").trim();
   return flat.length>60 ? (flat.slice(0,60)+"…") : (flat||"（没有内容）");
 }
+/* 外层分类是书的章节目录那种感觉：都是同一级，一行一个标题，没有"固定分组+小分组"的层级感，
+   也不用跳一个额外的弹窗去加分类——标题直接可以点着改名，行末小 × 删除，最下面一行直接加新分类 */
+function renderJournalCategoryList(){
+  var cats = getModuleCategories("journal");
+  var counts = {};
+  DATA.journalEntries.forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
+  var rows = cats.map(function(c){
+    return '<div class="journal-toc-item">'+
+      '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" onchange="renameJournalCategory(\''+c.key+'\', this.value)">'+
+      '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
+      '<button type="button" class="journal-toc-del" onclick="deleteJournalCategory(\''+c.key+'\')" title="删除分类">✕</button>'+
+    '</div>';
+  }).join('');
+  var uncatCount = counts[""]||0;
+  var uncatRow = uncatCount ? ('<div class="journal-toc-item">'+
+    '<span class="journal-toc-title journal-toc-title-fixed">'+esc(uncategorizedLabel("journal"))+'</span>'+
+    '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\'\')">'+uncatCount+' 篇 ›</span>'+
+  '</div>') : '';
+  return '<div class="card-panel journal-toc">'+rows+uncatRow+
+    '<div class="journal-toc-add">'+
+      '<input type="text" id="journalNewCatName" placeholder="新分类名称，比如「旅行手记」" onkeydown="if(event.key===\'Enter\'){addJournalCategoryInline();}">'+
+      '<button type="button" class="btn small ghost" onclick="addJournalCategoryInline()">+ 添加分类</button>'+
+    '</div>'+
+  '</div>';
+}
+window.addJournalCategoryInline = function(){
+  var input = document.getElementById("journalNewCatName");
+  var value = (input.value||"").trim();
+  if(!value) return;
+  DATA.moduleCategories = DATA.moduleCategories || {};
+  DATA.moduleCategories.journal = DATA.moduleCategories.journal || [];
+  DATA.moduleCategories.journal.push({key:uid(), label:value});
+  save(); render();
+};
+window.renameJournalCategory = function(key, value){
+  value = (value||"").trim();
+  var c = getModuleCategories("journal").filter(function(x){return x.key===key;})[0];
+  if(c && value){ c.label = value; save(); }
+  render();
+};
+window.deleteJournalCategory = function(key){
+  confirmDelete("确定删除这个分类吗？里面的日志会变成「未分类」，不会被删除。", function(){
+    DATA.moduleCategories.journal = getModuleCategories("journal").filter(function(x){return x.key!==key;});
+    if(moduleCatView.journal===key) moduleCatView.journal=null;
+    save(); render();
+  }, "确认删除分类", "确定删除");
+};
 function renderJournalSection(){
   var cats = getModuleCategories("journal");
-  var gearBtn = '<button class="gear-btn" onclick="manageModuleCategories(\'journal\',\''+labelFor("journal")+' · 分类管理\')" title="管理分类">⚙</button>';
   var addBtn = '<button class="btn solid" onclick="editJournalEntry()">+ 写日志</button>';
-  /* 必须先建分类、点进某一个分类之后才能写日志——外层文件夹视图不给"+"，避免绕过分类直接建"未分类"日志 */
-  if(!cats.length){
-    return moduleShell("journal","📔","journal","记日常想法的地方，先建一个分类，再进去写日志。",
-      gearBtn,
-      emptyState("📔","还没有分类","点击右上角「⚙」先建一个分类，比如「心情随笔」")
-    );
-  }
+  /* 必须先建分类、点进某一个分类之后才能写日志——外层目录视图不给"+"，避免绕过分类直接建"未分类"日志 */
   var inCategory = moduleCatView.journal!==null && moduleCatView.journal!==undefined;
-  if(!inCategory){
+  if(!cats.length || !inCategory){
     return moduleShell("journal","📔","journal","记日常想法的地方，点进一个分类才能看到/写日志。",
-      gearBtn,
-      renderCategoryFolders("journal", DATA.journalEntries, function(it){return it.category||"";})
+      "",
+      renderJournalCategoryList()
     );
   }
   var scoped = DATA.journalEntries.filter(function(j){ return (j.category||"")===moduleCatView.journal; })
@@ -3354,9 +3412,11 @@ function renderJournalSection(){
       '<div class="row-actions"><button class="btn small ghost" onclick="editJournalEntry(\''+j.id+'\')">编辑</button><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
-  var backBar = categoryBackBar("journal");
+  var curCat = cats.filter(function(c){return c.key===moduleCatView.journal;})[0];
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\'journal\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel("journal"))+'</span></div>';
   return moduleShell("journal","📔","journal","这一分类下的日志列表。",
-    '<div style="display:flex; gap:6px;">'+gearBtn+addBtn+'</div>',
+    addBtn,
     backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("📔","这个分类下还没有日志","点击右上角「写日志」添加"))
   );
 }
