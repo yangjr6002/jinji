@@ -1074,8 +1074,20 @@ function destinationById(id){
   return null;
 }
 
+var __lastRenderedView = null;
 function render(){
   var app=document.getElementById("app");
+  /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
+  var __sameView = (__lastRenderedView === VIEW);
+  var __scrollState = [];
+  if(__sameView){
+    ["hzTimeline","tlMatrixScroll","assetTableScroll"].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) __scrollState.push({id:id, left:el.scrollLeft, top:el.scrollTop});
+    });
+  }
+  var __savedWinY = __sameView ? window.scrollY : null;
+  __lastRenderedView = VIEW;
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
   if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); }
   else if(VIEW==="itemDetail"){
@@ -1090,6 +1102,11 @@ function render(){
   else if(VIEW==="album") app.innerHTML = renderPhotoModule("album","albumPhotos","📷","album","按相册整理的生活瞬间。","caption","album");
   else if(VIEW==="contacts") app.innerHTML = renderContacts();
   else if(DATA.customBoards && DATA.customBoards.some(function(b){return b.id===VIEW;})) app.innerHTML = renderCustomBoardPage(VIEW);
+  __scrollState.forEach(function(s){
+    var el = document.getElementById(s.id);
+    if(el){ el.scrollLeft = s.left; el.scrollTop = s.top; }
+  });
+  if(__savedWinY!==null) window.scrollTo(0, __savedWinY);
 }
 function renderTopTabsBar(){
   var homeActive = VIEW==="home";
@@ -1336,10 +1353,16 @@ function renderFamilyTree(){
 function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:46, rankSep:92, edgeSep:18, padding:42, fit:false, animate:false, ranker:"network-simplex"};
 }
-function runFamilyGraphLayout(){
+var familyGraphViewState = null; /* 记住上次的缩放/平移，编辑一次不该把画面弹回起点 */
+function runFamilyGraphLayout(forceRecenter){
   if(!familyGraph) return;
   /* 配偶边是横向语义边，不应参与世代分层计算；否则多段婚姻会把整个树拉歪。 */
   familyGraph.elements().not("edge.spouse-edge").layout(familyGraphLayout()).run();
+  if(familyGraphViewState && !forceRecenter){
+    familyGraph.zoom(familyGraphViewState.zoom);
+    familyGraph.pan(familyGraphViewState.pan);
+    return;
+  }
   /* 大家族若强行塞进一个小屏会让文字不可读；默认聚焦自己（没有则首个成员），需要总览时再点“适应画布”。 */
   var focusId = familyGraph.getElementById("self").length ? "self" : ((DATA.familyMembers||[])[0]||{}).id;
   var focus = focusId ? familyGraph.getElementById(focusId) : null;
@@ -1348,7 +1371,10 @@ function runFamilyGraphLayout(){
 function setupFamilyGraph(){
   var el = document.getElementById("familyGraph");
   if(!el) return;
-  if(familyGraph){ familyGraph.destroy(); familyGraph = null; }
+  if(familyGraph){
+    familyGraphViewState = {zoom: familyGraph.zoom(), pan: familyGraph.pan()};
+    familyGraph.destroy(); familyGraph = null;
+  }
   if(!window.cytoscape || !window.cytoscapeDagre){
     el.innerHTML = '<div class="map-fallback">家庭关系图库没能加载出来（可能是网络问题或当前环境限制了外部资源）。请刷新后重试。</div>';
     return;
@@ -1364,7 +1390,7 @@ function setupFamilyGraph(){
       {selector:"node.member", style:{"shape":"round-rectangle","width":132,"height":52,"background-color":"#FFFDF8","border-width":1,"border-color":"#CBC6BA","label":"data(label)","font-family":"IBM Plex Sans, sans-serif","font-size":12,"font-weight":600,"color":"#292B28","text-valign":"center","text-halign":"center","text-wrap":"wrap","text-max-width":112,"overlay-opacity":0}},
       {selector:"node.member:selected", style:{"border-color":"#2F5D50","border-width":2,"background-color":"#F1F7F3"}},
       {selector:"node.union", style:{"shape":"diamond","width":12,"height":12,"background-color":"#B7B4AA","border-width":0,"label":"","overlay-opacity":0}},
-      {selector:"edge.family-edge", style:{"curve-style":"taxi","taxi-direction":"downward","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
+      {selector:"edge.family-edge", style:{"curve-style":"straight","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
       {selector:"edge.parent-union", style:{"target-arrow-shape":"none","line-style":"dashed","label":""}},
       {selector:"edge.spouse-edge", style:{"curve-style":"bezier","line-color":"#A0527A","width":1.5,"line-style":"dashed","target-arrow-shape":"none","label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#A0527A","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"text-rotation":"autorotate","overlay-opacity":0}}
     ],
@@ -1381,7 +1407,7 @@ function setupFamilyGraph(){
   renderFamilyCardOverlay();
   renderFamilyEdgeLabelOverlay();
 }
-window.relayoutFamilyGraph = function(){ runFamilyGraphLayout(); };
+window.relayoutFamilyGraph = function(){ runFamilyGraphLayout(true); };
 window.fitFamilyGraph = function(){ if(familyGraph) familyGraph.fit(familyGraph.elements(), 42); };
 /* 点方框直接在旁边展开小卡片编辑，不用跳转弹窗：关系/姓名直接改，上下左右四个按钮直接加对应关系。
    卡片位置跟着 Cytoscape 节点的屏幕坐标走（renderedPosition），画布平移/缩放时会跟着重新摆放。 */
@@ -1390,6 +1416,7 @@ var famCardLinkOpen = false;
 window.toggleFamilyCard = function(id){
   famCardFor = (famCardFor===id) ? null : id;
   famCardLinkOpen = false;
+  familyLinkTab = "parent";
   renderFamilyCardOverlay();
 };
 window.closeFamilyCard = function(){
@@ -1398,6 +1425,7 @@ window.closeFamilyCard = function(){
 };
 window.toggleFamilyCardLink = function(){
   famCardLinkOpen = !famCardLinkOpen;
+  if(famCardLinkOpen) familyLinkTab = "parent";
   renderFamilyCardOverlay();
 };
 function renderFamilyCardOverlay(){
