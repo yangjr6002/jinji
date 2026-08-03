@@ -99,11 +99,11 @@ button{font-family:inherit;cursor:pointer}
 .wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
 
 /* ---- home / dossier ---- */
-.dossier-head{margin-bottom:48px; padding-left:22px; display:flex; align-items:center; gap:22px;}
-.home-avatar{width:88px; height:118px; border-radius:10px; overflow:hidden; flex:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; transition:.15s;}
+.dossier-head{margin-bottom:48px; padding-left:22px; display:flex; align-items:flex-start; gap:22px;}
+.home-avatar{width:88px; height:118px; min-width:44px; min-height:44px; max-width:260px; max-height:320px; border-radius:10px; overflow:hidden; flex:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; transition:border-color .15s; resize:both;}
 .home-avatar:hover{border-color:var(--accent);}
-.home-avatar img{width:100%; height:100%; object-fit:cover; display:block;}
-.home-avatar .avatar-placeholder-sm{font-family:'Fraunces',serif; font-size:34px; color:var(--text-faint);}
+.home-avatar img{width:100%; height:100%; object-fit:cover; display:block; pointer-events:none;}
+.home-avatar .avatar-placeholder-sm{font-family:'Fraunces',serif; font-size:34px; color:var(--text-faint); pointer-events:none;}
 .id-block{padding-top:4px;}
 .name-row{display:flex; align-items:center; gap:10px;}
 .id-block h1{font-size:40px; margin:0; font-weight:600; letter-spacing:.005em; line-height:1.1; cursor:pointer; transition:opacity .12s;}
@@ -421,6 +421,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tlv-period.tlv-period-fill:hover .tlv-period-label{text-decoration:underline;}
 /* 补充内容的悬浮提示，类似 Excel 单元格注释：只有真的有补充字段的经历才会出现小圆点提示、鼠标移上去才展开 */
 .tl-tip-wrap{position:relative; display:inline-block; cursor:help;}
+.tla-age-tipwrap{display:block;}
 /* 提示框用 position:fixed 单独挂在 body 上，用 JS 算坐标显示——
    不这样做的话，嵌在横向时间轴（overflow-y:hidden 的滚动容器）里的提示框会被裁掉，鼠标移上去看不到内容 */
 .tl-tooltip{
@@ -582,6 +583,14 @@ table.data tr:hover{background:var(--surface-2)}
 .journal-meta{font-size:11px; margin-top:3px;}
 .journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5;}
 .journal-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
+/* 日志详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
+.journal-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
+.journal-detail-title:hover{border-color:var(--border);}
+.journal-detail-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.journal-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
+.journal-detail-date, .journal-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
+.journal-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:320px; font-family:inherit;}
+.journal-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .journal-toc{display:flex; flex-direction:column; padding:4px 20px;}
 .journal-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
@@ -1117,7 +1126,7 @@ function render(){
   var __savedWinY = __sameView ? window.scrollY : null;
   __lastRenderedView = VIEW;
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
-  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); }
+  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize(); }
   else if(VIEW==="itemDetail"){
     app.innerHTML = renderItemDetailPage();
     var __tab = findTab(activeTabKey);
@@ -1167,6 +1176,21 @@ function setupDragScroll(id){
   el.addEventListener("pointerleave", endDrag);
   el.addEventListener("pointercancel", endDrag);
 }
+/* 头像用原生 CSS resize 手动拖右下角调整大小，用 ResizeObserver 把最终尺寸记下来，下次打开还是这个大小 */
+function setupAvatarResize(){
+  var el = document.getElementById("homeAvatar");
+  if(!el || typeof ResizeObserver==="undefined") return;
+  var saveTimer = null;
+  var ro = new ResizeObserver(function(entries){
+    var box = entries[0].contentRect;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      DATA.settings.avatarSize = {w: Math.round(el.offsetWidth), h: Math.round(el.offsetHeight)};
+      save();
+    }, 300);
+  });
+  ro.observe(el);
+}
 function setupHzDrag(){
   var el = document.getElementById("hzTimeline");
   if(!el) return;
@@ -1202,8 +1226,10 @@ function setupHzDrag(){
 function renderHome(){
   var p=DATA.profile;
   var html = '';
+  var avSize = DATA.settings.avatarSize;
+  var avStyle = avSize ? (' style="width:'+avSize.w+'px;height:'+avSize.h+'px"') : '';
   html += '<div class="dossier-head">'+
-    '<div class="home-avatar" onclick="previewAvatar()" title="点击查看/更换头像">'+
+    '<div class="home-avatar" id="homeAvatar"'+avStyle+' onclick="previewAvatar()" title="点击查看/更换头像，右下角可以拖拽调整大小">'+
       (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
     '</div>'+
     '<div class="id-block">'+
@@ -3020,8 +3046,10 @@ function renderTimelineMatrix(items, granularity){
     if(tip){
       var tipAttr = esc('<div class="tl-tip-row"><b>'+esc(y)+'年</b></div>'+tip);
       yearLabelHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+yearLabelHtml+'</span>';
-      /* 悬浮在年纪表情那一行也能看到同一个事件卡片，不用非得精确停在年份数字上 */
-      if(ageHtml) ageHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+ageHtml+'</span>';
+      /* 悬浮在年纪表情那一行也能看到同一个事件卡片，不用非得精确停在年份数字上；
+         用 div 包一层而不是 span，.tl-tip-wrap 默认是 inline-block，用 span 包会跟年份那行并排到一条线上，
+         年纪这一行的排版（单独一行）就乱了 */
+      if(ageHtml) ageHtml = '<div class="tl-tip-wrap has-tip tla-age-tipwrap" data-tip="'+tipAttr+'">'+ageHtml+'</div>';
     }
     var header = '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+yearLabelHtml+ageHtml+'</div>';
     if(!isSplit) return header;
@@ -3649,10 +3677,6 @@ window.commitRenameJournalCategory = function(key, value){
   journalRenamingKey = null;
   render();
 };
-window.journalTitleClick = function(key){
-  enterModuleCategory("journal", key);
-  editJournalEntry();
-};
 function renderJournalCategoryList(){
   var cats = getModuleCategories("journal");
   var counts = {};
@@ -3660,7 +3684,7 @@ function renderJournalCategoryList(){
   var rows = cats.map(function(c){
     var titleHtml = journalRenamingKey===c.key
       ? '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameJournalCategory(\''+c.key+'\', this.value)">'
-      : '<span class="journal-toc-title journal-toc-title-click" onclick="journalTitleClick(\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击直接在这个分类下写新日志，双击改名">'+esc(c.label)+'</span>';
+      : '<span class="journal-toc-title journal-toc-title-click" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
     return '<div class="journal-toc-item">'+
       titleHtml+
       '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
@@ -3711,7 +3735,7 @@ window.deleteJournalUncategorized = function(){
 };
 function renderJournalSection(){
   var cats = getModuleCategories("journal");
-  var addBtn = '<button class="btn solid" onclick="editJournalEntry()">+ 写日志</button>';
+  var addBtn = '<button class="btn solid" onclick="createJournalEntryInline()">+ 写日志</button>';
   /* 必须先建分类、点进某一个分类之后才能写日志——外层目录视图不给"+"，避免绕过分类直接建"未分类"日志 */
   var inCategory = moduleCatView.journal!==null && moduleCatView.journal!==undefined;
   if(!cats.length || !inCategory){
@@ -3729,7 +3753,7 @@ function renderJournalSection(){
         '<div class="journal-meta muted">'+esc(j.date||"—")+'</div>'+
         '<div class="journal-excerpt muted">'+esc(journalExcerpt(j.content))+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small ghost" onclick="editJournalEntry(\''+j.id+'\')">编辑</button><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
   var curCat = cats.filter(function(c){return c.key===moduleCatView.journal;})[0];
@@ -3740,21 +3764,6 @@ function renderJournalSection(){
     backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("","这个分类下还没有日志","点击右上角「写日志」添加"))
   );
 }
-window.editJournalEntry = function(id){
-  var item = id ? DATA.journalEntries.filter(function(x){return x.id===id;})[0] : {
-    title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView.journal||"", content:""
-  };
-  openModal(id?"编辑日志":"写日志",
-    field("title","标题","text",item.title,true)+
-    fieldDate("date","日期",item.date,true)+
-    moduleCategorySelectField("journal", item.category)+
-    field("content","内容","textarea",item.content,false),
-    function(data){
-      if(id){ Object.assign(item,data); }
-      else{ data.id=uid(); DATA.journalEntries.push(data); }
-      save(); render(); toast(id?"已更新":"已添加");
-    });
-};
 window.deleteJournalEntry = function(id){
   confirmDelete("确定删除这篇日志吗？", function(){
     DATA.journalEntries = DATA.journalEntries.filter(function(x){return x.id!==id;});
@@ -3763,21 +3772,41 @@ window.deleteJournalEntry = function(id){
     toast("已删除");
   });
 };
+window.updateJournalField = function(id, key, value){
+  var j = (DATA.journalEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(!j) return;
+  j[key] = value;
+  save(); render();
+};
+window.createJournalEntryInline = function(){
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView.journal||"", content:""};
+  DATA.journalEntries = DATA.journalEntries || [];
+  DATA.journalEntries.push(entry);
+  save();
+  openItemTab("journal", entry.id);
+};
 function renderJournalDetailPage(id){
   var sel = DATA.journalEntries.filter(function(x){return x.id===id;})[0];
   if(!sel){
     return '<div class="module-head"><div><h2>没找到这篇日志</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  var catLabel = sel.category ? ((getModuleCategories("journal").filter(function(c){return c.key===sel.category;})[0]||{}).label||uncategorizedLabel("journal")) : "";
+  var cats = getModuleCategories("journal");
+  var catOptions = [{value:"",label:uncategorizedLabel("journal")}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
+  var catSelect = '<select class="journal-detail-cat" onchange="updateJournalField(\''+sel.id+'\',\'category\',this.value)">'+
+    catOptions.map(function(o){ return '<option value="'+esc(o.value)+'" '+(o.value===(sel.category||"")?"selected":"")+'>'+esc(o.label)+'</option>'; }).join('')+
+    '</select>';
+  /* 不用弹窗表单编辑，点进来就是标题/日期/分类/正文全部直接可编辑，跟写文档一样，失焦自动保存 */
   return '<div class="module-head"><div>'+
-    '<h2>'+esc(sel.title||"未命名日志")+'</h2>'+
-    '<div class="sub">'+esc(sel.date||"—")+(catLabel?(' · '+esc(catLabel)):'')+'</div>'+
+    '<input type="text" class="journal-detail-title" placeholder="标题" value="'+esc(sel.title||"")+'" onchange="updateJournalField(\''+sel.id+'\',\'title\',this.value)">'+
+    '<div class="journal-detail-meta">'+
+      '<input type="date" class="journal-detail-date" value="'+esc(sel.date||"")+'" onchange="updateJournalField(\''+sel.id+'\',\'date\',this.value)">'+
+      catSelect+
+    '</div>'+
     '</div><div class="row-actions">'+
-    '<button class="btn ghost" onclick="editJournalEntry(\''+sel.id+'\')">编辑</button>'+
     '<button class="btn danger" onclick="deleteJournalEntry(\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
-    '<div class="card-panel journal-content">'+esc(sel.content||"（没有内容）")+'</div>';
+    '<textarea class="card-panel journal-content journal-content-edit" placeholder="写点什么…" onchange="updateJournalField(\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
