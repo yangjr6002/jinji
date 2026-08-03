@@ -1368,43 +1368,53 @@ function renderFamilyTree(){
   return '<div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div>'+
     '<div class="fam-graph-toolbar">'+
       '<button class="btn small ghost" type="button" onclick="addFamilyMember()">+ 添加成员</button>'+
-      '<button class="btn small ghost" type="button" onclick="relayoutFamilyGraph()">↺ 自动排版</button>'+
       '<button class="btn small ghost" type="button" onclick="fitFamilyGraph()">⤢ 适应画布</button>'+
       ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>'+
-    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放，图形位置由自动布局实时计算。</div>';
+    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动。</div>';
 }
 function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:46, rankSep:92, edgeSep:18, padding:42, fit:false, animate:false, ranker:"network-simplex"};
 }
 var familyGraphViewState = null; /* 记住上次的缩放/平移，编辑一次不该把画面弹回起点 */
-function runFamilyGraphLayout(forceReset){
+/* 新节点还没有保存过位置时，就近摆在已有的关联节点旁边，完全不跑排版算法——已经摆好的节点永远不会被自动挪动 */
+function familyGraphFallbackPosition(nodeId, edges, saved, fallbackIndex){
+  for(var i=0;i<edges.length;i++){
+    var e = edges[i].data;
+    var other = e.source===nodeId ? e.target : (e.target===nodeId ? e.source : null);
+    if(other && saved[other]) return {x: saved[other].x + 60, y: saved[other].y + 100};
+  }
+  return {x: 80 + fallbackIndex*30, y: 80 + fallbackIndex*30};
+}
+function applyFamilyGraphPositions(){
   if(!familyGraph) return;
   DATA.familyNodePositions = DATA.familyNodePositions || {};
   var saved = DATA.familyNodePositions;
-  if(forceReset){ Object.keys(saved).forEach(function(k){ delete saved[k]; }); } /* 主动点"自动排版"才清空手动摆好的位置，从头重排 */
   var hadSaved = Object.keys(saved).length > 0;
-  /* 配偶边、兄弟姐妹边是横向语义边，不应参与世代分层计算；否则多段婚姻会把整个树拉歪。 */
-  familyGraph.elements().not("edge.spouse-edge").not("edge.sibling-edge").layout(familyGraphLayout()).run();
-  if(hadSaved){
-    /* 已经整理过的成员强制按回保存的位置，画面上完全不动；只有全新成员保留刚算出来的初始位置 */
-    familyGraph.nodes(".member").forEach(function(n){
-      var p = saved[n.id()];
-      if(p) n.position(p);
+  if(!hadSaved){
+    /* 第一次打开、还没有任何摆好的位置：跑一次自动分层作为初始摆放，之后就再也不会自动重排了 */
+    familyGraph.elements().not("edge.spouse-edge").not("edge.sibling-edge").layout(familyGraphLayout()).run();
+    familyGraph.nodes().forEach(function(n){ saved[n.id()] = n.position(); });
+    save();
+  } else {
+    var edgesData = familyGraph.edges().map(function(e){ return {data:{source:e.data("source"), target:e.data("target")}}; });
+    var changed = false, idx = 0;
+    familyGraph.nodes().forEach(function(n){
+      var id = n.id();
+      if(saved[id]){ n.position(saved[id]); return; }
+      var pos = familyGraphFallbackPosition(id, edgesData, saved, idx++);
+      n.position(pos);
+      saved[id] = pos;
+      changed = true;
     });
+    if(changed) save();
   }
-  var changed = false;
-  familyGraph.nodes(".member").forEach(function(n){
-    var cur = n.position(), prev = saved[n.id()];
-    if(!prev || prev.x!==cur.x || prev.y!==cur.y){ saved[n.id()] = {x:cur.x, y:cur.y}; changed = true; }
-  });
-  if(changed) save();
-  if(familyGraphViewState && !forceReset){
+  if(familyGraphViewState){
     familyGraph.zoom(familyGraphViewState.zoom);
     familyGraph.pan(familyGraphViewState.pan);
     return;
   }
-  /* 大家族若强行塞进一个小屏会让文字不可读；默认聚焦自己（没有则首个成员），需要总览时再点“适应画布”。 */
+  /* 大家族若强行塞进一个小屏会让文字不可读；只有第一次打开时默认聚焦自己（没有则首个成员）。 */
   var focusId = familyGraph.getElementById("self").length ? "self" : ((DATA.familyMembers||[])[0]||{}).id;
   var focus = focusId ? familyGraph.getElementById(focusId) : null;
   if(focus && focus.length){ familyGraph.zoom(0.82); familyGraph.center(focus); }
@@ -1438,7 +1448,7 @@ function setupFamilyGraph(){
     ],
     layout:{name:"preset"}
   });
-  runFamilyGraphLayout();
+  applyFamilyGraphPositions();
   familyGraph.on("tap", "node.member", function(e){ toggleFamilyCard(e.target.id()); });
   familyGraph.on("tap", "edge.family-edge, edge.spouse-edge, edge.sibling-edge", function(e){
     if(e.target.hasClass("parent-union")) return; // 连到虚拟联姻点的那一小段不用标注
@@ -1455,7 +1465,6 @@ function setupFamilyGraph(){
   renderFamilyCardOverlay();
   renderFamilyEdgeLabelOverlay();
 }
-window.relayoutFamilyGraph = function(){ runFamilyGraphLayout(true); };
 window.fitFamilyGraph = function(){ if(familyGraph) familyGraph.fit(familyGraph.elements(), 42); };
 /* 点方框直接在旁边展开小卡片编辑，不用跳转弹窗：关系/姓名直接改，上下左右四个按钮直接加对应关系。
    卡片位置跟着 Cytoscape 节点的屏幕坐标走（renderedPosition），画布平移/缩放时会跟着重新摆放。 */
