@@ -557,6 +557,13 @@ table.data tr:hover{background:var(--surface-2)}
 .memorial-card .row-actions{position:absolute; top:13px; right:13px;}
 
 /* declutter */
+.journal-list{display:flex; flex-direction:column;}
+.journal-row{display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border-soft);}
+.journal-row:last-child{border-bottom:none;}
+.journal-title{font-size:14px; font-weight:600; color:var(--text);}
+.journal-meta{font-size:11px; margin-top:3px;}
+.journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5;}
+.journal-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -661,7 +668,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline"], timelineViewByFilter:{}, categoryViewMode:"list" },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","journal"], timelineViewByFilter:{}, categoryViewMode:"list" },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -720,6 +727,7 @@ var DEFAULT_DATA = {
     {id:"d2", name:"和前同事的旧矛盾", status:"进行中", note:""}
   ],
   customBoards:[],
+  journalEntries:[],
   basicInfo:[
     {id:"bi1", label:"姓名", value:""},
     {id:"bi2", label:"英文名", value:""},
@@ -782,8 +790,9 @@ var storageAvailable = true;
 function normalizeData(d){
   d.settings = d.settings || {};
   d.settings.moduleView = d.settings.moduleView || "list";
-  d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline"];
+  d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline","journal"];
   d.settings.homeOrder = d.settings.homeOrder.filter(function(k){ return k!=="basicinfo"; });
+  if(d.settings.homeOrder.indexOf("journal")===-1) d.settings.homeOrder.push("journal");
   d.settings.quickAccessIds = d.settings.quickAccessIds || [];
   if(d.settings.quickAccessIds.indexOf("basicinfo")===-1){ d.settings.quickAccessIds.unshift("basicinfo"); }
   d.settings.timelineViewByFilter = d.settings.timelineViewByFilter || {};
@@ -813,6 +822,7 @@ function normalizeData(d){
   d.memorialEvents = d.memorialEvents || [];
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
+  d.journalEntries = d.journalEntries || [];
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   d.residenceTags = (d.residenceTags && d.residenceTags.length) ? d.residenceTags : JSON.parse(JSON.stringify(DEFAULT_RESIDENCE_TAGS));
@@ -947,7 +957,8 @@ function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){r
 /* ---- 名称自定义 ---- */
 var DEFAULT_LABELS = {
   passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
-  timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离", basicinfo:"基本信息", familytree:"家庭关系"
+  timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离", basicinfo:"基本信息", familytree:"家庭关系",
+  journal:"日志"
 };
 function labelFor(key){
   return (DATA.labels && DATA.labels[key]) || DEFAULT_LABELS[key] || key;
@@ -1138,9 +1149,10 @@ function renderHome(){
 
   var sectionContent = {
     quickaccess: renderQuickAccess(),
-    timeline: renderTimelineSection()
+    timeline: renderTimelineSection(),
+    journal: renderJournalSection()
   };
-  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["quickaccess","timeline"];
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["quickaccess","timeline","journal"];
   order.forEach(function(key){
     if(!sectionContent[key]) return;
     html += '<div class="home-section" data-home-id="'+key+'" ondragover="homeDragOver(event)" ondrop="homeDrop(event,\''+key+'\')">'+
@@ -1599,7 +1611,7 @@ window.homeDragOver = function(e){
 window.homeDrop = function(e, targetKey){
   e.preventDefault();
   if(!__homeDragId || __homeDragId===targetKey) return;
-  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder.slice() : ["quickaccess","timeline"];
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder.slice() : ["quickaccess","timeline","journal"];
   var from = order.indexOf(__homeDragId);
   if(from===-1) return;
   order.splice(from,1);
@@ -2781,6 +2793,7 @@ function tabTitle(tab){
   if(tab.type==="password"){ var p=DATA.passwords.filter(function(x){return x.id===tab.id;})[0]; return p?p.site:"密码"; }
   if(tab.type==="asset"){ var a=DATA.assets.filter(function(x){return x.id===tab.id;})[0]; return a?a.title:"资产"; }
   if(tab.type==="contact"){ var c=DATA.contacts.filter(function(x){return x.id===tab.id;})[0]; return c?c.name:"联系人"; }
+  if(tab.type==="journal"){ var j=DATA.journalEntries.filter(function(x){return x.id===tab.id;})[0]; return j?(j.title||"日志"):"日志"; }
   if(tab.type==="customitem"){
     var b=(DATA.customBoards||[]).filter(function(x){return x.id===(tab.extra&&tab.extra.boardId);})[0];
     var it=b?b.items.filter(function(x){return x.id===tab.id;})[0]:null;
@@ -2793,7 +2806,7 @@ function tabIcon(tab){
     var dest = destinationById(tab.id);
     return dest ? dest.icon : "📄";
   }
-  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌"};
+  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"📔"};
   return (tab && map[tab.type]) || "📄";
 }
 window.openItemTab = function(type, id, extra){
@@ -2841,6 +2854,7 @@ function renderItemDetailPage(){
   if(tab.type==="password") return renderPasswordDetailPage(tab.id);
   if(tab.type==="asset") return renderAssetDetailPage(tab.id);
   if(tab.type==="contact") return renderContactDetailPage(tab.id);
+  if(tab.type==="journal") return renderJournalDetailPage(tab.id);
   if(tab.type==="customitem") return renderCustomItemDetailPage(tab.extra.boardId, tab.id);
   return '<div class="module-head"><div><h2>未知内容</h2></div></div>';
 }
@@ -3302,6 +3316,82 @@ function daysInfo(dateStr, repeatYearly){
     var diff2 = Math.round((today-d)/86400000);
     return diff2>=0 ? ("已经过去 "+diff2+" 天") : ("还有 "+Math.abs(diff2)+" 天");
   }
+}
+
+/* ---- 日志：外层是自定义分类文件夹（跟密码/资产用同一套分类系统），点进去是那个分类下的日志列表；
+   点某一篇日志会打开一个独立的详情标签页，跟时间经历/联系人那些详情页一样，方便写长文 */
+function journalExcerpt(content){
+  var flat = (content||"").replace(/\s+/g," ").trim();
+  return flat.length>60 ? (flat.slice(0,60)+"…") : (flat||"（没有内容）");
+}
+function renderJournalSection(){
+  var cats = getModuleCategories("journal");
+  var journalActions = '<div style="display:flex; gap:6px;">'+
+    '<button class="gear-btn" onclick="manageModuleCategories(\'journal\',\''+labelFor("journal")+' · 分类管理\')" title="管理分类">⚙</button>'+
+    '<button class="btn solid" onclick="editJournalEntry()">+ 写日志</button>'+
+  '</div>';
+  if(cats.length && !moduleCatView.journal && moduleCatView.journal!==""){
+    return moduleShell("journal","📔","journal","记日常想法的地方，先分类，再进去看这一类下的日志列表。",
+      journalActions,
+      renderCategoryFolders("journal", DATA.journalEntries, function(it){return it.category||"";})
+    );
+  }
+  var scoped = (cats.length ? DATA.journalEntries.filter(function(j){ return (j.category||"")===moduleCatView.journal; }) : DATA.journalEntries)
+    .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+  var rows = scoped.map(function(j){
+    return '<div class="journal-row">'+
+      '<div style="flex:1; min-width:0;">'+
+        '<span class="row-open-link journal-title" onclick="openItemTab(\'journal\',\''+j.id+'\')">'+esc(j.title||"未命名日志")+'</span>'+
+        '<div class="journal-meta muted">'+esc(j.date||"—")+'</div>'+
+        '<div class="journal-excerpt muted">'+esc(journalExcerpt(j.content))+'</div>'+
+      '</div>'+
+      '<div class="row-actions"><button class="btn small ghost" onclick="editJournalEntry(\''+j.id+'\')">编辑</button><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
+    '</div>';
+  }).join('');
+  var backBar = cats.length ? categoryBackBar("journal") : "";
+  return moduleShell("journal","📔","journal","记日常想法的地方，先分类，再进去看这一类下的日志列表。",
+    journalActions,
+    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("📔","这里还没有日志","点击右上角「写日志」添加"))
+  );
+}
+window.editJournalEntry = function(id){
+  var item = id ? DATA.journalEntries.filter(function(x){return x.id===id;})[0] : {
+    title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView.journal||"", content:""
+  };
+  openModal(id?"编辑日志":"写日志",
+    field("title","标题","text",item.title,true)+
+    fieldDate("date","日期",item.date,true)+
+    moduleCategorySelectField("journal", item.category)+
+    field("content","内容","textarea",item.content,false),
+    function(data){
+      if(id){ Object.assign(item,data); }
+      else{ data.id=uid(); DATA.journalEntries.push(data); }
+      save(); render(); toast(id?"已更新":"已添加");
+    });
+};
+window.deleteJournalEntry = function(id){
+  confirmDelete("确定删除这篇日志吗？", function(){
+    DATA.journalEntries = DATA.journalEntries.filter(function(x){return x.id!==id;});
+    save();
+    if(!closeTabAndMaybeGoHome("journal", id)) render();
+    toast("已删除");
+  });
+};
+function renderJournalDetailPage(id){
+  var sel = DATA.journalEntries.filter(function(x){return x.id===id;})[0];
+  if(!sel){
+    return '<div class="module-head"><div><h2>没找到这篇日志</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  var catLabel = sel.category ? ((getModuleCategories("journal").filter(function(c){return c.key===sel.category;})[0]||{}).label||uncategorizedLabel("journal")) : "";
+  return '<div class="module-head"><div>'+
+    '<h2>'+esc(sel.title||"未命名日志")+'</h2>'+
+    '<div class="sub">'+esc(sel.date||"—")+(catLabel?(' · '+esc(catLabel)):'')+'</div>'+
+    '</div><div class="row-actions">'+
+    '<button class="btn ghost" onclick="editJournalEntry(\''+sel.id+'\')">编辑</button>'+
+    '<button class="btn danger" onclick="deleteJournalEntry(\''+sel.id+'\')">删除</button>'+
+    '</div></div>'+
+    '<div class="card-panel journal-content">'+esc(sel.content||"（没有内容）")+'</div>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
