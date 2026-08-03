@@ -1471,18 +1471,27 @@ function applyFamilyGraphPositions(){
   }
   /* 联姻点位置永远实时算成两个父母的中点，跟着父母的当前位置走，不持久化；
      父母通常左右并排、纵坐标相同，中点的 y 如果直接取平均会跟父母卡在同一条线上，
-     父母到联姻点之间那段虚线就会缩成一个点、跟配偶横线叠在一起看不见——所以要往下偏移一段，让虚线有长度 */
+     父母到联姻点之间那段虚线就会缩成一个点、跟配偶横线叠在一起看不见——所以要往下偏移一段，让虚线有长度。
+     如果几个孩子里有一个被标成"主分支"（比如老太生了5个孩子，我这条线是通过外公下来的），
+     联姻点的横坐标就对齐到那一支上，不再取全部孩子/父母的正中间，让直系血脉那条线看起来是直的 */
+  var membersById = {};
+  (DATA.familyMembers||[]).forEach(function(m){ membersById[m.id] = m; });
   familyGraph.nodes(".union").forEach(function(u){
     var xs=[], ys=[];
     u.connectedEdges("edge.parent-union").forEach(function(e){
       var p = e.source().position();
       xs.push(p.x); ys.push(p.y);
     });
-    if(xs.length){
-      var avgX = xs.reduce(function(a,b){return a+b;},0)/xs.length;
-      var avgY = ys.reduce(function(a,b){return a+b;},0)/ys.length;
-      u.position({x: avgX, y: avgY + 36});
-    }
+    if(!xs.length) return;
+    var avgX = xs.reduce(function(a,b){return a+b;},0)/xs.length;
+    var avgY = ys.reduce(function(a,b){return a+b;},0)/ys.length;
+    var mainChildX = null;
+    u.connectedEdges("edge.union-child").forEach(function(e){
+      if(mainChildX!==null) return;
+      var childMember = membersById[e.target().id()];
+      if(childMember && childMember.isMainBranch) mainChildX = e.target().position().x;
+    });
+    u.position({x: mainChildX!==null ? mainChildX : avgX, y: avgY + 36});
   });
   if(familyGraphViewState){
     familyGraph.zoom(familyGraphViewState.zoom);
@@ -1662,6 +1671,7 @@ function renderFamilyCardOverlay(){
     '</div>'+
     '<div class="fam-card-actions">'+
       '<button type="button" class="btn small ghost" onclick="toggleFamilyCardLink()">🔗 关联已有成员</button>'+
+      '<button type="button" class="btn small '+(p.isMainBranch?"":"ghost")+'" title="TA的父母如果有好几个孩子，联姻点会对齐到TA这一支，而不是几个孩子的正中间" onclick="toggleFamilyMainBranch(\''+p.id+'\')">'+(p.isMainBranch?"★ 取消主分支":"☆ 设为主分支")+'</button>'+
       '<button type="button" class="btn small danger" onclick="deleteFamilyMember(\''+p.id+'\')">删除</button>'+
     '</div>'+
     (famCardLinkOpen ? '<div class="fam-card-link-panel">'+renderFamilyLinkPanel(p.id)+'</div>' : '');
@@ -1670,6 +1680,11 @@ function renderFamilyCardOverlay(){
 window.updateFamilyMemberField = function(id, key, value){
   var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
   p[key] = value; save(); render();
+};
+window.toggleFamilyMainBranch = function(id){
+  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
+  p.isMainBranch = !p.isMainBranch;
+  save(); render();
 };
 /* 点连线（配偶虚线/亲子箭头）弹一个小输入框在那条线中点附近，可以直接打字标注/改这条关系的文字，
    回车或点别处失焦就保存；配偶存到 familySpouseLabels，亲子存到 familyEdgeLabels（按边自身的 id 存）。 */
