@@ -859,6 +859,11 @@ function normalizeData(d){
   /* 家谱图已改为 Cytoscape 的实时分层布局，旧版手写画布留下的坐标/尺寸不再适用。
      清理它们，避免备份恢复后又混入过期坐标系；成员和关系数据保持不变。 */
   d.familyMembers.forEach(function(p){ delete p.x; delete p.y; delete p.w; delete p.h; });
+  /* 修复历史 bug 留下的脏数据：自己不能是自己的父母/配偶，否则会被"共享父母"判定误判成兄弟姐妹 */
+  d.familyMembers.forEach(function(p){
+    if(p.parentIds && p.parentIds.length) p.parentIds = p.parentIds.filter(function(pid){ return pid!==p.id; });
+    if(p.spouseIds && p.spouseIds.length) p.spouseIds = p.spouseIds.filter(function(sid){ return sid!==p.id; });
+  });
   d.familySpouseLabels = d.familySpouseLabels || {};
   d.familyEdgeLabels = d.familyEdgeLabels || {};
   d.moduleCategories = d.moduleCategories || {};
