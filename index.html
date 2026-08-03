@@ -99,9 +99,16 @@ button{font-family:inherit;cursor:pointer}
 .wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
 
 /* ---- home / dossier ---- */
-.dossier-head{margin-bottom:48px;}
+.dossier-head{margin-bottom:48px; display:flex; align-items:center; gap:22px;}
+.home-avatar{width:88px; height:88px; border-radius:50%; overflow:hidden; flex:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; transition:.15s;}
+.home-avatar:hover{border-color:var(--accent);}
+.home-avatar img{width:100%; height:100%; object-fit:cover; display:block;}
+.home-avatar .avatar-placeholder-sm{font-family:'Fraunces',serif; font-size:34px; color:var(--text-faint);}
 .id-block{padding-top:4px;}
 .name-row{display:flex; align-items:center; gap:10px;}
+.basicinfo-entry{display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; cursor:pointer; transition:.15s;}
+.basicinfo-entry:hover{border-color:var(--accent); color:var(--accent);}
+.basicinfo-entry .qn{color:var(--text-faint); font-size:11.5px;}
 .id-block h1{font-size:40px; margin:0; font-weight:600; letter-spacing:.005em; line-height:1.1; cursor:pointer; transition:opacity .12s;}
 .id-block h1:hover{opacity:.7;}
 .name-edit-btn{
@@ -1139,7 +1146,8 @@ function renderTopTabsBar(){
     var raw = tabTitle(tab);
     var label = raw.length>10 ? (raw.slice(0,10)+"…") : raw;
     var onClickCall = tab.type==="module" ? ("go('"+tab.id+"')") : ("switchToItemTab('"+tab.key+"')");
-    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+tabIcon(tab)+' '+esc(label)+
+    var icon = tabIcon(tab);
+    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+(icon?icon+' ':'')+esc(label)+
       '<span class="tclose" onclick="closeItemTab(event,\''+tab.key+'\')" title="关闭">✕</span></span>';
   }).join('');
   return html;
@@ -1196,12 +1204,17 @@ function setupHzDrag(){
 function renderHome(){
   var p=DATA.profile;
   var html = '';
+  var basicInfoCount = (DATA.basicInfo||[]).length;
   html += '<div class="dossier-head">'+
+    '<div class="home-avatar" onclick="previewAvatar()" title="点击查看/更换头像">'+
+      (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
+    '</div>'+
     '<div class="id-block">'+
       '<div class="name-row">'+
         '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
         '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
       '</div>'+
+      '<div class="basicinfo-entry" onclick="go(\'basicinfo\')">👤 基本信息<span class="qn">'+basicInfoCount+'</span></div>'+
     '</div>'+
   '</div>';
 
@@ -3105,7 +3118,8 @@ function tabIcon(tab){
     var dest = destinationById(tab.id);
     return dest ? dest.icon : "📄";
   }
-  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"📔"};
+  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:""};
+  if(tab && tab.type==="journal") return "";
   return (tab && map[tab.type]) || "📄";
 }
 window.openItemTab = function(type, id, extra){
@@ -3676,7 +3690,7 @@ function renderJournalSection(){
   /* 必须先建分类、点进某一个分类之后才能写日志——外层目录视图不给"+"，避免绕过分类直接建"未分类"日志 */
   var inCategory = moduleCatView.journal!==null && moduleCatView.journal!==undefined;
   if(!cats.length || !inCategory){
-    return moduleShell("journal","📔","journal","记日常想法的地方，点进一个分类才能看到/写日志。",
+    return moduleShell("journal","","journal","记日常想法的地方，点进一个分类才能看到/写日志。",
       "",
       renderJournalCategoryList()
     );
@@ -3696,9 +3710,9 @@ function renderJournalSection(){
   var curCat = cats.filter(function(c){return c.key===moduleCatView.journal;})[0];
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\'journal\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel("journal"))+'</span></div>';
-  return moduleShell("journal","📔","journal","这一分类下的日志列表。",
+  return moduleShell("journal","","journal","这一分类下的日志列表。",
     addBtn,
-    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("📔","这个分类下还没有日志","点击右上角「写日志」添加"))
+    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("","这个分类下还没有日志","点击右上角「写日志」添加"))
   );
 }
 window.editJournalEntry = function(id){
@@ -4275,7 +4289,7 @@ function renderContactDetailPage(id){
 function moduleShell(id, icon, key, sub, actionHtml, bodyHtml){
   var label = labelFor(key);
   return '<div class="module-head"><div>'+
-    '<div class="title-row"><h2>'+icon+' '+esc(label)+'</h2>'+
+    '<div class="title-row"><h2>'+(icon?icon+' ':'')+esc(label)+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\''+key+'\')" title="重命名">✎</button></div>'+
     '<div class="sub">'+sub+'</div></div>'+actionHtml+'</div>'+bodyHtml;
 }
