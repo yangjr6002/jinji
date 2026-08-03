@@ -876,6 +876,7 @@ function normalizeData(d){
   d.familyMembers.forEach(function(p){
     if(p.parentIds && p.parentIds.length) p.parentIds = p.parentIds.filter(function(pid){ return pid!==p.id; });
     if(p.spouseIds && p.spouseIds.length) p.spouseIds = p.spouseIds.filter(function(sid){ return sid!==p.id; });
+    if(p.siblingIds && p.siblingIds.length) p.siblingIds = p.siblingIds.filter(function(sid){ return sid!==p.id; });
   });
   d.familySpouseLabels = d.familySpouseLabels || {};
   d.familyEdgeLabels = d.familyEdgeLabels || {};
@@ -1358,17 +1359,13 @@ function familyGraphElements(){
       addEdge("spouse:"+pair, p.id, sid, "spouse-edge", (DATA.familySpouseLabels||{})[pair] || "配偶");
     });
   });
-  /* 兄弟姐妹关系不是单独存的字段，靠共享父母判断；这里补一条虚线直连，方便直接看和标注 */
+  /* 兄弟姐妹关系：要么显式记在 siblingIds 里，要么共享父母；这里补一条虚线直连，方便直接看和标注 */
   var siblingLabels = DATA.familySiblingLabels || {};
   var shownSiblings = {};
   for(var si=0; si<members.length; si++){
     for(var sj=si+1; sj<members.length; sj++){
       var a = members[si], b = members[sj];
-      var ap = (a.parentIds||[]).filter(function(id){ return !!byId[id]; });
-      var bp = (b.parentIds||[]).filter(function(id){ return !!byId[id]; });
-      if(!ap.length || !bp.length) continue;
-      var shared = ap.some(function(pid){ return bp.indexOf(pid)!==-1; });
-      if(!shared) continue;
+      if(!famAreSiblings(a, b)) continue;
       var sPair = familySpousePairKey(a.id, b.id);
       if(shownSiblings[sPair]) continue;
       shownSiblings[sPair] = true;
@@ -1724,7 +1721,9 @@ window.saveFamilyEdgeLabel = function(edgeId, text){
    再从已有成员里勾选具体是谁，双重选项（关系+人）确定一条连接，勾选即生效，不用额外点保存 */
 var familyLinkTab = "parent";
 function famAreSiblings(a, b){
-  var ap = (a&&a.parentIds)||[], bp = (b&&b.parentIds)||[];
+  if(!a || !b) return false;
+  if((a.siblingIds||[]).indexOf(b.id)>=0 || (b.siblingIds||[]).indexOf(a.id)>=0) return true;
+  var ap = a.parentIds||[], bp = b.parentIds||[];
   if(!ap.length || !bp.length) return false;
   return ap.some(function(pid){ return bp.indexOf(pid)!==-1; });
 }
@@ -1809,14 +1808,16 @@ window.toggleFamilyLink = function(selfId, otherId, checked){
       other.spouseIds = other.spouseIds.filter(function(x){return x!==selfId;});
     }
   } else if(familyLinkTab==="sibling"){
-    /* 兄弟姐妹不是单独存的字段，靠"共享父母"来判断——勾选就让对方也拥有自己的父母，
-       取消就把自己的父母从对方的父母列表里摘掉 */
-    var selfParents = self.parentIds || [];
-    other.parentIds = other.parentIds || [];
+    /* 直接互相记一条 siblingIds，跟配偶一样；不再靠"共享父母"反推——
+       两人父母都还没录入时（比如最上面那一代祖辈）根本没有共同父母可言，兄弟姐妹就完全连不上了 */
+    self.siblingIds = self.siblingIds || [];
+    other.siblingIds = other.siblingIds || [];
     if(checked){
-      selfParents.forEach(function(pid){ if(other.parentIds.indexOf(pid)===-1) other.parentIds.push(pid); });
+      if(self.siblingIds.indexOf(otherId)===-1) self.siblingIds.push(otherId);
+      if(other.siblingIds.indexOf(selfId)===-1) other.siblingIds.push(selfId);
     } else {
-      other.parentIds = other.parentIds.filter(function(pid){ return selfParents.indexOf(pid)===-1; });
+      self.siblingIds = self.siblingIds.filter(function(x){return x!==otherId;});
+      other.siblingIds = other.siblingIds.filter(function(x){return x!==selfId;});
     }
   }
   save(); render();
@@ -1827,6 +1828,7 @@ window.deleteFamilyMember = function(id){
     DATA.familyMembers.forEach(function(p){
       p.parentIds = (p.parentIds||[]).filter(function(pid){return pid!==id;});
       p.spouseIds = (p.spouseIds||[]).filter(function(sid){return sid!==id;});
+      p.siblingIds = (p.siblingIds||[]).filter(function(sid){return sid!==id;});
     });
     save(); render(); toast("已删除");
   });
