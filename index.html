@@ -178,7 +178,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .bg-opacity-val{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); width:34px; text-align:right; flex:none;}
 
 /* ---- quick access: list / grid ---- */
-.quick-access-box{position:relative; width:100%; padding-right:30px; margin-top:8px;}
+.quick-access-box{position:relative; width:100%; padding-right:30px; margin-top:18px;}
 .quick-links{display:flex; flex-wrap:nowrap; align-items:baseline; font-size:13px; overflow-x:auto; max-width:100%; padding-bottom:2px;}
 .quick-link{flex:none; white-space:nowrap; color:var(--text); font-weight:600; cursor:pointer; transition:color .12s;}
 .quick-link:hover{color:var(--accent);}
@@ -2982,7 +2982,7 @@ function renderTimelineMatrix(items, granularity){
   var allNums = [];
   metas.forEach(function(m){ allNums.push(m.startNum); if(m.endNum!==null) allNums.push(m.endNum); });
   var minNumeric = Math.min.apply(Math, allNums);
-  var PAD_L = 40, ROW_H = 44, PAD_B = 58, BAR_H = 10;
+  var PAD_L = 40, ROW_H = 44, PAD_B = 72, BAR_H = 10;
   function toX(n){ return PAD_L + (n-minNumeric)*unitsPerYear*HZ_SPACING; }
 
   metas.forEach(function(m){
