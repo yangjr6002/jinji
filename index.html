@@ -470,19 +470,28 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-link-tabs{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
 .fam-link-tab{padding:5px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; cursor:pointer;}
 .fam-link-tab.active{border-color:var(--accent); color:var(--accent); background:var(--accent-soft); font-weight:600;}
-.fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding:2px;}
+.fam-parent-list{display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto; padding:2px;}
 .fam-parent-opt{display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;}
+.fam-link-search{width:100%; box-sizing:border-box; margin-bottom:8px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:12.5px; color:var(--text);}
+.fam-graph-wrap{position:relative; margin-top:10px;}
 .fam-graph{
-  position:relative; height:min(64vh,680px); min-height:380px; margin-top:10px; border:1px solid var(--border-soft);
+  position:relative; height:min(64vh,680px); min-height:380px; border:1px solid var(--border-soft);
   border-radius:12px; background:var(--surface); touch-action:none; overflow:hidden;
 }
 .fam-graph-toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px;}
+.fam-search-box{position:relative; flex:1; min-width:140px;}
+.fam-search-box input{width:100%; box-sizing:border-box; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:13px; color:var(--text);}
+.fam-search-results{position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:var(--shadow-lg); max-height:220px; overflow-y:auto;}
+.fam-search-result{padding:7px 10px; font-size:13px; cursor:pointer;}
+.fam-search-result:hover{background:var(--accent-soft); color:var(--accent);}
+.fam-search-empty{padding:8px 10px; font-size:12.5px; color:var(--text-faint);}
 /* 点成员方框直接在旁边展开一张小卡片编辑（不跳转弹窗）：关系/姓名可以直接改，
    上下左右四个按钮直接加对应方向的关系，位置跟着 Cytoscape 节点的屏幕坐标走 */
 .fam-card{
-  position:absolute; transform:translate(-50%,0); z-index:5; width:220px;
-  background:var(--surface); border:1px solid var(--border); border-radius:12px;
-  box-shadow:var(--shadow-lg); padding:12px; cursor:default;
+  position:absolute; transform:translate(-50%,0); z-index:5; width:200px;
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  box-shadow:var(--shadow-lg); padding:10px; cursor:default;
+  max-height:min(70vh,420px); overflow-y:auto;
 }
 .fam-card-close{position:absolute; top:6px; right:6px; border:none; background:none; color:var(--text-faint); font-size:11px; cursor:pointer; padding:3px 6px; border-radius:4px;}
 .fam-card-close:hover{background:var(--danger-soft); color:var(--danger);}
@@ -490,10 +499,10 @@ table.data tr:hover{background:var(--surface-2)}
   display:block; width:100%; box-sizing:border-box; margin-bottom:6px; padding:5px 8px;
   border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:13px; color:var(--text);
 }
-.fam-card-dirs{position:relative; height:74px; margin:10px auto 8px;}
+.fam-card-dirs{position:relative; height:62px; margin:8px auto 6px;}
 .fam-card-dir{
-  position:absolute; width:26px; height:26px; border-radius:50%; border:1px solid var(--border);
-  background:var(--surface); color:var(--text-dim); font-size:13px; cursor:pointer;
+  position:absolute; width:22px; height:22px; border-radius:50%; border:1px solid var(--border);
+  background:var(--surface); color:var(--text-dim); font-size:12px; cursor:pointer;
 }
 .fam-card-dir:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft);}
 .fam-card-dir.left:hover{border-color:#A0527A; color:#A0527A; background:#F7ECF1;}
@@ -1365,14 +1374,46 @@ function familyGraphElements(){
   return {nodes:nodes, edges:edges};
 }
 function renderFamilyTree(){
-  return '<div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div>'+
-    '<div class="fam-graph-toolbar">'+
+  return '<div class="fam-graph-toolbar">'+
       '<button class="btn small ghost" type="button" onclick="addFamilyMember()">+ 添加成员</button>'+
       '<button class="btn small ghost" type="button" onclick="fitFamilyGraph()">⤢ 适应画布</button>'+
+      '<div class="fam-search-box">'+
+        '<input type="text" id="famSearchInput" placeholder="🔍 搜索姓名/关系" oninput="familySearchInput(this.value)" onfocus="familySearchInput(this.value)">'+
+        '<div id="famSearchResults"></div>'+
+      '</div>'+
       ((DATA.familyMembers||[]).length ? '<button class="btn small danger" type="button" onclick="clearAllFamilyMembers()">🗑 一键清空</button>' : '')+
     '</div>'+
-    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动。</div>';
+    '<div class="fam-graph-wrap" id="familyGraphWrap"><div class="fam-graph" id="familyGraph" aria-label="家庭关系图"></div></div>'+
+    '<div class="fam-graph-note">点成员会在旁边直接展开小卡片编辑姓名/关系，不用跳转弹窗；卡片上下左右四个按钮直接加对应方向的父母/子女/配偶/兄弟姐妹，"🔗关联已有成员"在卡片里展开选择。点连线（配偶虚线、亲子箭头）能弹出小输入框标注这条关系的文字。拖动画布可平移，滚轮/双指可缩放；拖动某个成员可以调整它的位置，摆好后位置会一直保留，不会再被自动改动。人越来越多找不到时，用上面的搜索框按姓名/关系搜，点结果直接跳过去。</div>';
 }
+window.familySearchInput = function(q){
+  var box = document.getElementById("famSearchResults");
+  if(!box) return;
+  q = (q||"").trim();
+  if(!q){ box.innerHTML = ""; return; }
+  var matches = (DATA.familyMembers||[]).filter(function(p){
+    return (p.name||"").indexOf(q)>=0 || (p.relation||"").indexOf(q)>=0;
+  }).slice(0,8);
+  if(!matches.length){ box.innerHTML = '<div class="fam-search-empty">没找到</div>'; return; }
+  box.innerHTML = matches.map(function(p){
+    return '<div class="fam-search-result" onmousedown="event.preventDefault();familySearchJumpTo(\''+p.id+'\')">'+
+      (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</div>';
+  }).join('');
+};
+window.familySearchJumpTo = function(id){
+  if(!familyGraph) return;
+  var node = familyGraph.getElementById(id);
+  if(!node || !node.length) return;
+  familyGraph.zoom(1);
+  familyGraph.center(node);
+  familyGraphViewState = {zoom: familyGraph.zoom(), pan: familyGraph.pan()};
+  famCardFor = id; famCardLinkOpen = false; familyLinkTab = "parent";
+  renderFamilyCardOverlay();
+  var input = document.getElementById("famSearchInput");
+  var box = document.getElementById("famSearchResults");
+  if(input) input.value = "";
+  if(box) box.innerHTML = "";
+};
 function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:46, rankSep:92, edgeSep:18, padding:42, fit:false, animate:false, ranker:"network-simplex"};
 }
@@ -1474,6 +1515,7 @@ window.toggleFamilyCard = function(id){
   famCardFor = (famCardFor===id) ? null : id;
   famCardLinkOpen = false;
   familyLinkTab = "parent";
+  familyLinkQuery = "";
   renderFamilyCardOverlay();
 };
 window.closeFamilyCard = function(){
@@ -1482,25 +1524,39 @@ window.closeFamilyCard = function(){
 };
 window.toggleFamilyCardLink = function(){
   famCardLinkOpen = !famCardLinkOpen;
-  if(famCardLinkOpen) familyLinkTab = "parent";
+  if(famCardLinkOpen){ familyLinkTab = "parent"; familyLinkQuery = ""; }
   renderFamilyCardOverlay();
 };
 function renderFamilyCardOverlay(){
-  var wrap = document.getElementById("familyGraph");
+  var graphEl = document.getElementById("familyGraph");
+  var wrap = document.getElementById("familyGraphWrap");
   var old = document.getElementById("famCardOverlay");
   if(old) old.remove();
-  if(!famCardFor || !wrap || !familyGraph) return;
+  if(!famCardFor || !wrap || !graphEl || !familyGraph) return;
   var node = familyGraph.getElementById(famCardFor);
   if(!node || !node.length) return;
   var p = (DATA.familyMembers||[]).filter(function(x){return x.id===famCardFor;})[0];
   if(!p) return;
   var pos = node.renderedPosition();
   var h = node.renderedOuterHeight();
+  /* 卡片挂在没有 overflow:hidden 的外层 wrap 上（不是画布容器本身），避免节点靠边时卡片被裁掉看不见；
+     同时优先放在节点下方，下面空间不够就翻到上面，水平方向贴边裁到容器范围内 */
+  var containerW = graphEl.clientWidth, containerH = graphEl.clientHeight;
+  var cardWidth = 200, halfW = cardWidth/2;
+  var cardEstHeight = famCardLinkOpen ? 380 : 200;
+  var left = pos.x;
+  if(left - halfW < 4) left = halfW + 4;
+  if(left + halfW > containerW - 4) left = containerW - 4 - halfW;
+  var top = pos.y + h/2 + 10;
+  if(top + cardEstHeight > containerH){
+    var above = pos.y - h/2 - 10 - cardEstHeight;
+    top = above > 4 ? above : Math.max(4, containerH - cardEstHeight - 4);
+  }
   var div = document.createElement("div");
   div.id = "famCardOverlay";
   div.className = "fam-card";
-  div.style.left = pos.x+"px";
-  div.style.top = (pos.y + h/2 + 10)+"px";
+  div.style.left = left+"px";
+  div.style.top = top+"px";
   /* Cytoscape 会在容器上监听 mousedown/touchstart 并 preventDefault（为了画布拖拽），
      卡片是容器的子元素，事件一冒泡上去输入框的"获得焦点"这个默认行为就被取消了，
      表现为"点输入框没反应打不了字"。所以这几类事件都要在卡片这层拦下来，不让它们到 Cytoscape 手里 */
@@ -1595,13 +1651,42 @@ function famAreSiblings(a, b){
 }
 window.switchFamilyLinkTab = function(id, tab){
   familyLinkTab = tab;
+  familyLinkQuery = "";
   renderFamilyCardOverlay();
 };
 /* 关联已有成员：嵌在卡片里的一小块面板，不再单独弹窗——先选关系类型，再勾选具体是谁 */
+var familyLinkQuery = "";
+function familyLinkIsChecked(self, p){
+  if(familyLinkTab==="parent") return (self.parentIds||[]).indexOf(p.id)>=0;
+  if(familyLinkTab==="child") return (p.parentIds||[]).indexOf(self.id)>=0;
+  if(familyLinkTab==="spouse") return (self.spouseIds||[]).indexOf(p.id)>=0;
+  if(familyLinkTab==="sibling") return famAreSiblings(self, p);
+  return false;
+}
+function familyLinkOptionsHtml(id){
+  var self = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
+  if(!self) return '';
+  var q = familyLinkQuery.trim();
+  var others = (DATA.familyMembers||[]).filter(function(p){
+    if(p.id===id) return false;
+    if(!q) return true;
+    return (p.name||"").indexOf(q)>=0 || (p.relation||"").indexOf(q)>=0;
+  });
+  return others.map(function(p){
+    var checked = familyLinkIsChecked(self, p);
+    return '<label class="fam-parent-opt"><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleFamilyLink(\''+id+'\',\''+p.id+'\', this.checked)"> '+
+      (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</label>';
+  }).join('') || '<div class="sub">'+(q?"没找到":"还没有其他成员可选")+'</div>';
+}
+/* 只更新勾选列表这一小块 DOM，不整卡片重画——不然搜索框重建就打不了字了（跟之前卡片输入框的坑一样） */
+window.filterFamilyLinkPanel = function(id, q){
+  familyLinkQuery = q||"";
+  var list = document.getElementById("famLinkList");
+  if(list) list.innerHTML = familyLinkOptionsHtml(id);
+};
 function renderFamilyLinkPanel(id){
   var self = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
   if(!self) return '';
-  var others = (DATA.familyMembers||[]).filter(function(p){ return p.id!==id; });
   var tabs = [
     {key:"parent", label:"父母"},
     {key:"child", label:"子女"},
@@ -1614,24 +1699,13 @@ function renderFamilyLinkPanel(id){
     sibling:"选中的人会跟TA共享同一批父母，从而成为兄弟姐妹（前提是至少一方已经有父母）",
     spouse:"选中的人会跟TA互相登记为配偶"
   };
-  function isChecked(p){
-    if(familyLinkTab==="parent") return (self.parentIds||[]).indexOf(p.id)>=0;
-    if(familyLinkTab==="child") return (p.parentIds||[]).indexOf(self.id)>=0;
-    if(familyLinkTab==="spouse") return (self.spouseIds||[]).indexOf(p.id)>=0;
-    if(familyLinkTab==="sibling") return famAreSiblings(self, p);
-    return false;
-  }
   var tabsHtml = tabs.map(function(t){
     return '<button type="button" class="fam-link-tab'+(familyLinkTab===t.key?" active":"")+'" onclick="switchFamilyLinkTab(\''+id+'\',\''+t.key+'\')">'+t.label+'</button>';
   }).join('');
-  var optionsHtml = others.map(function(p){
-    var checked = isChecked(p);
-    return '<label class="fam-parent-opt"><input type="checkbox" '+(checked?"checked":"")+' onchange="toggleFamilyLink(\''+id+'\',\''+p.id+'\', this.checked)"> '+
-      (p.relation?esc(p.relation)+' ':'')+esc(p.name||"(未命名)")+'</label>';
-  }).join('') || '<div class="sub">还没有其他成员可选</div>';
   return '<div class="fam-link-tabs">'+tabsHtml+'</div>'+
     '<div class="sub" style="margin-bottom:8px">'+tabHints[familyLinkTab]+'</div>'+
-    '<div class="fam-parent-list">'+optionsHtml+'</div>';
+    '<input type="text" class="fam-link-search" placeholder="🔍 搜索姓名/关系" value="'+esc(familyLinkQuery)+'" oninput="filterFamilyLinkPanel(\''+id+'\',this.value)">'+
+    '<div class="fam-parent-list" id="famLinkList">'+familyLinkOptionsHtml(id)+'</div>';
 }
 window.toggleFamilyLink = function(selfId, otherId, checked){
   var self = (DATA.familyMembers||[]).filter(function(x){return x.id===selfId;})[0];
