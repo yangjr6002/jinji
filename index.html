@@ -99,8 +99,8 @@ button{font-family:inherit;cursor:pointer}
 .wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
 
 /* ---- home / dossier ---- */
-.dossier-head{margin-bottom:48px; display:flex; align-items:center; gap:22px;}
-.home-avatar{width:88px; height:88px; border-radius:10px; overflow:hidden; flex:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; transition:.15s;}
+.dossier-head{margin-bottom:48px; padding-left:22px; display:flex; align-items:center; gap:22px;}
+.home-avatar{width:88px; height:118px; border-radius:10px; overflow:hidden; flex:none; cursor:pointer; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; transition:.15s;}
 .home-avatar:hover{border-color:var(--accent);}
 .home-avatar img{width:100%; height:100%; object-fit:cover; display:block;}
 .home-avatar .avatar-placeholder-sm{font-family:'Fraunces',serif; font-size:34px; color:var(--text-faint);}
@@ -591,6 +591,7 @@ table.data tr:hover{background:var(--surface-2)}
   border:1px solid transparent; background:transparent; padding:3px 6px; border-radius:5px; cursor:text;
 }
 .journal-toc-title-fixed{cursor:default; padding:3px 6px;}
+.journal-toc-title-click{cursor:pointer; user-select:none;}
 .journal-toc-title:hover{border-color:var(--border);}
 .journal-toc-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .journal-toc-enter{font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 2px;}
@@ -3019,6 +3020,8 @@ function renderTimelineMatrix(items, granularity){
     if(tip){
       var tipAttr = esc('<div class="tl-tip-row"><b>'+esc(y)+'年</b></div>'+tip);
       yearLabelHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+yearLabelHtml+'</span>';
+      /* 悬浮在年纪表情那一行也能看到同一个事件卡片，不用非得精确停在年份数字上 */
+      if(ageHtml) ageHtml = '<span class="tl-tip-wrap has-tip" data-tip="'+tipAttr+'">'+ageHtml+'</span>';
     }
     var header = '<div class="tla-xlabel" style="left:'+(headerX-48)+'px; width:96px">'+yearLabelHtml+ageHtml+'</div>';
     if(!isSplit) return header;
@@ -3636,13 +3639,30 @@ function journalExcerpt(content){
 }
 /* 外层分类是书的章节目录那种感觉：都是同一级，一行一个标题，没有"固定分组+小分组"的层级感，
    也不用跳一个额外的弹窗去加分类——标题直接可以点着改名，行末小 × 删除，最下面一行直接加新分类 */
+var journalRenamingKey = null;
+window.startRenameJournalCategory = function(key){
+  journalRenamingKey = key;
+  render();
+};
+window.commitRenameJournalCategory = function(key, value){
+  renameJournalCategory(key, value);
+  journalRenamingKey = null;
+  render();
+};
+window.journalTitleClick = function(key){
+  enterModuleCategory("journal", key);
+  editJournalEntry();
+};
 function renderJournalCategoryList(){
   var cats = getModuleCategories("journal");
   var counts = {};
   DATA.journalEntries.forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
   var rows = cats.map(function(c){
+    var titleHtml = journalRenamingKey===c.key
+      ? '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameJournalCategory(\''+c.key+'\', this.value)">'
+      : '<span class="journal-toc-title journal-toc-title-click" onclick="journalTitleClick(\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击直接在这个分类下写新日志，双击改名">'+esc(c.label)+'</span>';
     return '<div class="journal-toc-item">'+
-      '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" onchange="renameJournalCategory(\''+c.key+'\', this.value)">'+
+      titleHtml+
       '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
       '<button type="button" class="journal-toc-del" onclick="deleteJournalCategory(\''+c.key+'\')" title="删除分类">✕</button>'+
     '</div>';
