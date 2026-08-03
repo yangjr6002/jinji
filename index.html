@@ -867,6 +867,7 @@ function normalizeData(d){
   d.familySpouseLabels = d.familySpouseLabels || {};
   d.familyEdgeLabels = d.familyEdgeLabels || {};
   d.familySiblingLabels = d.familySiblingLabels || {};
+  d.familyNodePositions = d.familyNodePositions || {};
   d.moduleCategories = d.moduleCategories || {};
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
@@ -1377,11 +1378,28 @@ function familyGraphLayout(){
   return {name:"dagre", rankDir:"TB", nodeSep:46, rankSep:92, edgeSep:18, padding:42, fit:false, animate:false, ranker:"network-simplex"};
 }
 var familyGraphViewState = null; /* 记住上次的缩放/平移，编辑一次不该把画面弹回起点 */
-function runFamilyGraphLayout(forceRecenter){
+function runFamilyGraphLayout(forceReset){
   if(!familyGraph) return;
-  /* 配偶边是横向语义边，不应参与世代分层计算；否则多段婚姻会把整个树拉歪。 */
-  familyGraph.elements().not("edge.spouse-edge").layout(familyGraphLayout()).run();
-  if(familyGraphViewState && !forceRecenter){
+  DATA.familyNodePositions = DATA.familyNodePositions || {};
+  var saved = DATA.familyNodePositions;
+  if(forceReset){ Object.keys(saved).forEach(function(k){ delete saved[k]; }); } /* 主动点"自动排版"才清空手动摆好的位置，从头重排 */
+  var hadSaved = Object.keys(saved).length > 0;
+  /* 配偶边、兄弟姐妹边是横向语义边，不应参与世代分层计算；否则多段婚姻会把整个树拉歪。 */
+  familyGraph.elements().not("edge.spouse-edge").not("edge.sibling-edge").layout(familyGraphLayout()).run();
+  if(hadSaved){
+    /* 已经整理过的成员强制按回保存的位置，画面上完全不动；只有全新成员保留刚算出来的初始位置 */
+    familyGraph.nodes(".member").forEach(function(n){
+      var p = saved[n.id()];
+      if(p) n.position(p);
+    });
+  }
+  var changed = false;
+  familyGraph.nodes(".member").forEach(function(n){
+    var cur = n.position(), prev = saved[n.id()];
+    if(!prev || prev.x!==cur.x || prev.y!==cur.y){ saved[n.id()] = {x:cur.x, y:cur.y}; changed = true; }
+  });
+  if(changed) save();
+  if(familyGraphViewState && !forceReset){
     familyGraph.zoom(familyGraphViewState.zoom);
     familyGraph.pan(familyGraphViewState.pan);
     return;
@@ -1428,6 +1446,12 @@ function setupFamilyGraph(){
   });
   familyGraph.on("tap", function(e){ if(e.target===familyGraph){ closeFamilyCard(); closeFamilyEdgeLabel(); } });
   familyGraph.on("pan zoom position", function(){ renderFamilyCardOverlay(); renderFamilyEdgeLabelOverlay(); });
+  familyGraph.on("dragfree", "node.member", function(e){
+    /* 手动拖动摆好的位置直接存下来，下次编辑刷新时不会被重新排版顶掉 */
+    DATA.familyNodePositions = DATA.familyNodePositions || {};
+    DATA.familyNodePositions[e.target.id()] = e.target.position();
+    save();
+  });
   renderFamilyCardOverlay();
   renderFamilyEdgeLabelOverlay();
 }
