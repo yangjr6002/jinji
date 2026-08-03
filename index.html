@@ -1442,16 +1442,20 @@ function applyFamilyGraphPositions(){
   if(!familyGraph) return;
   DATA.familyNodePositions = DATA.familyNodePositions || {};
   var saved = DATA.familyNodePositions;
+  /* 联姻虚拟点（union）不是真实成员，不该被锁死——之前把它跟普通成员一样存死位置，
+     父母被拖动/重新摆放之后虚拟点还留在原地，括号形状（父母-虚拟点-子女）就散架了、子女的连线看着像跑偏了 */
+  Object.keys(saved).forEach(function(k){ if(k.indexOf("union:")===0) delete saved[k]; });
+  var memberNodes = familyGraph.nodes(".member");
   var hadSaved = Object.keys(saved).length > 0;
   if(!hadSaved){
     /* 第一次打开、还没有任何摆好的位置：跑一次自动分层作为初始摆放，之后就再也不会自动重排了 */
     familyGraph.elements().not("edge.spouse-edge").not("edge.sibling-edge").layout(familyGraphLayout()).run();
-    familyGraph.nodes().forEach(function(n){ saved[n.id()] = n.position(); });
+    memberNodes.forEach(function(n){ var p=n.position(); saved[n.id()] = {x:p.x, y:p.y}; });
     save();
   } else {
     var edgesData = familyGraph.edges().map(function(e){ return {data:{source:e.data("source"), target:e.data("target")}}; });
     var changed = false, idx = 0;
-    familyGraph.nodes().forEach(function(n){
+    memberNodes.forEach(function(n){
       var id = n.id();
       if(saved[id]){ n.position(saved[id]); return; }
       var pos = familyGraphFallbackPosition(id, edgesData, saved, idx++);
@@ -1461,6 +1465,17 @@ function applyFamilyGraphPositions(){
     });
     if(changed) save();
   }
+  /* 联姻点位置永远实时算成两个父母的中点，跟着父母的当前位置走，不持久化 */
+  familyGraph.nodes(".union").forEach(function(u){
+    var xs=[], ys=[];
+    u.connectedEdges("edge.parent-union").forEach(function(e){
+      var p = e.source().position();
+      xs.push(p.x); ys.push(p.y);
+    });
+    if(xs.length){
+      u.position({x: xs.reduce(function(a,b){return a+b;},0)/xs.length, y: ys.reduce(function(a,b){return a+b;},0)/ys.length});
+    }
+  });
   if(familyGraphViewState){
     familyGraph.zoom(familyGraphViewState.zoom);
     familyGraph.pan(familyGraphViewState.pan);
