@@ -611,6 +611,19 @@ table.data tr:hover{background:var(--surface-2)}
 .book-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
 .book-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
 .book-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
+/* 碎碎念第一层：分类看板，横排成一列列竖框，点整栏进入第二层的子主题列表页（栏里只放预览，不直接展开） */
+.book-board{display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px;}
+.book-board-col{flex:0 0 200px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:14px; cursor:pointer; transition:.12s;}
+.book-board-col:hover{border-color:var(--accent);}
+.book-board-col-head{display:flex; align-items:center; justify-content:space-between; gap:6px;}
+.book-board-col-title{font-family:'Fraunces',serif; font-weight:600; font-size:15px; color:var(--text); cursor:text; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.book-board-col-title-input{font-family:'Fraunces',serif; font-weight:600; font-size:15px; border:1px solid var(--accent); border-radius:5px; padding:2px 5px; background:var(--surface); width:100%;}
+.book-board-col-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:3px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s; flex:none;}
+.book-board-col:hover .book-board-col-del{opacity:1;}
+.book-board-col-del:hover{background:var(--danger-soft); color:var(--danger);}
+.book-board-col-preview{margin-top:8px; font-size:12px; color:var(--text-dim);}
+.book-board-col-new{flex:0 0 180px; display:flex; flex-direction:column; gap:8px; padding:14px; border:1px dashed var(--border); border-radius:10px; background:transparent;}
+.book-board-col-new input{padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:12.5px; color:var(--text);}
 /* 第三层：留言板，气泡按时间堆叠，类似QQ空间留言板；底部一个输入框直接发新留言 */
 .ssn-feed{display:flex; flex-direction:column; gap:10px; padding:16px;}
 .ssn-bubble{max-width:560px; padding:10px 14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border-soft);}
@@ -3800,7 +3813,7 @@ function renderBookSection(moduleId){
     if(suisuinianTopicView) return renderSuisuinianTopicBoard(suisuinianTopicView);
     var inCat = moduleCatView[moduleId]!==null && moduleCatView[moduleId]!==undefined;
     if(!getModuleCategories(moduleId).length || !inCat){
-      return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderBookCategoryList(moduleId));
+      return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderSuisuinianCategoryBoard());
     }
     return renderSuisuinianTopicList();
   }
@@ -3838,14 +3851,41 @@ function renderBookSection(moduleId){
     backBar + listHtml
   );
 }
-/* ---- 碎碎念专属的三层结构：目录（分类，跟日志一模一样的书本章节列表）-> 标题（自己建的子主题，
-   进入分类后的列表）-> 留言板（气泡消息，按时间）。多了"子主题"这一层，日志的通用两层系统不够用，单独写。
-   第一层完全复用 renderBookCategoryList（跟日志外层长得一样：单击进入、双击改名、行末删除、底部加分类）*/
+/* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，进入分类后的
+   独立列表页）-> 留言板（气泡消息，按时间）。分栏只是外层的样式，点一栏是真的导航到第二层
+   那个独立页面，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
 var suisuinianTopicView = null; /* 当前打开看留言板的子主题 id，null 就是标题列表/目录视图 */
 var suisuinianRenamingTopic = null;
 function suisuinianTopics(categoryKey){
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
   return DATA.suisuinianTopics.filter(function(t){ return (t.category||"")===categoryKey; });
+}
+/* 第一层：分类看板，每一栏是一个分类，点整个栏进入第二层的子主题列表页（不在栏里直接展开子主题） */
+function renderSuisuinianCategoryBoard(){
+  var moduleId = "suisuinian";
+  var cats = getModuleCategories(moduleId);
+  function countFor(key){ return suisuinianTopics(key).length; }
+  function columnHtml(key, label, isFixed){
+    var titleHtml = isFixed
+      ? '<span class="book-board-col-title">'+esc(label)+'</span>'
+      : (bookRenamingKey[moduleId]===key
+        ? '<input type="text" class="book-board-col-title-input" value="'+esc(label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+key+'\', this.value)" onclick="event.stopPropagation()">'
+        : '<span class="book-board-col-title" ondblclick="event.stopPropagation();startRenameBookCategory(\''+moduleId+'\',\''+key+'\')" title="双击改名">'+esc(label)+'</span>');
+    var delFn = isFixed ? "deleteSuisuinianUncategorized()" : "deleteBookCategory('"+moduleId+"','"+key+"')";
+    var delBtn = '<button type="button" class="book-board-col-del" onclick="event.stopPropagation();'+delFn+'" title="删除">✕</button>';
+    return '<div class="book-board-col book-board-col-click" onclick="enterModuleCategory(\''+moduleId+'\',\''+key+'\')">'+
+      '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
+      '<div class="book-board-col-preview">'+countFor(key)+' 个子主题 ›</div>'+
+    '</div>';
+  }
+  var cols = cats.map(function(c){ return columnHtml(c.key, c.label, false); }).join('');
+  var uncatCount = countFor("");
+  var uncatCol = uncatCount ? columnHtml("", uncategorizedLabel(moduleId), true) : '';
+  var addColHtml = '<div class="book-board-col-new">'+
+    '<input type="text" id="bookNewCatName_suisuinian" placeholder="新分类名称" onkeydown="if(event.key===\'Enter\'){addBookCategoryInline(\'suisuinian\');}">'+
+    '<button type="button" class="btn small ghost" onclick="addBookCategoryInline(\'suisuinian\')">+ 添加栏</button>'+
+  '</div>';
+  return '<div class="book-board">'+cols+uncatCol+addColHtml+'</div>';
 }
 /* 第二层：进入某个分类后，列出这个分类下自建的子主题（小标题），点一条进第三层留言板 */
 function renderSuisuinianTopicList(){
