@@ -611,25 +611,6 @@ table.data tr:hover{background:var(--surface-2)}
 .book-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
 .book-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
 .book-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
-/* 碎碎念三层结构的第一层：分类横排成一列列竖框（看板/Trello 式），框顶部是分类大标题，
-   框里是这个分类下自建的子主题列表，点子主题才进第三层的留言板；最后一栏是"新建分类"的输入框 */
-.book-board{display:flex; gap:14px; overflow-x:auto; padding:4px 2px 14px;}
-.book-board-col{flex:0 0 220px; background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:12px; display:flex; flex-direction:column; max-height:520px;}
-.book-board-col-head{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:10px;}
-.book-board-col-title{font-family:'Fraunces',serif; font-weight:600; font-size:15px; color:var(--text); cursor:pointer; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.book-board-col-title-input{font-family:'Fraunces',serif; font-weight:600; font-size:15px; border:1px solid var(--accent); border-radius:5px; padding:2px 5px; background:var(--surface); width:100%;}
-.book-board-col-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:3px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s; flex:none;}
-.book-board-col:hover .book-board-col-del{opacity:1;}
-.book-board-col-del:hover{background:var(--danger-soft); color:var(--danger);}
-.book-board-col-body{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;}
-.book-board-row{display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:7px 8px; border-radius:6px; background:var(--surface); cursor:pointer; font-size:12.5px;}
-.book-board-row:hover{background:var(--accent-soft);}
-.book-board-row-title{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text);}
-.book-board-row-date{font-size:10.5px; color:var(--text-faint); flex:none;}
-.book-board-topic-add{display:flex; gap:6px; margin-top:8px;}
-.book-board-topic-add input{flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); font-size:12px; color:var(--text);}
-.book-board-col-new{flex:0 0 180px; display:flex; flex-direction:column; gap:8px; padding:12px; border:1px dashed var(--border); border-radius:10px; background:transparent;}
-.book-board-col-new input{padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:12.5px; color:var(--text);}
 /* 第三层：留言板，气泡按时间堆叠，类似QQ空间留言板；底部一个输入框直接发新留言 */
 .ssn-feed{display:flex; flex-direction:column; gap:10px; padding:16px;}
 .ssn-bubble{max-width:560px; padding:10px 14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border-soft);}
@@ -3702,7 +3683,7 @@ function daysInfo(dateStr, repeatYearly){
    独立的详情标签页直接编辑，跟时间经历/联系人那些详情页一样，方便写长文。用 moduleId 区分板块 */
 var BOOK_MODULES = {
   journal: {entriesKey:"journalEntries", addLabel:"+ 写日志", tocHint:"记日常想法的地方，点进一个分类才能看到/写日志。"},
-  suisuinian: {entriesKey:"suisuinianEntries", addLabel:"+ 写一条", tocHint:"随手记点碎碎念，一栏一个分类，点条目看完整内容。", boardLayout:true}
+  suisuinian: {entriesKey:"suisuinianEntries", addLabel:"+ 写一条", tocHint:"记点随手的碎碎念，点进一个分类才能看到/建子主题。", threeLevel:true}
 };
 function bookEntries(moduleId){
   var key = BOOK_MODULES[moduleId].entriesKey;
@@ -3737,24 +3718,30 @@ window.commitRenameBookCategory = function(moduleId, key, value){
 };
 function renderBookCategoryList(moduleId){
   var cats = getModuleCategories(moduleId);
-  var entries = bookEntries(moduleId);
   var counts = {};
-  entries.forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
+  /* 碎碎念这个分类下挂的是子主题（不是普通条目），数量要按子主题算，不能按 bookEntries 算 */
+  if(moduleId==="suisuinian"){
+    (DATA.suisuinianTopics||[]).forEach(function(t){ var k=t.category||""; counts[k]=(counts[k]||0)+1; });
+  } else {
+    bookEntries(moduleId).forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
+  }
+  var unit = moduleId==="suisuinian" ? "个" : "篇";
   var rows = cats.map(function(c){
     var titleHtml = bookRenamingKey[moduleId]===c.key
       ? '<input type="text" class="book-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+c.key+'\', this.value)">'
       : '<span class="book-toc-title book-toc-title-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+c.key+'\')" ondblclick="startRenameBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
     return '<div class="book-toc-item">'+
       titleHtml+
-      '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
+      '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' '+unit+' ›</span>'+
       '<button type="button" class="book-toc-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
     '</div>';
   }).join('');
   var uncatCount = counts[""]||0;
+  var uncatDelFn = moduleId==="suisuinian" ? "deleteSuisuinianUncategorized" : "deleteBookUncategorized";
   var uncatRow = uncatCount ? ('<div class="book-toc-item">'+
     '<span class="book-toc-title book-toc-title-fixed">'+esc(uncategorizedLabel(moduleId))+'</span>'+
-    '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\'\')">'+uncatCount+' 篇 ›</span>'+
-    '<button type="button" class="book-toc-del" onclick="deleteBookUncategorized(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
+    '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\'\')">'+uncatCount+' '+unit+' ›</span>'+
+    '<button type="button" class="book-toc-del" onclick="'+uncatDelFn+'(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
   '</div>') : '';
   return '<div class="card-panel book-toc">'+rows+uncatRow+
     '<div class="book-toc-add">'+
@@ -3782,6 +3769,10 @@ window.deleteBookCategory = function(moduleId, key){
   confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
     DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
     if(moduleCatView[moduleId]===key) moduleCatView[moduleId]=null;
+    /* 碎碎念这个分类下挂的是子主题，不是普通条目，删分类时子主题也要一起归到未分类 */
+    if(moduleId==="suisuinian"){
+      (DATA.suisuinianTopics||[]).forEach(function(t){ if(t.category===key) t.category=""; });
+    }
     save(); render();
   }, "确认删除分类", "确定删除");
 };
@@ -3793,9 +3784,26 @@ window.deleteBookUncategorized = function(moduleId){
     save(); render();
   }, "确认删除", "确定永久删除");
 };
+window.deleteSuisuinianUncategorized = function(){
+  var topics = (DATA.suisuinianTopics||[]).filter(function(t){return !t.category;});
+  var topicIds = topics.map(function(t){return t.id;});
+  var msgCount = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)>=0;}).length;
+  confirmDelete("「"+uncategorizedLabel("suisuinian")+"」里有 "+topics.length+" 个子主题（共 "+msgCount+" 条留言），没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
+    DATA.suisuinianTopics = (DATA.suisuinianTopics||[]).filter(function(t){return !!t.category;});
+    DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)===-1;});
+    save(); render();
+  }, "确认删除", "确定永久删除");
+};
 function renderBookSection(moduleId){
   var cfg = BOOK_MODULES[moduleId];
-  if(cfg.boardLayout) return suisuinianTopicView ? renderSuisuinianTopicBoard(suisuinianTopicView) : renderBookBoard();
+  if(cfg.threeLevel){
+    if(suisuinianTopicView) return renderSuisuinianTopicBoard(suisuinianTopicView);
+    var inCat = moduleCatView[moduleId]!==null && moduleCatView[moduleId]!==undefined;
+    if(!getModuleCategories(moduleId).length || !inCat){
+      return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderBookCategoryList(moduleId));
+    }
+    return renderSuisuinianTopicList();
+  }
   var cats = getModuleCategories(moduleId);
   var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\')">'+cfg.addLabel+'</button>';
   /* 必须先建分类、点进某一个分类之后才能新增——外层目录视图不给加号，避免绕过分类直接建"未分类"内容 */
@@ -3830,73 +3838,53 @@ function renderBookSection(moduleId){
     backBar + listHtml
   );
 }
-/* 看板式布局：分类横排成一列列竖框（Trello 风格），每栏顶部是分类大标题（双击改名），
-   栏里直接是这个分类下的条目列表（标题/摘要+日期），点条目进详情页看完整内容；
-   最后一栏是"新建分类"的输入框，可以随时加新的一栏。整个板一次性把所有分类都摊开，不用先点进某个分类 */
-/* ---- 碎碎念专属的三层结构：目录（分类，看板列）-> 标题（自己建的子主题，列表）-> 留言板（气泡消息，按时间）。
-   跟日志的"分类->条目详情页"两层不一样，多了"子主题"这一层，所以单独写，不硬塞进通用的 book 系统里 */
-var suisuinianTopicView = null; /* 当前打开看留言板的子主题 id，null 就是看板视图 */
+/* ---- 碎碎念专属的三层结构：目录（分类，跟日志一模一样的书本章节列表）-> 标题（自己建的子主题，
+   进入分类后的列表）-> 留言板（气泡消息，按时间）。多了"子主题"这一层，日志的通用两层系统不够用，单独写。
+   第一层完全复用 renderBookCategoryList（跟日志外层长得一样：单击进入、双击改名、行末删除、底部加分类）*/
+var suisuinianTopicView = null; /* 当前打开看留言板的子主题 id，null 就是标题列表/目录视图 */
 var suisuinianRenamingTopic = null;
 function suisuinianTopics(categoryKey){
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
   return DATA.suisuinianTopics.filter(function(t){ return (t.category||"")===categoryKey; });
 }
-function renderBookBoard(){
+/* 第二层：进入某个分类后，列出这个分类下自建的子主题（小标题），点一条进第三层留言板 */
+function renderSuisuinianTopicList(){
   var moduleId = "suisuinian";
-  var cfg = BOOK_MODULES[moduleId];
+  var catKey = moduleCatView[moduleId];
   var cats = getModuleCategories(moduleId);
-  DATA.suisuinianTopics = DATA.suisuinianTopics || [];
-  function topicRowsHtml(topics){
-    return topics.map(function(t){
-      var count = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===t.id;}).length;
-      return '<div class="book-board-row" onclick="openSuisuinianTopic(\''+t.id+'\')">'+
-        '<span class="book-board-row-title">'+esc(t.label)+'</span>'+
-        '<span class="book-board-row-date">'+count+'</span>'+
-      '</div>';
-    }).join('') || '<div class="sub" style="padding:6px 2px">还没有子主题</div>';
-  }
-  function columnHtml(key, label, isFixed){
-    var titleHtml = isFixed
-      ? '<span class="book-board-col-title">'+esc(label)+'</span>'
-      : (bookRenamingKey[moduleId]===key
-        ? '<input type="text" class="book-board-col-title-input" value="'+esc(label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+key+'\', this.value)">'
-        : '<span class="book-board-col-title" ondblclick="startRenameBookCategory(\''+moduleId+'\',\''+key+'\')" title="双击改名">'+esc(label)+'</span>');
-    var delBtn = isFixed ? '' : '<button type="button" class="book-board-col-del" onclick="deleteSuisuinianCategory(\''+key+'\')" title="删除这一栏">✕</button>';
-    return '<div class="book-board-col">'+
-      '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
-      '<div class="book-board-col-body">'+topicRowsHtml(suisuinianTopics(key))+'</div>'+
-      '<div class="book-board-topic-add">'+
-        '<input type="text" id="suisuinianNewTopic_'+key+'" placeholder="新子主题" onkeydown="if(event.key===\'Enter\'){addSuisuinianTopic(\''+key+'\');}">'+
-        '<button type="button" class="btn small ghost" onclick="addSuisuinianTopic(\''+key+'\')">+</button>'+
+  var topics = suisuinianTopics(catKey);
+  var rows = topics.map(function(t){
+    var count = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===t.id;}).length;
+    return '<div class="book-row">'+
+      '<div style="flex:1; min-width:0;">'+
+        '<div class="book-row-line1">'+
+          '<span class="row-open-link book-title" onclick="openSuisuinianTopic(\''+t.id+'\')">'+esc(t.label)+'</span>'+
+          '<span class="book-meta muted">'+count+' 条</span>'+
+        '</div>'+
       '</div>'+
+      '<div class="row-actions"><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
     '</div>';
-  }
-  var cols = cats.map(function(c){ return columnHtml(c.key, c.label, false); }).join('');
-  var uncatCount = suisuinianTopics("").length;
-  var uncatCol = uncatCount ? columnHtml("", uncategorizedLabel(moduleId), true) : '';
-  var addColHtml = '<div class="book-board-col-new">'+
-    '<input type="text" id="bookNewCatName_'+moduleId+'" placeholder="新分类名称" onkeydown="if(event.key===\'Enter\'){addBookCategoryInline(\''+moduleId+'\');}">'+
-    '<button type="button" class="btn small ghost" onclick="addBookCategoryInline(\''+moduleId+'\')">+ 添加栏</button>'+
+  }).join('');
+  var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","在下面添加一个");
+  var addRow = '<div class="book-toc-add">'+
+    '<input type="text" id="suisuinianNewTopic" placeholder="新子主题名称，比如「云南行」" onkeydown="if(event.key===\'Enter\'){addSuisuinianTopicInline();}">'+
+    '<button type="button" class="btn small ghost" onclick="addSuisuinianTopicInline()">+ 添加子主题</button>'+
   '</div>';
-  return moduleShell(moduleId,"",moduleId,cfg.tocHint,
+  var curCat = cats.filter(function(c){return c.key===catKey;})[0];
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\''+moduleId+'\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel(moduleId))+'</span></div>';
+  return moduleShell(moduleId,"",moduleId,"这个分类下自己建的子主题，点一个进去看留言板。",
     "",
-    '<div class="book-board">'+cols+uncatCol+addColHtml+'</div>'
+    backBar + listHtml + addRow
   );
 }
-window.addSuisuinianTopic = function(categoryKey){
-  var input = document.getElementById("suisuinianNewTopic_"+categoryKey);
+window.addSuisuinianTopicInline = function(){
+  var input = document.getElementById("suisuinianNewTopic");
   var value = (input.value||"").trim();
   if(!value) return;
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
-  DATA.suisuinianTopics.push({id:uid(), category:categoryKey||"", label:value});
+  DATA.suisuinianTopics.push({id:uid(), category:moduleCatView.suisuinian||"", label:value});
   save(); render();
-};
-window.deleteSuisuinianCategory = function(key){
-  confirmDelete("确定删除这一栏吗？里面的子主题会变成「未分类」，不会被删除。", function(){
-    DATA.moduleCategories.suisuinian = getModuleCategories("suisuinian").filter(function(x){return x.key!==key;});
-    (DATA.suisuinianTopics||[]).forEach(function(t){ if(t.category===key) t.category = ""; });
-    save(); render();
-  }, "确认删除", "确定删除");
 };
 window.openSuisuinianTopic = function(topicId){
   suisuinianTopicView = topicId;
