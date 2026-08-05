@@ -621,7 +621,10 @@ table.data tr:hover{background:var(--surface-2)}
 .book-board-col-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:3px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s; flex:none;}
 .book-board-col:hover .book-board-col-del{opacity:1;}
 .book-board-col-del:hover{background:var(--danger-soft); color:var(--danger);}
-.book-board-col-preview{margin-top:8px; font-size:12px; color:var(--text-dim);}
+.book-board-col-preview{margin-top:8px; font-size:12px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;}
+.book-board-col-preview-item{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 0; border-bottom:1px solid var(--border-soft);}
+.book-board-col-preview-item:last-child{border-bottom:none;}
+.book-board-col-preview-more, .book-board-col-preview-empty{color:var(--text-faint); font-size:11px; padding-top:2px;}
 .book-board-col-new{flex:0 0 180px; display:flex; flex-direction:column; gap:8px; padding:14px; border:1px dashed var(--border); border-radius:10px; background:transparent;}
 .book-board-col-new input{padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:12.5px; color:var(--text);}
 /* 第三层：留言板，气泡按时间堆叠，类似QQ空间留言板；底部一个输入框直接发新留言 */
@@ -3873,9 +3876,14 @@ function renderSuisuinianCategoryBoard(){
         : '<span class="book-board-col-title" ondblclick="event.stopPropagation();startRenameBookCategory(\''+moduleId+'\',\''+key+'\')" title="双击改名">'+esc(label)+'</span>');
     var delFn = isFixed ? "deleteSuisuinianUncategorized()" : "deleteBookCategory('"+moduleId+"','"+key+"')";
     var delBtn = '<button type="button" class="book-board-col-del" onclick="event.stopPropagation();'+delFn+'" title="删除">✕</button>';
+    /* 栏里预览最多8个子主题的标题（纯预览，点哪都进第二层，不单独可点） */
+    var topics = suisuinianTopics(key);
+    var previewItems = topics.slice(0,8).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
+    var moreHint = topics.length>8 ? '<div class="book-board-col-preview-more">还有 '+(topics.length-8)+' 个…</div>' : '';
+    var preview = topics.length ? (previewItems+moreHint) : '<div class="book-board-col-preview-empty">还没有子主题</div>';
     return '<div class="book-board-col book-board-col-click" onclick="enterModuleCategory(\''+moduleId+'\',\''+key+'\')">'+
       '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
-      '<div class="book-board-col-preview">'+countFor(key)+' 个子主题 ›</div>'+
+      '<div class="book-board-col-preview">'+preview+'</div>'+
     '</div>';
   }
   var cols = cats.map(function(c){ return columnHtml(c.key, c.label, false); }).join('');
@@ -3894,13 +3902,16 @@ function renderSuisuinianTopicList(){
   var cats = getModuleCategories(moduleId);
   var topics = suisuinianTopics(catKey);
   var rows = topics.map(function(t){
-    var count = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===t.id;}).length;
+    var msgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===t.id;});
+    /* 预览这个子主题下最新一条留言（按时间最靠后的），不用把最新定义搞得太复杂，直接比 createdAt */
+    var latest = msgs.slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
           '<span class="row-open-link book-title" onclick="openSuisuinianTopic(\''+t.id+'\')">'+esc(t.label)+'</span>'+
-          '<span class="book-meta muted">'+count+' 条</span>'+
+          '<span class="book-meta muted">'+msgs.length+' 条</span>'+
         '</div>'+
+        '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
       '</div>'+
       '<div class="row-actions"><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
     '</div>';
@@ -3994,12 +4005,13 @@ function renderSuisuinianTopicBoard(topicId){
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
-  return '<div class="module-head"><div>'+titleHtml+
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitSuisuinianTopic()">‹ 返回</button></div>';
+  return backBar+
+    '<div class="module-head"><div>'+titleHtml+
     '<div class="sub">留言板形式，按时间'+(sortAsc?"升序":"降序")+'排列。</div></div>'+
     '<div class="row-actions">'+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     '<button class="btn ghost small" onclick="deleteSuisuinianTopic(\''+topic.id+'\')">删除子主题</button>'+
-    '<button class="btn ghost small" onclick="exitSuisuinianTopic()">‹ 返回</button>'+
     '</div></div>'+
     '<div class="card-panel ssn-feed">'+bubbles+'</div>'+
     '<div class="ssn-composer">'+
