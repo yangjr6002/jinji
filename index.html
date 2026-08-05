@@ -575,42 +575,42 @@ table.data tr:hover{background:var(--surface-2)}
 .memorial-card .mnote{font-size:12px; color:var(--text-dim); margin-top:8px; line-height:1.5;}
 .memorial-card .row-actions{position:absolute; top:13px; right:13px;}
 
-/* declutter */
-.journal-list{display:flex; flex-direction:column;}
-.journal-row{display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border-soft);}
-.journal-row:last-child{border-bottom:none;}
-.journal-row-line1{display:flex; align-items:baseline; gap:8px;}
-.journal-title{font-size:14px; font-weight:600; color:var(--text);}
-.journal-meta{font-size:11px; flex:none;}
-.journal-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.journal-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
-/* 日志详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
-.journal-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
-.journal-detail-title:hover{border-color:var(--border);}
-.journal-detail-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
-.journal-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
-.journal-detail-date, .journal-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
-.journal-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:320px; font-family:inherit;}
-.journal-content-edit:focus{outline:none; background:var(--surface-2);}
+/* 通用"书本目录+条目"板块样式：日志、碎碎念这类板块共用，外层分类是同一级的书本章节列表 */
+.book-list{display:flex; flex-direction:column;}
+.book-row{display:flex; align-items:flex-start; gap:12px; padding:14px 16px; border-bottom:1px solid var(--border-soft);}
+.book-row:last-child{border-bottom:none;}
+.book-row-line1{display:flex; align-items:baseline; gap:8px;}
+.book-title{font-size:14px; font-weight:600; color:var(--text);}
+.book-meta{font-size:11px; flex:none;}
+.book-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.book-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
+/* 详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
+.book-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
+.book-detail-title:hover{border-color:var(--border);}
+.book-detail-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
+.book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
+.book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:320px; font-family:inherit;}
+.book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
-.journal-toc{display:flex; flex-direction:column; padding:4px 20px;}
-.journal-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
-.journal-toc-item:last-of-type{border-bottom:none;}
-.journal-toc-title{
+.book-toc{display:flex; flex-direction:column; padding:4px 20px;}
+.book-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
+.book-toc-item:last-of-type{border-bottom:none;}
+.book-toc-title{
   flex:1; min-width:0; font-family:'Fraunces',serif; font-size:14.5px; font-weight:600; color:var(--text);
   border:1px solid transparent; background:transparent; padding:3px 6px; border-radius:5px; cursor:text;
 }
-.journal-toc-title-fixed{cursor:default; padding:3px 6px;}
-.journal-toc-title-click{cursor:pointer; user-select:none;}
-.journal-toc-title:hover{border-color:var(--border);}
-.journal-toc-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
-.journal-toc-enter{font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 2px;}
-.journal-toc-enter:hover{color:var(--accent);}
-.journal-toc-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:5px 7px; border-radius:5px; opacity:0; cursor:pointer; transition:.12s;}
-.journal-toc-item:hover .journal-toc-del{opacity:1;}
-.journal-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
-.journal-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
-.journal-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
+.book-toc-title-fixed{cursor:default; padding:3px 6px;}
+.book-toc-title-click{cursor:pointer; user-select:none;}
+.book-toc-title:hover{border-color:var(--border);}
+.book-toc-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.book-toc-enter{font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 2px;}
+.book-toc-enter:hover{color:var(--accent);}
+.book-toc-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:5px 7px; border-radius:5px; opacity:0; cursor:pointer; transition:.12s;}
+.book-toc-item:hover .book-toc-del{opacity:1;}
+.book-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
+.book-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
+.book-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -715,7 +715,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -775,6 +775,7 @@ var DEFAULT_DATA = {
   ],
   customBoards:[],
   journalEntries:[],
+  suisuinianEntries:[],
   basicInfo:[
     {id:"bi1", label:"姓名", value:""},
     {id:"bi2", label:"英文名", value:""},
@@ -837,8 +838,14 @@ var storageAvailable = true;
 function normalizeData(d){
   d.settings = d.settings || {};
   d.settings.moduleView = d.settings.moduleView || "list";
-  d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline","journal"];
+  d.settings.homeOrder = (d.settings.homeOrder && d.settings.homeOrder.length) ? d.settings.homeOrder : ["quickaccess","timeline","suisuinian","journal"];
   d.settings.homeOrder = d.settings.homeOrder.filter(function(k){ return k!=="basicinfo"; });
+  /* 碎碎念要排在日志前面：如果日志已经存在但碎碎念还没插过，就插到日志正前面；两个都没有就按顺序补在末尾 */
+  if(d.settings.homeOrder.indexOf("suisuinian")===-1){
+    var journalIdx = d.settings.homeOrder.indexOf("journal");
+    if(journalIdx===-1) d.settings.homeOrder.push("suisuinian");
+    else d.settings.homeOrder.splice(journalIdx, 0, "suisuinian");
+  }
   if(d.settings.homeOrder.indexOf("journal")===-1) d.settings.homeOrder.push("journal");
   d.settings.quickAccessIds = d.settings.quickAccessIds || [];
   if(d.settings.quickAccessIds.indexOf("basicinfo")===-1){ d.settings.quickAccessIds.unshift("basicinfo"); }
@@ -871,6 +878,7 @@ function normalizeData(d){
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
   d.journalEntries = d.journalEntries || [];
+  d.suisuinianEntries = d.suisuinianEntries || [];
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   d.residenceTags = (d.residenceTags && d.residenceTags.length) ? d.residenceTags : JSON.parse(JSON.stringify(DEFAULT_RESIDENCE_TAGS));
@@ -1014,7 +1022,7 @@ function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){r
 var DEFAULT_LABELS = {
   passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
   timeline:"时间经历", worldmap:"世界版图", memorial:"纪念事件", declutter:"断舍离", basicinfo:"基本信息", familytree:"家庭关系",
-  journal:"日志"
+  journal:"日志", suisuinian:"碎碎念"
 };
 function labelFor(key){
   return (DATA.labels && DATA.labels[key]) || DEFAULT_LABELS[key] || key;
@@ -1244,9 +1252,10 @@ function renderHome(){
 
   var sectionContent = {
     timeline: renderTimelineSection(),
-    journal: renderJournalSection()
+    suisuinian: renderBookSection("suisuinian"),
+    journal: renderBookSection("journal")
   };
-  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["timeline","journal"];
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["timeline","suisuinian","journal"];
   order.forEach(function(key){
     if(!sectionContent[key]) return;
     html += '<div class="home-section" data-home-id="'+key+'" ondragover="homeDragOver(event)" ondrop="homeDrop(event,\''+key+'\')">'+
@@ -1948,7 +1957,7 @@ window.homeDragOver = function(e){
 window.homeDrop = function(e, targetKey){
   e.preventDefault();
   if(!__homeDragId || __homeDragId===targetKey) return;
-  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder.slice() : ["quickaccess","timeline","journal"];
+  var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder.slice() : ["quickaccess","timeline","suisuinian","journal"];
   var from = order.indexOf(__homeDragId);
   if(from===-1) return;
   order.splice(from,1);
@@ -3131,7 +3140,7 @@ function tabTitle(tab){
   if(tab.type==="password"){ var p=DATA.passwords.filter(function(x){return x.id===tab.id;})[0]; return p?p.site:"密码"; }
   if(tab.type==="asset"){ var a=DATA.assets.filter(function(x){return x.id===tab.id;})[0]; return a?a.title:"资产"; }
   if(tab.type==="contact"){ var c=DATA.contacts.filter(function(x){return x.id===tab.id;})[0]; return c?c.name:"联系人"; }
-  if(tab.type==="journal"){ var j=DATA.journalEntries.filter(function(x){return x.id===tab.id;})[0]; return j?(j.title||"日志"):"日志"; }
+  if(tab.type==="journal"||tab.type==="suisuinian"){ var j=bookEntries(tab.type).filter(function(x){return x.id===tab.id;})[0]; return j?(j.title||labelFor(tab.type)):labelFor(tab.type); }
   if(tab.type==="customitem"){
     var b=(DATA.customBoards||[]).filter(function(x){return x.id===(tab.extra&&tab.extra.boardId);})[0];
     var it=b?b.items.filter(function(x){return x.id===tab.id;})[0]:null;
@@ -3144,8 +3153,8 @@ function tabIcon(tab){
     var dest = destinationById(tab.id);
     return dest ? dest.icon : "📄";
   }
-  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:""};
-  if(tab && tab.type==="journal") return "";
+  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:""};
+  if(tab && (tab.type==="journal"||tab.type==="suisuinian")) return "";
   return (tab && map[tab.type]) || "📄";
 }
 window.openItemTab = function(type, id, extra){
@@ -3193,7 +3202,7 @@ function renderItemDetailPage(){
   if(tab.type==="password") return renderPasswordDetailPage(tab.id);
   if(tab.type==="asset") return renderAssetDetailPage(tab.id);
   if(tab.type==="contact") return renderContactDetailPage(tab.id);
-  if(tab.type==="journal") return renderJournalDetailPage(tab.id);
+  if(tab.type==="journal"||tab.type==="suisuinian") return renderBookDetailPage(tab.type, tab.id);
   if(tab.type==="customitem") return renderCustomItemDetailPage(tab.extra.boardId, tab.id);
   return '<div class="module-head"><div><h2>未知内容</h2></div></div>';
 }
@@ -3657,167 +3666,179 @@ function daysInfo(dateStr, repeatYearly){
   }
 }
 
-/* ---- 日志：外层是自定义分类文件夹（跟密码/资产用同一套分类系统），点进去是那个分类下的日志列表；
-   点某一篇日志会打开一个独立的详情标签页，跟时间经历/联系人那些详情页一样，方便写长文 */
-function journalExcerpt(content){
+/* ---- 通用"书本"板块：日志、碎碎念这类都是同一套逻辑——外层是自定义分类（书的章节目录，
+   都是同一级，没有"固定分组+小分组"的层级感），点进去是那个分类下的列表；点某一条会打开一个
+   独立的详情标签页直接编辑，跟时间经历/联系人那些详情页一样，方便写长文。用 moduleId 区分板块 */
+var BOOK_MODULES = {
+  journal: {entriesKey:"journalEntries", addLabel:"+ 写日志", tocHint:"记日常想法的地方，点进一个分类才能看到/写日志。"},
+  suisuinian: {entriesKey:"suisuinianEntries", addLabel:"+ 写一条", tocHint:"随手记点碎碎念，点进一个分类才能看到/写。"}
+};
+function bookEntries(moduleId){
+  var key = BOOK_MODULES[moduleId].entriesKey;
+  DATA[key] = DATA[key] || [];
+  return DATA[key];
+}
+function bookExcerpt(content){
   var flat = (content||"").replace(/\s+/g," ").trim();
   return flat.length>60 ? (flat.slice(0,60)+"…") : (flat||"（没有内容）");
 }
-/* 外层分类是书的章节目录那种感觉：都是同一级，一行一个标题，没有"固定分组+小分组"的层级感，
-   也不用跳一个额外的弹窗去加分类——标题直接可以点着改名，行末小 × 删除，最下面一行直接加新分类 */
-var journalRenamingKey = null;
-var journalTitleClickTimer = null;
+/* 标题直接可以点着改名，行末小 × 删除，最下面一行直接加新分类，不用跳额外的弹窗 */
+var bookRenamingKey = {};
+var bookTitleClickTimer = {};
 /* 单击和双击的第一下点击在浏览器里都会先触发一次 click，如果单击直接跳进分类，
    页面立刻重绘、这个标题元素就没了，双击的第二下点击根本落不到它身上，永远触发不了改名。
    所以单击先等一下，等的过程中如果双击来了，就取消这次"进入"，只做改名 */
-window.journalTitleSingleClick = function(key){
-  clearTimeout(journalTitleClickTimer);
-  journalTitleClickTimer = setTimeout(function(){
-    enterModuleCategory("journal", key);
+window.bookTitleSingleClick = function(moduleId, key){
+  clearTimeout(bookTitleClickTimer[moduleId]);
+  bookTitleClickTimer[moduleId] = setTimeout(function(){
+    enterModuleCategory(moduleId, key);
   }, 230);
 };
-window.startRenameJournalCategory = function(key){
-  clearTimeout(journalTitleClickTimer);
-  journalRenamingKey = key;
+window.startRenameBookCategory = function(moduleId, key){
+  clearTimeout(bookTitleClickTimer[moduleId]);
+  bookRenamingKey[moduleId] = key;
   render();
 };
-window.commitRenameJournalCategory = function(key, value){
-  renameJournalCategory(key, value);
-  journalRenamingKey = null;
+window.commitRenameBookCategory = function(moduleId, key, value){
+  renameBookCategory(moduleId, key, value);
+  bookRenamingKey[moduleId] = null;
   render();
 };
-function renderJournalCategoryList(){
-  var cats = getModuleCategories("journal");
+function renderBookCategoryList(moduleId){
+  var cats = getModuleCategories(moduleId);
+  var entries = bookEntries(moduleId);
   var counts = {};
-  DATA.journalEntries.forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
+  entries.forEach(function(j){ var k=j.category||""; counts[k]=(counts[k]||0)+1; });
   var rows = cats.map(function(c){
-    var titleHtml = journalRenamingKey===c.key
-      ? '<input type="text" class="journal-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameJournalCategory(\''+c.key+'\', this.value)">'
-      : '<span class="journal-toc-title journal-toc-title-click" onclick="journalTitleSingleClick(\''+c.key+'\')" ondblclick="startRenameJournalCategory(\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
-    return '<div class="journal-toc-item">'+
+    var titleHtml = bookRenamingKey[moduleId]===c.key
+      ? '<input type="text" class="book-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+c.key+'\', this.value)">'
+      : '<span class="book-toc-title book-toc-title-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+c.key+'\')" ondblclick="startRenameBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
+    return '<div class="book-toc-item">'+
       titleHtml+
-      '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
-      '<button type="button" class="journal-toc-del" onclick="deleteJournalCategory(\''+c.key+'\')" title="删除分类">✕</button>'+
+      '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' 篇 ›</span>'+
+      '<button type="button" class="book-toc-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
     '</div>';
   }).join('');
   var uncatCount = counts[""]||0;
-  var uncatRow = uncatCount ? ('<div class="journal-toc-item">'+
-    '<span class="journal-toc-title journal-toc-title-fixed">'+esc(uncategorizedLabel("journal"))+'</span>'+
-    '<span class="journal-toc-enter" onclick="enterModuleCategory(\'journal\',\'\')">'+uncatCount+' 篇 ›</span>'+
-    '<button type="button" class="journal-toc-del" onclick="deleteJournalUncategorized()" title="删除这些日志">✕</button>'+
+  var uncatRow = uncatCount ? ('<div class="book-toc-item">'+
+    '<span class="book-toc-title book-toc-title-fixed">'+esc(uncategorizedLabel(moduleId))+'</span>'+
+    '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\'\')">'+uncatCount+' 篇 ›</span>'+
+    '<button type="button" class="book-toc-del" onclick="deleteBookUncategorized(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
   '</div>') : '';
-  return '<div class="card-panel journal-toc">'+rows+uncatRow+
-    '<div class="journal-toc-add">'+
-      '<input type="text" id="journalNewCatName" placeholder="新分类名称，比如「旅行手记」" onkeydown="if(event.key===\'Enter\'){addJournalCategoryInline();}">'+
-      '<button type="button" class="btn small ghost" onclick="addJournalCategoryInline()">+ 添加分类</button>'+
+  return '<div class="card-panel book-toc">'+rows+uncatRow+
+    '<div class="book-toc-add">'+
+      '<input type="text" id="bookNewCatName_'+moduleId+'" placeholder="新分类名称" onkeydown="if(event.key===\'Enter\'){addBookCategoryInline(\''+moduleId+'\');}">'+
+      '<button type="button" class="btn small ghost" onclick="addBookCategoryInline(\''+moduleId+'\')">+ 添加分类</button>'+
     '</div>'+
   '</div>';
 }
-window.addJournalCategoryInline = function(){
-  var input = document.getElementById("journalNewCatName");
+window.addBookCategoryInline = function(moduleId){
+  var input = document.getElementById("bookNewCatName_"+moduleId);
   var value = (input.value||"").trim();
   if(!value) return;
   DATA.moduleCategories = DATA.moduleCategories || {};
-  DATA.moduleCategories.journal = DATA.moduleCategories.journal || [];
-  DATA.moduleCategories.journal.push({key:uid(), label:value});
+  DATA.moduleCategories[moduleId] = DATA.moduleCategories[moduleId] || [];
+  DATA.moduleCategories[moduleId].push({key:uid(), label:value});
   save(); render();
 };
-window.renameJournalCategory = function(key, value){
+window.renameBookCategory = function(moduleId, key, value){
   value = (value||"").trim();
-  var c = getModuleCategories("journal").filter(function(x){return x.key===key;})[0];
+  var c = getModuleCategories(moduleId).filter(function(x){return x.key===key;})[0];
   if(c && value){ c.label = value; save(); }
   render();
 };
-window.deleteJournalCategory = function(key){
-  confirmDelete("确定删除这个分类吗？里面的日志会变成「未分类」，不会被删除。", function(){
-    DATA.moduleCategories.journal = getModuleCategories("journal").filter(function(x){return x.key!==key;});
-    if(moduleCatView.journal===key) moduleCatView.journal=null;
+window.deleteBookCategory = function(moduleId, key){
+  confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
+    DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
+    if(moduleCatView[moduleId]===key) moduleCatView[moduleId]=null;
     save(); render();
   }, "确认删除分类", "确定删除");
 };
-window.deleteJournalUncategorized = function(){
-  var n = (DATA.journalEntries||[]).filter(function(j){return !j.category;}).length;
-  confirmDelete("「"+uncategorizedLabel("journal")+"」里有 "+n+" 篇日志，没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
-    DATA.journalEntries = (DATA.journalEntries||[]).filter(function(j){return !!j.category;});
+window.deleteBookUncategorized = function(moduleId){
+  var entries = bookEntries(moduleId);
+  var n = entries.filter(function(j){return !j.category;}).length;
+  confirmDelete("「"+uncategorizedLabel(moduleId)+"」里有 "+n+" 条，没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
+    DATA[BOOK_MODULES[moduleId].entriesKey] = entries.filter(function(j){return !!j.category;});
     save(); render();
   }, "确认删除", "确定永久删除");
 };
-function renderJournalSection(){
-  var cats = getModuleCategories("journal");
-  var addBtn = '<button class="btn solid" onclick="createJournalEntryInline()">+ 写日志</button>';
-  /* 必须先建分类、点进某一个分类之后才能写日志——外层目录视图不给"+"，避免绕过分类直接建"未分类"日志 */
-  var inCategory = moduleCatView.journal!==null && moduleCatView.journal!==undefined;
+function renderBookSection(moduleId){
+  var cfg = BOOK_MODULES[moduleId];
+  var cats = getModuleCategories(moduleId);
+  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\')">'+cfg.addLabel+'</button>';
+  /* 必须先建分类、点进某一个分类之后才能新增——外层目录视图不给加号，避免绕过分类直接建"未分类"内容 */
+  var inCategory = moduleCatView[moduleId]!==null && moduleCatView[moduleId]!==undefined;
   if(!cats.length || !inCategory){
-    return moduleShell("journal","","journal","记日常想法的地方，点进一个分类才能看到/写日志。",
+    return moduleShell(moduleId,"",moduleId,cfg.tocHint,
       "",
-      renderJournalCategoryList()
+      renderBookCategoryList(moduleId)
     );
   }
-  var scoped = DATA.journalEntries.filter(function(j){ return (j.category||"")===moduleCatView.journal; })
+  var entries = bookEntries(moduleId);
+  var scoped = entries.filter(function(j){ return (j.category||"")===moduleCatView[moduleId]; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
   var rows = scoped.map(function(j){
-    return '<div class="journal-row">'+
+    return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
-        '<div class="journal-row-line1">'+
-          '<span class="row-open-link journal-title" onclick="openItemTab(\'journal\',\''+j.id+'\')">'+esc(j.title||"未命名日志")+'</span>'+
-          '<span class="journal-meta muted">'+esc(j.date||"—")+'</span>'+
+        '<div class="book-row-line1">'+
+          '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
+          '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
         '</div>'+
-        '<div class="journal-excerpt muted">'+esc(journalExcerpt(j.content))+'</div>'+
+        '<div class="book-excerpt muted">'+esc(bookExcerpt(j.content))+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteJournalEntry(\''+j.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
-  var curCat = cats.filter(function(c){return c.key===moduleCatView.journal;})[0];
-  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\'journal\')">‹ 返回</button>'+
-    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel("journal"))+'</span></div>';
-  return moduleShell("journal","","journal","这一分类下的日志列表。",
+  var curCat = cats.filter(function(c){return c.key===moduleCatView[moduleId];})[0];
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\''+moduleId+'\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel(moduleId))+'</span></div>';
+  return moduleShell(moduleId,"",moduleId,"这一分类下的列表。",
     addBtn,
-    backBar + (scoped.length ? ('<div class="card-panel journal-list">'+rows+'</div>') : emptyState("","这个分类下还没有日志","点击右上角「写日志」添加"))
+    backBar + (scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加"))
   );
 }
-window.deleteJournalEntry = function(id){
-  confirmDelete("确定删除这篇日志吗？", function(){
-    DATA.journalEntries = DATA.journalEntries.filter(function(x){return x.id!==id;});
+window.deleteBookEntry = function(moduleId, id){
+  confirmDelete("确定删除这条吗？", function(){
+    DATA[BOOK_MODULES[moduleId].entriesKey] = bookEntries(moduleId).filter(function(x){return x.id!==id;});
     save();
-    if(!closeTabAndMaybeGoHome("journal", id)) render();
+    if(!closeTabAndMaybeGoHome(moduleId, id)) render();
     toast("已删除");
   });
 };
-window.updateJournalField = function(id, key, value){
-  var j = (DATA.journalEntries||[]).filter(function(x){return x.id===id;})[0];
+window.updateBookField = function(moduleId, id, key, value){
+  var j = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
   if(!j) return;
   j[key] = value;
   save(); render();
 };
-window.createJournalEntryInline = function(){
-  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView.journal||"", content:""};
-  DATA.journalEntries = DATA.journalEntries || [];
-  DATA.journalEntries.push(entry);
+window.createBookEntryInline = function(moduleId){
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView[moduleId]||"", content:""};
+  bookEntries(moduleId).push(entry);
   save();
-  openItemTab("journal", entry.id);
+  openItemTab(moduleId, entry.id);
 };
-function renderJournalDetailPage(id){
-  var sel = DATA.journalEntries.filter(function(x){return x.id===id;})[0];
+function renderBookDetailPage(moduleId, id){
+  var sel = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
   if(!sel){
-    return '<div class="module-head"><div><h2>没找到这篇日志</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+    return '<div class="module-head"><div><h2>没找到这条内容</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  var cats = getModuleCategories("journal");
-  var catOptions = [{value:"",label:uncategorizedLabel("journal")}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
-  var catSelect = '<select class="journal-detail-cat" onchange="updateJournalField(\''+sel.id+'\',\'category\',this.value)">'+
+  var cats = getModuleCategories(moduleId);
+  var catOptions = [{value:"",label:uncategorizedLabel(moduleId)}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
+  var catSelect = '<select class="book-detail-cat" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'category\',this.value)">'+
     catOptions.map(function(o){ return '<option value="'+esc(o.value)+'" '+(o.value===(sel.category||"")?"selected":"")+'>'+esc(o.label)+'</option>'; }).join('')+
     '</select>';
   /* 不用弹窗表单编辑，点进来就是标题/日期/分类/正文全部直接可编辑，跟写文档一样，失焦自动保存 */
   return '<div class="module-head"><div>'+
-    '<input type="text" class="journal-detail-title" placeholder="标题" value="'+esc(sel.title||"")+'" onchange="updateJournalField(\''+sel.id+'\',\'title\',this.value)">'+
-    '<div class="journal-detail-meta">'+
-      '<input type="date" class="journal-detail-date" value="'+esc(sel.date||"")+'" onchange="updateJournalField(\''+sel.id+'\',\'date\',this.value)">'+
+    '<input type="text" class="book-detail-title" placeholder="标题" value="'+esc(sel.title||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'title\',this.value)">'+
+    '<div class="book-detail-meta">'+
+      '<input type="date" class="book-detail-date" value="'+esc(sel.date||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'date\',this.value)">'+
       catSelect+
     '</div>'+
     '</div><div class="row-actions">'+
-    '<button class="btn danger" onclick="deleteJournalEntry(\''+sel.id+'\')">删除</button>'+
+    '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
-    '<textarea class="card-panel journal-content journal-content-edit" placeholder="写点什么…" onchange="updateJournalField(\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
+    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
