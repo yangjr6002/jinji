@@ -611,6 +611,15 @@ table.data tr:hover{background:var(--surface-2)}
 .book-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
 .book-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
 .book-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
+/* 碎碎念这类短内容的分栏卡片墙：多列纵向瀑布流，卡片自己决定高度，排满一列换下一列 */
+.book-grid{columns:220px 3; column-gap:14px; padding:2px 4px;}
+.book-card{display:inline-block; width:100%; break-inside:avoid; margin-bottom:14px; padding:12px 14px; border:1px solid var(--border-soft); border-radius:10px; background:var(--surface-2); cursor:pointer; transition:.12s;}
+.book-card:hover{border-color:var(--border);}
+.book-card-content{font-size:13px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word;}
+.book-card-meta{display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--text-faint);}
+.book-card-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; opacity:0; cursor:pointer; transition:.12s;}
+.book-card:hover .book-card-del{opacity:1;}
+.book-card-del:hover{background:var(--danger-soft); color:var(--danger);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -3671,8 +3680,14 @@ function daysInfo(dateStr, repeatYearly){
    独立的详情标签页直接编辑，跟时间经历/联系人那些详情页一样，方便写长文。用 moduleId 区分板块 */
 var BOOK_MODULES = {
   journal: {entriesKey:"journalEntries", addLabel:"+ 写日志", tocHint:"记日常想法的地方，点进一个分类才能看到/写日志。"},
-  suisuinian: {entriesKey:"suisuinianEntries", addLabel:"+ 写一条", tocHint:"随手记点碎碎念，点进一个分类才能看到/写。"}
+  suisuinian: {entriesKey:"suisuinianEntries", addLabel:"+ 写一条", tocHint:"随手记点碎碎念，点进一个分类才能看到/写。", layout:"grid"}
 };
+/* 碎碎念内容短，用分栏卡片墙比一条条的横向长列表更合适：卡片按列往下排，排满一列再排下一列 */
+function bookCardExcerpt(content){
+  var c = (content||"").trim();
+  if(!c) return "（没有内容）";
+  return c.length>140 ? (c.slice(0,140)+"…") : c;
+}
 function bookEntries(moduleId){
   var key = BOOK_MODULES[moduleId].entriesKey;
   DATA[key] = DATA[key] || [];
@@ -3777,24 +3792,39 @@ function renderBookSection(moduleId){
   var entries = bookEntries(moduleId);
   var scoped = entries.filter(function(j){ return (j.category||"")===moduleCatView[moduleId]; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
-  var rows = scoped.map(function(j){
-    return '<div class="book-row">'+
-      '<div style="flex:1; min-width:0;">'+
-        '<div class="book-row-line1">'+
-          '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
-          '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
+  var listHtml;
+  if(cfg.layout==="grid"){
+    /* 内容短的板块用分栏卡片墙：卡片按列往下排，排满一列再排下一列，比一行一条的长列表更省地方也更好翻 */
+    var cards = scoped.map(function(j){
+      return '<div class="book-card" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+
+        (j.title ? '<div class="book-title">'+esc(j.title)+'</div>' : '')+
+        '<div class="book-card-content">'+esc(bookCardExcerpt(j.content))+'</div>'+
+        '<div class="book-card-meta"><span>'+esc(j.date||"—")+'</span>'+
+        '<button type="button" class="book-card-del" onclick="event.stopPropagation();deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="删除">✕</button></div>'+
+      '</div>';
+    }).join('');
+    listHtml = scoped.length ? ('<div class="book-grid">'+cards+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
+  } else {
+    var rows = scoped.map(function(j){
+      return '<div class="book-row">'+
+        '<div style="flex:1; min-width:0;">'+
+          '<div class="book-row-line1">'+
+            '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
+            '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
+          '</div>'+
+          '<div class="book-excerpt muted">'+esc(bookExcerpt(j.content))+'</div>'+
         '</div>'+
-        '<div class="book-excerpt muted">'+esc(bookExcerpt(j.content))+'</div>'+
-      '</div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
-    '</div>';
-  }).join('');
+        '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
+      '</div>';
+    }).join('');
+    listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
+  }
   var curCat = cats.filter(function(c){return c.key===moduleCatView[moduleId];})[0];
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\''+moduleId+'\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel(moduleId))+'</span></div>';
   return moduleShell(moduleId,"",moduleId,"这一分类下的列表。",
     addBtn,
-    backBar + (scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加"))
+    backBar + listHtml
   );
 }
 window.deleteBookEntry = function(moduleId, id){
