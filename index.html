@@ -3170,6 +3170,12 @@ function tabTitle(tab){
   if(tab.type==="asset"){ var a=DATA.assets.filter(function(x){return x.id===tab.id;})[0]; return a?a.title:"资产"; }
   if(tab.type==="contact"){ var c=DATA.contacts.filter(function(x){return x.id===tab.id;})[0]; return c?c.name:"联系人"; }
   if(tab.type==="journal"||tab.type==="suisuinian"){ var j=bookEntries(tab.type).filter(function(x){return x.id===tab.id;})[0]; return j?(j.title||labelFor(tab.type)):labelFor(tab.type); }
+  if(tab.type==="bookCategory"){
+    var sepIdx = tab.id.indexOf("::"); var mId = tab.id.slice(0,sepIdx), cKey = tab.id.slice(sepIdx+2);
+    var cat = getModuleCategories(mId).filter(function(c){return c.key===cKey;})[0];
+    return cat ? cat.label : uncategorizedLabel(mId);
+  }
+  if(tab.type==="suisuinianTopic"){ var tp=(DATA.suisuinianTopics||[]).filter(function(x){return x.id===tab.id;})[0]; return tp?tp.label:"子主题"; }
   if(tab.type==="customitem"){
     var b=(DATA.customBoards||[]).filter(function(x){return x.id===(tab.extra&&tab.extra.boardId);})[0];
     var it=b?b.items.filter(function(x){return x.id===tab.id;})[0]:null;
@@ -3182,8 +3188,8 @@ function tabIcon(tab){
     var dest = destinationById(tab.id);
     return dest ? dest.icon : "📄";
   }
-  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:""};
-  if(tab && (tab.type==="journal"||tab.type==="suisuinian")) return "";
+  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:"", bookCategory:"", suisuinianTopic:""};
+  if(tab && (tab.type==="journal"||tab.type==="suisuinian"||tab.type==="bookCategory"||tab.type==="suisuinianTopic")) return "";
   return (tab && map[tab.type]) || "📄";
 }
 window.openItemTab = function(type, id, extra){
@@ -3232,6 +3238,8 @@ function renderItemDetailPage(){
   if(tab.type==="asset") return renderAssetDetailPage(tab.id);
   if(tab.type==="contact") return renderContactDetailPage(tab.id);
   if(tab.type==="journal"||tab.type==="suisuinian") return renderBookDetailPage(tab.type, tab.id);
+  if(tab.type==="bookCategory") return renderBookCategoryEntries(tab.id);
+  if(tab.type==="suisuinianTopic") return renderSuisuinianTopicBoard(tab.id);
   if(tab.type==="customitem") return renderCustomItemDetailPage(tab.extra.boardId, tab.id);
   return '<div class="module-head"><div><h2>未知内容</h2></div></div>';
 }
@@ -3717,10 +3725,13 @@ var bookTitleClickTimer = {};
 /* 单击和双击的第一下点击在浏览器里都会先触发一次 click，如果单击直接跳进分类，
    页面立刻重绘、这个标题元素就没了，双击的第二下点击根本落不到它身上，永远触发不了改名。
    所以单击先等一下，等的过程中如果双击来了，就取消这次"进入"，只做改名 */
+window.openBookCategoryTab = function(moduleId, key){
+  openItemTab("bookCategory", moduleId+"::"+key);
+};
 window.bookTitleSingleClick = function(moduleId, key){
   clearTimeout(bookTitleClickTimer[moduleId]);
   bookTitleClickTimer[moduleId] = setTimeout(function(){
-    enterModuleCategory(moduleId, key);
+    openBookCategoryTab(moduleId, key);
   }, 230);
 };
 window.startRenameBookCategory = function(moduleId, key){
@@ -3749,7 +3760,7 @@ function renderBookCategoryList(moduleId){
       : '<span class="book-toc-title book-toc-title-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+c.key+'\')" ondblclick="startRenameBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
     return '<div class="book-toc-item">'+
       titleHtml+
-      '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' '+unit+' ›</span>'+
+      '<span class="book-toc-enter" onclick="openBookCategoryTab(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' '+unit+' ›</span>'+
       '<button type="button" class="book-toc-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
     '</div>';
   }).join('');
@@ -3757,7 +3768,7 @@ function renderBookCategoryList(moduleId){
   var uncatDelFn = moduleId==="suisuinian" ? "deleteSuisuinianUncategorized" : "deleteBookUncategorized";
   var uncatRow = uncatCount ? ('<div class="book-toc-item">'+
     '<span class="book-toc-title book-toc-title-fixed">'+esc(uncategorizedLabel(moduleId))+'</span>'+
-    '<span class="book-toc-enter" onclick="enterModuleCategory(\''+moduleId+'\',\'\')">'+uncatCount+' '+unit+' ›</span>'+
+    '<span class="book-toc-enter" onclick="openBookCategoryTab(\''+moduleId+'\',\'\')">'+uncatCount+' '+unit+' ›</span>'+
     '<button type="button" class="book-toc-del" onclick="'+uncatDelFn+'(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
   '</div>') : '';
   return '<div class="card-panel book-toc">'+rows+uncatRow+
@@ -3785,12 +3796,12 @@ window.renameBookCategory = function(moduleId, key, value){
 window.deleteBookCategory = function(moduleId, key){
   confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
     DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
-    if(moduleCatView[moduleId]===key) moduleCatView[moduleId]=null;
     /* 碎碎念这个分类下挂的是子主题，不是普通条目，删分类时子主题也要一起归到未分类 */
     if(moduleId==="suisuinian"){
       (DATA.suisuinianTopics||[]).forEach(function(t){ if(t.category===key) t.category=""; });
     }
-    save(); render();
+    save();
+    if(!closeTabAndMaybeGoHome("bookCategory", moduleId+"::"+key)) render();
   }, "确认删除分类", "确定删除");
 };
 window.deleteBookUncategorized = function(moduleId){
@@ -3798,7 +3809,8 @@ window.deleteBookUncategorized = function(moduleId){
   var n = entries.filter(function(j){return !j.category;}).length;
   confirmDelete("「"+uncategorizedLabel(moduleId)+"」里有 "+n+" 条，没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
     DATA[BOOK_MODULES[moduleId].entriesKey] = entries.filter(function(j){return !!j.category;});
-    save(); render();
+    save();
+    if(!closeTabAndMaybeGoHome("bookCategory", moduleId+"::")) render();
   }, "确认删除", "确定永久删除");
 };
 window.deleteSuisuinianUncategorized = function(){
@@ -3808,31 +3820,28 @@ window.deleteSuisuinianUncategorized = function(){
   confirmDelete("「"+uncategorizedLabel("suisuinian")+"」里有 "+topics.length+" 个子主题（共 "+msgCount+" 条留言），没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
     DATA.suisuinianTopics = (DATA.suisuinianTopics||[]).filter(function(t){return !!t.category;});
     DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)===-1;});
-    save(); render();
+    save();
+    if(!closeTabAndMaybeGoHome("bookCategory", "suisuinian::")) render();
   }, "确认删除", "确定永久删除");
 };
+/* 首页里这两个板块永远只显示最外层目录/看板；再往下的每一层（分类内容、子主题、留言板）
+   都是真正的顶栏标签页（跟点一条日志一样），不再是内嵌状态切换 */
 function renderBookSection(moduleId){
   var cfg = BOOK_MODULES[moduleId];
-  if(cfg.threeLevel){
-    if(suisuinianTopicView) return renderSuisuinianTopicBoard(suisuinianTopicView);
-    var inCat = moduleCatView[moduleId]!==null && moduleCatView[moduleId]!==undefined;
-    if(!getModuleCategories(moduleId).length || !inCat){
-      return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderSuisuinianCategoryBoard());
-    }
-    return renderSuisuinianTopicList();
-  }
+  if(cfg.threeLevel) return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderSuisuinianCategoryBoard());
+  return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderBookCategoryList(moduleId));
+}
+/* "bookCategory" 标签页的内容：日志显示这个分类下的条目列表，碎碎念显示这个分类下的子主题列表。
+   compoundId 是 moduleId+"::"+categoryKey 拼出来的，用来在同一个标签类型里区分是哪个板块的哪个分类 */
+function renderBookCategoryEntries(compoundId){
+  var sepIdx = compoundId.indexOf("::");
+  var moduleId = compoundId.slice(0, sepIdx);
+  var categoryKey = compoundId.slice(sepIdx+2);
+  var cfg = BOOK_MODULES[moduleId];
+  if(cfg.threeLevel) return renderSuisuinianTopicList(moduleId, categoryKey, compoundId);
   var cats = getModuleCategories(moduleId);
-  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\')">'+cfg.addLabel+'</button>';
-  /* 必须先建分类、点进某一个分类之后才能新增——外层目录视图不给加号，避免绕过分类直接建"未分类"内容 */
-  var inCategory = moduleCatView[moduleId]!==null && moduleCatView[moduleId]!==undefined;
-  if(!cats.length || !inCategory){
-    return moduleShell(moduleId,"",moduleId,cfg.tocHint,
-      "",
-      renderBookCategoryList(moduleId)
-    );
-  }
   var entries = bookEntries(moduleId);
-  var scoped = entries.filter(function(j){ return (j.category||"")===moduleCatView[moduleId]; })
+  var scoped = entries.filter(function(j){ return (j.category||"")===categoryKey; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
   var rows = scoped.map(function(j){
     return '<div class="book-row">'+
@@ -3847,18 +3856,17 @@ function renderBookSection(moduleId){
     '</div>';
   }).join('');
   var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
-  var curCat = cats.filter(function(c){return c.key===moduleCatView[moduleId];})[0];
-  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\''+moduleId+'\')">‹ 返回</button>'+
-    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel(moduleId))+'</span></div>';
-  return moduleShell(moduleId,"",moduleId,"这一分类下的列表。",
-    addBtn,
-    backBar + listHtml
-  );
+  var curCat = cats.filter(function(c){return c.key===categoryKey;})[0];
+  var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
+  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')">'+cfg.addLabel+'</button>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表。</div></div>'+addBtn+'</div>'+
+    backBar + listHtml;
 }
-/* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，进入分类后的
-   独立列表页）-> 留言板（气泡消息，按时间）。分栏只是外层的样式，点一栏是真的导航到第二层
-   那个独立页面，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
-var suisuinianTopicView = null; /* 当前打开看留言板的子主题 id，null 就是标题列表/目录视图 */
+/* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，独立标签页）
+   -> 留言板（气泡消息，按时间，也是独立标签页）。分栏只是外层的样式，点一栏是真的打开第二层
+   那个标签页，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
 var suisuinianRenamingTopic = null;
 var suisuinianEditingMessage = null; /* 当前正在编辑内容的留言 id，点气泡文字进入编辑，失焦保存 */
 window.startEditSuisuinianMessage = function(id){
@@ -3908,9 +3916,7 @@ function renderSuisuinianCategoryBoard(){
   return '<div class="book-board">'+cols+uncatCol+addColHtml+'</div>';
 }
 /* 第二层：进入某个分类后，列出这个分类下自建的子主题（小标题），点一条进第三层留言板 */
-function renderSuisuinianTopicList(){
-  var moduleId = "suisuinian";
-  var catKey = moduleCatView[moduleId];
+function renderSuisuinianTopicList(moduleId, catKey, compoundId){
   var cats = getModuleCategories(moduleId);
   var topics = suisuinianTopics(catKey);
   var rows = topics.map(function(t){
@@ -3933,32 +3939,23 @@ function renderSuisuinianTopicList(){
   }).join('');
   var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","在下面添加一个");
   var addRow = '<div class="book-toc-add">'+
-    '<input type="text" id="suisuinianNewTopic" placeholder="新子主题名称，比如「云南行」" onkeydown="if(event.key===\'Enter\'){addSuisuinianTopicInline();}">'+
-    '<button type="button" class="btn small ghost" onclick="addSuisuinianTopicInline()">+ 添加子主题</button>'+
+    '<input type="text" id="suisuinianNewTopic" placeholder="新子主题名称，比如「云南行」" onkeydown="if(event.key===\'Enter\'){addSuisuinianTopicInline(\''+catKey+'\');}">'+
+    '<button type="button" class="btn small ghost" onclick="addSuisuinianTopicInline(\''+catKey+'\')">+ 添加子主题</button>'+
   '</div>';
   var curCat = cats.filter(function(c){return c.key===catKey;})[0];
-  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitModuleCategory(\''+moduleId+'\')">‹ 返回</button>'+
-    '<span class="cat-back-label">'+esc(curCat?curCat.label:uncategorizedLabel(moduleId))+'</span></div>';
-  return moduleShell(moduleId,"",moduleId,"这个分类下自己建的子主题，点一个进去看留言板。",
-    "",
-    backBar + listHtml + addRow
-  );
+  var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这个分类下自己建的子主题，点一个进去看留言板。</div></div></div>'+
+    backBar + listHtml + addRow;
 }
-window.addSuisuinianTopicInline = function(){
+window.addSuisuinianTopicInline = function(catKey){
   var input = document.getElementById("suisuinianNewTopic");
   var value = (input.value||"").trim();
   if(!value) return;
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
-  DATA.suisuinianTopics.push({id:uid(), category:moduleCatView.suisuinian||"", label:value});
+  DATA.suisuinianTopics.push({id:uid(), category:catKey||"", label:value});
   save(); render();
-};
-window.openSuisuinianTopic = function(topicId){
-  suisuinianTopicView = topicId;
-  render();
-};
-window.exitSuisuinianTopic = function(){
-  suisuinianTopicView = null;
-  render();
 };
 var suisuinianTopicClickTimer = null;
 /* 跟分类目录那个坑一样：真实的双击会先触发一次单击，单击如果立刻跳转到留言板，
@@ -3967,7 +3964,7 @@ var suisuinianTopicClickTimer = null;
 window.suisuinianTopicSingleClick = function(id){
   clearTimeout(suisuinianTopicClickTimer);
   suisuinianTopicClickTimer = setTimeout(function(){
-    openSuisuinianTopic(id);
+    openItemTab("suisuinianTopic", id);
   }, 230);
 };
 window.startRenameSuisuinianTopic = function(id){
@@ -3987,8 +3984,8 @@ window.deleteSuisuinianTopic = function(id){
   confirmDelete("确定删除这个子主题吗？"+(n?("里面的 "+n+" 条留言会一起永久删除，"):"")+"不能撤销。", function(){
     DATA.suisuinianTopics = (DATA.suisuinianTopics||[]).filter(function(x){return x.id!==id;});
     DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic!==id;});
-    if(suisuinianTopicView===id) suisuinianTopicView = null;
-    save(); render();
+    save();
+    if(!closeTabAndMaybeGoHome("suisuinianTopic", id)) render();
   }, "确认删除子主题", "确定删除");
 };
 window.addSuisuinianMessage = function(topicId){
@@ -4012,7 +4009,7 @@ function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
   if(!topic){
     return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
-      '<button class="btn ghost" onclick="exitSuisuinianTopic()">‹ 返回</button>';
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
   var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
@@ -4034,7 +4031,7 @@ function renderSuisuinianTopicBoard(topicId){
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
-  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitSuisuinianTopic()">‹ 返回</button></div>';
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'suisuinianTopic:'+topicId+'\')">‹ 返回</button></div>';
   return backBar+
     '<div class="module-head"><div>'+titleHtml+
     '<div class="sub">留言板形式，按时间'+(sortAsc?"升序":"降序")+'排列。</div></div>'+
@@ -4067,8 +4064,8 @@ window.updateBookField = function(moduleId, id, key, value){
   j[key] = value;
   save(); render();
 };
-window.createBookEntryInline = function(moduleId){
-  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:moduleCatView[moduleId]||"", content:""};
+window.createBookEntryInline = function(moduleId, categoryKey){
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:""};
   bookEntries(moduleId).push(entry);
   save();
   openItemTab(moduleId, entry.id);
