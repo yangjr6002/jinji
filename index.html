@@ -4007,13 +4007,14 @@ window.deleteSuisuinianMessage = function(id){
 };
 function suisuinianTimeLabel(iso){
   if(!iso) return "—";
-  var base = iso.slice(0,16).replace("T"," ");
-  /* 星期几要跟着显示的年月日走，不能直接用 new Date(iso).getDay()（那个会按本地时区转换，
-     可能跟前面显示的日期错开一天），所以自己按 UTC 拆出年月日再算星期 */
-  var ymd = iso.slice(0,10).split("-");
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) return iso.slice(0,16).replace("T"," ");
+  /* createdAt 存的是 new Date().toISOString()，也就是 UTC 时间；之前直接截字符串显示，
+     没转本地时区，看到的时间跟实际时间会差一个时区的偏移量。用 Date 对象的本地 getter
+     （不是 getUTC*）取值，显示的时间和星期就都是本地时间了 */
+  var pad = function(n){ return (n<10?"0":"")+n; };
   var weekdays = ["周日","周一","周二","周三","周四","周五","周六"];
-  var wd = weekdays[new Date(Date.UTC(+ymd[0], +ymd[1]-1, +ymd[2])).getUTCDay()];
-  return base+" "+wd;
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+" "+weekdays[d.getDay()];
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
