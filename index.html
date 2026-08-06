@@ -4212,7 +4212,7 @@ window.closeModal = function(){ document.getElementById("modalRoot").innerHTML="
 var revealed = {};
 function renderPasswords(){
   var cats = getModuleCategories("passwords");
-  if(cats.length && !moduleCatView.passwords && moduleCatView.passwords!==""){
+  if(moduleCatView.passwords===null || moduleCatView.passwords===undefined){
     return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码。",
       '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
       renderCategoryFolders("passwords", DATA.passwords, function(it){return it.category||"";})
@@ -4227,7 +4227,7 @@ function renderPasswords(){
       '<td class="muted">'+esc(r.note||"—")+'</td>'+
       '<td class="row-actions"><button class="btn small ghost" onclick="editPassword(\''+r.id+'\')">编辑</button><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
   }).join('');
-  var backBar = cats.length ? categoryBackBar("passwords") : "";
+  var backBar = categoryBackBar("passwords");
   return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码，点击「显示」可查看明文（仅本机可见）。",
     '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
     backBar + (scoped.length ? ('<div class="card-panel"><table class="data"><thead><tr><th>网站/应用</th><th>账号</th><th>密码</th><th>备注</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>')
