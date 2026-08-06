@@ -519,6 +519,9 @@ table.data tr:hover{background:var(--surface-2)}
 .fam-card-dir.down{left:50%; bottom:0; transform:translateX(-50%);}
 .fam-card-dir.left{left:0; top:50%; transform:translateY(-50%);}
 .fam-card-dir.right{right:0; top:50%; transform:translateY(-50%);}
+.fam-card-status-row{margin-bottom:6px;}
+.fam-card-status-row select{width:100%; box-sizing:border-box; padding:4px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:11.5px; color:var(--text);}
+.fam-card-remark{display:block; width:100%; box-sizing:border-box; margin-bottom:8px; padding:4px 7px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:11.5px; color:var(--text);}
 .fam-card-actions{display:flex; flex-direction:column; gap:6px;}
 .fam-card-actions .btn{font-size:11px; padding:5px 8px;}
 .fam-card-link-panel{margin-top:10px; padding-top:10px; border-top:1px solid var(--border-soft);}
@@ -1407,13 +1410,23 @@ function famMemberLabel(p){
 function famMemberShortName(p){
   return (p.relation?p.relation+' ':'')+(p.name||"");
 }
+/* 状态标签决定方框描边颜色：已去世描黑边，不熟的人描银边，正常/没设置就是原来的浅灰边 */
+var FAM_STATUS_TAGS = {
+  "": {label:"（无）", borderColor:"#CBC6BA"},
+  deceased: {label:"已去世", borderColor:"#000000"},
+  notClose: {label:"不熟", borderColor:"#B9C0C6"}
+};
+function famBorderColorFor(p){
+  var tag = FAM_STATUS_TAGS[p.statusTag||""];
+  return tag ? tag.borderColor : FAM_STATUS_TAGS[""].borderColor;
+}
 function familyGraphElements(){
   var members = DATA.familyMembers || [];
   var byId = {};
   var nodes = [], edges = [], unions = {};
   members.forEach(function(p){
     byId[p.id] = p;
-    nodes.push({data:{id:p.id, label:famMemberLabel(p), kind:"member"}, classes:"member"});
+    nodes.push({data:{id:p.id, label:famMemberLabel(p), kind:"member", borderColor:famBorderColorFor(p)}, classes:"member"});
   });
   function addEdge(id, source, target, classes, label){
     edges.push({data:{id:id, source:source, target:target, label:label||""}, classes:classes});
@@ -1466,6 +1479,7 @@ function renderFamilyTree(){
   return '<div class="fam-graph-toolbar">'+
       '<button class="btn small ghost" type="button" onclick="addFamilyMember()">+ 添加成员</button>'+
       '<button class="btn small ghost" type="button" onclick="fitFamilyGraph()">⤢ 适应画布</button>'+
+      '<button class="btn small ghost" type="button" onclick="exportFamilyGraphImage()">⬇ 导出图片</button>'+
       '<div class="fam-search-box">'+
         '<input type="text" id="famSearchInput" placeholder="🔍 搜索姓名/关系" oninput="familySearchInput(this.value)" onfocus="familySearchInput(this.value)">'+
         '<div id="famSearchResults"></div>'+
@@ -1630,7 +1644,7 @@ function setupFamilyGraph(){
     maxZoom:2.5,
     wheelSensitivity:0.18,
     style:[
-      {selector:"node.member", style:{"shape":"round-rectangle","width":100,"height":40,"background-color":"#FFFDF8","border-width":1,"border-color":"#CBC6BA","label":"data(label)","font-family":"IBM Plex Sans, sans-serif","font-size":10,"font-weight":600,"color":"#292B28","text-valign":"center","text-halign":"center","text-wrap":"wrap","text-max-width":86,"overlay-opacity":0}},
+      {selector:"node.member", style:{"shape":"round-rectangle","width":100,"height":40,"background-color":"#FFFDF8","border-width":1.5,"border-color":"data(borderColor)","label":"data(label)","font-family":"IBM Plex Sans, sans-serif","font-size":10,"font-weight":600,"color":"#292B28","text-valign":"center","text-halign":"center","text-wrap":"wrap","text-max-width":86,"overlay-opacity":0}},
       {selector:"node.member:selected", style:{"border-color":"#2F5D50","border-width":2,"background-color":"#F1F7F3"}},
       {selector:"node.union", style:{"shape":"diamond","width":12,"height":12,"background-color":"#B7B4AA","border-width":0,"label":"","overlay-opacity":0}},
       {selector:"edge.family-edge", style:{"curve-style":"taxi","taxi-direction":"downward","line-color":"#B7B4AA","width":1.5,"target-arrow-color":"#B7B4AA","target-arrow-shape":"triangle","arrow-scale":0.75,"label":"data(label)","font-size":10,"font-family":"IBM Plex Sans, sans-serif","color":"#7D7A70","text-background-color":"#FFFDF8","text-background-opacity":1,"text-background-padding":2,"overlay-opacity":0}},
@@ -1685,6 +1699,16 @@ function setupFamilyGraph(){
   renderFamilyEdgeLabelOverlay();
 }
 window.fitFamilyGraph = function(){ if(familyGraph) familyGraph.fit(familyGraph.elements(), 42); };
+window.exportFamilyGraphImage = function(){
+  if(!familyGraph || !familyGraph.elements().length){ toast("还没有家庭成员，没什么可导出的"); return; }
+  var dataUrl = familyGraph.png({full:true, scale:2, bg:"#FFFDF8"});
+  var a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = "家庭关系图.png";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
 /* 点方框直接在旁边展开小卡片编辑，不用跳转弹窗：关系/姓名直接改，上下左右四个按钮直接加对应关系。
    卡片位置跟着 Cytoscape 节点的屏幕坐标走（renderedPosition），画布平移/缩放时会跟着重新摆放。 */
 var famCardFor = null;
@@ -1721,7 +1745,7 @@ function renderFamilyCardOverlay(){
      同时优先放在节点下方，下面空间不够就翻到上面，水平方向贴边裁到容器范围内 */
   var containerW = graphEl.clientWidth, containerH = graphEl.clientHeight;
   var cardWidth = 200, halfW = cardWidth/2;
-  var cardEstHeight = famCardLinkOpen ? 380 : 200;
+  var cardEstHeight = famCardLinkOpen ? 380 : 250;
   var left = pos.x;
   if(left - halfW < 4) left = halfW + 4;
   if(left + halfW > containerW - 4) left = containerW - 4 - halfW;
@@ -1755,6 +1779,12 @@ function renderFamilyCardOverlay(){
       '<button type="button" class="fam-card-dir right" title="加兄弟姐妹" onclick="addFamilySiblingBranch(\''+p.id+'\')">→</button>'+
     '</div>'+
     '</div>'+
+    '<div class="fam-card-status-row">'+
+      '<select onchange="updateFamilyMemberField(\''+p.id+'\',\'statusTag\',this.value)" title="标记状态，会给方框描边">'+
+        Object.keys(FAM_STATUS_TAGS).map(function(k){ return '<option value="'+k+'" '+((p.statusTag||"")===k?"selected":"")+'>'+FAM_STATUS_TAGS[k].label+'</option>'; }).join('')+
+      '</select>'+
+    '</div>'+
+    '<input type="text" class="fam-card-remark" value="'+esc(p.remark||"")+'" placeholder="备注（比如身体状况、联系方式等）" onchange="updateFamilyMemberField(\''+p.id+'\',\'remark\',this.value)">'+
     '<div class="fam-card-actions">'+
       '<button type="button" class="btn small ghost" onclick="toggleFamilyCardLink()">🔗 关联已有成员</button>'+
       '<button type="button" class="btn small '+(p.isMainBranch?"":"ghost")+'" title="TA的父母如果有好几个孩子，联姻点会对齐到TA这一支，而不是几个孩子的正中间" onclick="toggleFamilyMainBranch(\''+p.id+'\')">'+(p.isMainBranch?"★ 取消主分支":"☆ 设为主分支")+'</button>'+
