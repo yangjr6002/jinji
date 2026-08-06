@@ -630,7 +630,8 @@ table.data tr:hover{background:var(--surface-2)}
 /* 第三层：留言板，气泡按时间堆叠，类似QQ空间留言板；底部一个输入框直接发新留言 */
 .ssn-feed{display:flex; flex-direction:column; gap:10px; padding:16px;}
 .ssn-bubble{max-width:560px; padding:10px 14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border-soft);}
-.ssn-bubble-content{font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word;}
+.ssn-bubble-content{font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word; cursor:text;}
+.ssn-bubble-edit{width:100%; box-sizing:border-box; border:1px solid var(--accent); border-radius:8px; background:var(--surface); font-size:13.5px; line-height:1.6; color:var(--text); font-family:inherit; padding:6px 8px; resize:vertical; min-height:60px;}
 .ssn-bubble-meta{display:flex; align-items:center; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint);}
 .ssn-bubble-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-del{opacity:1;}
@@ -3859,6 +3860,17 @@ function renderBookSection(moduleId){
    那个独立页面，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
 var suisuinianTopicView = null; /* 当前打开看留言板的子主题 id，null 就是标题列表/目录视图 */
 var suisuinianRenamingTopic = null;
+var suisuinianEditingMessage = null; /* 当前正在编辑内容的留言 id，点气泡文字进入编辑，失焦保存 */
+window.startEditSuisuinianMessage = function(id){
+  suisuinianEditingMessage = id;
+  render();
+};
+window.commitEditSuisuinianMessage = function(id, value){
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(m){ m.content = value; save(); }
+  suisuinianEditingMessage = null;
+  render();
+};
 function suisuinianTopics(categoryKey){
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
   return DATA.suisuinianTopics.filter(function(t){ return (t.category||"")===categoryKey; });
@@ -3905,10 +3917,13 @@ function renderSuisuinianTopicList(){
     var msgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===t.id;});
     /* 预览这个子主题下最新一条留言（按时间最靠后的），不用把最新定义搞得太复杂，直接比 createdAt */
     var latest = msgs.slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
+    var titleHtml = suisuinianRenamingTopic===t.id
+      ? '<input type="text" class="book-toc-title" style="flex:none; width:140px;" value="'+esc(t.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+t.id+'\', this.value)">'
+      : '<span class="row-open-link book-title" onclick="openSuisuinianTopic(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
-          '<span class="row-open-link book-title" onclick="openSuisuinianTopic(\''+t.id+'\')">'+esc(t.label)+'</span>'+
+          titleHtml+
           '<span class="book-meta muted">'+msgs.length+' 条</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
@@ -3996,8 +4011,11 @@ function renderSuisuinianTopicBoard(topicId){
       return sortAsc ? d : -d;
     });
   var bubbles = msgs.map(function(m){
+    var contentHtml = suisuinianEditingMessage===m.id
+      ? '<textarea class="ssn-bubble-edit" autofocus onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+      : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content)+'</div>';
     return '<div class="ssn-bubble">'+
-      '<div class="ssn-bubble-content">'+esc(m.content)+'</div>'+
+      contentHtml+
       '<div class="ssn-bubble-meta"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
       '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button></div>'+
     '</div>';
