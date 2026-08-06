@@ -3893,7 +3893,7 @@ function renderSuisuinianCategoryBoard(){
     var previewItems = topics.slice(0,8).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
     var moreHint = topics.length>8 ? '<div class="book-board-col-preview-more">还有 '+(topics.length-8)+' 个…</div>' : '';
     var preview = topics.length ? (previewItems+moreHint) : '<div class="book-board-col-preview-empty">还没有子主题</div>';
-    return '<div class="book-board-col book-board-col-click" onclick="enterModuleCategory(\''+moduleId+'\',\''+key+'\')">'+
+    return '<div class="book-board-col book-board-col-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+key+'\')">'+
       '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
       '<div class="book-board-col-preview">'+preview+'</div>'+
     '</div>';
@@ -3919,7 +3919,7 @@ function renderSuisuinianTopicList(){
     var latest = msgs.slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     var titleHtml = suisuinianRenamingTopic===t.id
       ? '<input type="text" class="book-toc-title" style="flex:none; width:140px;" value="'+esc(t.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+t.id+'\', this.value)">'
-      : '<span class="row-open-link book-title" onclick="openSuisuinianTopic(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
+      : '<span class="row-open-link book-title" onclick="suisuinianTopicSingleClick(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
@@ -3960,7 +3960,18 @@ window.exitSuisuinianTopic = function(){
   suisuinianTopicView = null;
   render();
 };
+var suisuinianTopicClickTimer = null;
+/* 跟分类目录那个坑一样：真实的双击会先触发一次单击，单击如果立刻跳转到留言板，
+   页面重绘后这一行元素就没了，第二下点击根本落不到它身上，双击改名永远触发不了。
+   所以单击先等一下，双击改名进来了就取消这次跳转 */
+window.suisuinianTopicSingleClick = function(id){
+  clearTimeout(suisuinianTopicClickTimer);
+  suisuinianTopicClickTimer = setTimeout(function(){
+    openSuisuinianTopic(id);
+  }, 230);
+};
 window.startRenameSuisuinianTopic = function(id){
+  clearTimeout(suisuinianTopicClickTimer);
   suisuinianRenamingTopic = id;
   render();
 };
