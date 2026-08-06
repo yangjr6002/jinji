@@ -629,7 +629,7 @@ table.data tr:hover{background:var(--surface-2)}
 .book-board-col-new input{padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--surface-2); font-size:12.5px; color:var(--text);}
 /* 第三层：留言板，气泡按时间堆叠，类似QQ空间留言板；底部一个输入框直接发新留言 */
 .ssn-feed{display:flex; flex-direction:column; gap:10px; padding:16px;}
-.ssn-bubble{max-width:560px; padding:10px 14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border-soft);}
+.ssn-bubble{width:100%; box-sizing:border-box; padding:10px 14px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border-soft);}
 .ssn-bubble-content{font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word; cursor:text;}
 .ssn-bubble-edit{width:100%; box-sizing:border-box; border:1px solid var(--accent); border-radius:8px; background:var(--surface); font-size:13.5px; line-height:1.6; color:var(--text); font-family:inherit; padding:6px 8px; resize:vertical; min-height:60px;}
 .ssn-bubble-meta{display:flex; align-items:center; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint);}
@@ -1114,7 +1114,9 @@ window.importBackupFile = function(input){
 
 /* ================= 路由 ================= */
 var VIEW = "home";
+var homeScrollY = 0; /* 从首页进某个标签页之前记一下滚动位置，回首页时还原到原处，不用每次都跳回最顶上 */
 window.go = function(view){
+  if(VIEW==="home" && view!=="home") homeScrollY = window.scrollY;
   VIEW = view;
   if(view==="home"){
     document.getElementById("crumb").textContent = "首页";
@@ -1129,7 +1131,7 @@ window.go = function(view){
     document.getElementById("crumb").style.cursor = "pointer";
   }
   render();
-  window.scrollTo({top:0,behavior:"smooth"});
+  window.scrollTo(view==="home" ? {top:homeScrollY} : {top:0,behavior:"smooth"});
 };
 
 var MODULES = [
@@ -3200,6 +3202,7 @@ window.openItemTab = function(type, id, extra){
 window.switchToItemTab = function(key){
   var tab = findTab(key);
   if(!tab) return;
+  if(VIEW==="home") homeScrollY = window.scrollY;
   activeTabKey = key;
   VIEW = "itemDetail";
   document.getElementById("crumb").textContent = "首页 / "+tabTitle(tab);
@@ -4003,7 +4006,14 @@ window.deleteSuisuinianMessage = function(id){
   });
 };
 function suisuinianTimeLabel(iso){
-  return (iso||"").slice(0,16).replace("T"," ") || "—";
+  if(!iso) return "—";
+  var base = iso.slice(0,16).replace("T"," ");
+  /* 星期几要跟着显示的年月日走，不能直接用 new Date(iso).getDay()（那个会按本地时区转换，
+     可能跟前面显示的日期错开一天），所以自己按 UTC 拆出年月日再算星期 */
+  var ymd = iso.slice(0,10).split("-");
+  var weekdays = ["周日","周一","周二","周三","周四","周五","周六"];
+  var wd = weekdays[new Date(Date.UTC(+ymd[0], +ymd[1]-1, +ymd[2])).getUTCDay()];
+  return base+" "+wd;
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
