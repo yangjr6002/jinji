@@ -597,10 +597,15 @@ table.data tr:hover{background:var(--surface-2)}
 .book-title{font-size:14px; font-weight:600; color:var(--text);}
 .book-meta{font-size:11px; flex:none;}
 .book-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.ssn-note-icon{cursor:pointer; font-size:13px; opacity:.35; flex:none;}
-.ssn-note-icon.has-note{opacity:1;}
-.ssn-note-icon:hover{opacity:.8;}
-.ssn-remark-edit{width:100%; box-sizing:border-box; margin-top:8px; min-height:54px; font-size:12.5px; line-height:1.5; padding:8px 10px; border:1px solid var(--accent); border-radius:6px; font-family:inherit; resize:vertical; background:var(--surface-2); color:var(--text);}
+.ssn-remark-wrap{position:relative; display:inline-block;}
+.ssn-remark-wrap.has-remark .book-title{text-decoration:underline dotted var(--border);}
+.ssn-remark-pop{display:none; position:absolute; left:0; top:100%; margin-top:6px; min-width:180px; max-width:260px;
+  background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
+  padding:8px 10px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); z-index:80; cursor:pointer; white-space:pre-wrap;}
+.ssn-remark-wrap:hover .ssn-remark-pop{display:block;}
+.ssn-remark-pop.force-open{display:block;}
+.ssn-remark-view.placeholder{color:#a89a5c;}
+.ssn-remark-edit-pop{width:100%; box-sizing:border-box; min-height:54px; font-size:12px; line-height:1.6; padding:0; border:none; background:transparent; color:inherit; font-family:inherit; resize:vertical; outline:none;}
 .book-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
 /* 详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
 .book-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
@@ -3978,22 +3983,21 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
       : '<span class="row-open-link book-title" onclick="suisuinianTopicSingleClick(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
     var hasRemark = !!(t.remark && t.remark.trim());
     var isEditingRemark = suisuinianEditingRemark===t.id;
-    /* 备注图标：类似表格注释，悬浮展示内容，点击进入编辑；跟标题分开一个元素，避免跟单击/双击改名冲突 */
-    var noteIconHtml = isEditingRemark ? '' : (
-      '<span class="ssn-note-icon'+(hasRemark?' has-note':'')+' tl-tip-wrap has-tip" data-tip="'+esc(hasRemark?t.remark:"点击添加备注")+'" onclick="event.stopPropagation();startEditSuisuinianRemark(\''+t.id+'\')">'+(hasRemark?'📝':'🗒️')+'</span>'
-    );
-    var remarkEditHtml = isEditingRemark
-      ? '<textarea class="ssn-remark-edit" autofocus placeholder="给这个子主题加个备注…" onclick="event.stopPropagation();" onblur="commitEditSuisuinianRemark(\''+t.id+'\', this.value)">'+esc(t.remark||"")+'</textarea>'
-      : '';
+    /* 备注：悬浮在标题上展示便签式提示框，类似表格注释；点提示框本身进入编辑，跟标题的单击/双击各自独立 */
+    var popContent = isEditingRemark
+      ? '<textarea class="ssn-remark-edit-pop" autofocus placeholder="给这个子主题加个备注…" onclick="event.stopPropagation();" onblur="commitEditSuisuinianRemark(\''+t.id+'\', this.value)">'+esc(t.remark||"")+'</textarea>'
+      : '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'" onclick="event.stopPropagation();startEditSuisuinianRemark(\''+t.id+'\')">'+(hasRemark?esc(t.remark):"点击添加备注")+'</div>';
+    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+(isEditingRemark?' force-open':'')+'">'+
+        titleHtml+
+        '<span class="ssn-remark-pop'+(isEditingRemark?' force-open':'')+'">'+popContent+'</span>'+
+      '</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
-          titleHtml+
-          noteIconHtml+
+          titleWrapHtml+
           '<span class="book-meta muted">'+msgs.length+' 条</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
-        remarkEditHtml+
       '</div>'+
       '<div class="row-actions"><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
     '</div>';
