@@ -597,6 +597,10 @@ table.data tr:hover{background:var(--surface-2)}
 .book-title{font-size:14px; font-weight:600; color:var(--text);}
 .book-meta{font-size:11px; flex:none;}
 .book-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ssn-note-icon{cursor:pointer; font-size:13px; opacity:.35; flex:none;}
+.ssn-note-icon.has-note{opacity:1;}
+.ssn-note-icon:hover{opacity:.8;}
+.ssn-remark-edit{width:100%; box-sizing:border-box; margin-top:8px; min-height:54px; font-size:12.5px; line-height:1.5; padding:8px 10px; border:1px solid var(--accent); border-radius:6px; font-family:inherit; resize:vertical; background:var(--surface-2); color:var(--text);}
 .book-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
 /* 详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
 .book-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
@@ -3913,6 +3917,7 @@ function renderBookCategoryEntries(compoundId){
    -> 留言板（气泡消息，按时间，也是独立标签页）。分栏只是外层的样式，点一栏是真的打开第二层
    那个标签页，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
 var suisuinianRenamingTopic = null;
+var suisuinianEditingRemark = null;
 var suisuinianEditingMessage = null; /* 当前正在编辑内容的留言 id，点气泡文字进入编辑，失焦保存 */
 window.startEditSuisuinianMessage = function(id){
   suisuinianEditingMessage = id;
@@ -3971,13 +3976,24 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
     var titleHtml = suisuinianRenamingTopic===t.id
       ? '<input type="text" class="book-toc-title" style="flex:none; width:140px;" value="'+esc(t.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+t.id+'\', this.value)">'
       : '<span class="row-open-link book-title" onclick="suisuinianTopicSingleClick(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
+    var hasRemark = !!(t.remark && t.remark.trim());
+    var isEditingRemark = suisuinianEditingRemark===t.id;
+    /* 备注图标：类似表格注释，悬浮展示内容，点击进入编辑；跟标题分开一个元素，避免跟单击/双击改名冲突 */
+    var noteIconHtml = isEditingRemark ? '' : (
+      '<span class="ssn-note-icon'+(hasRemark?' has-note':'')+' tl-tip-wrap has-tip" data-tip="'+esc(hasRemark?t.remark:"点击添加备注")+'" onclick="event.stopPropagation();startEditSuisuinianRemark(\''+t.id+'\')">'+(hasRemark?'📝':'🗒️')+'</span>'
+    );
+    var remarkEditHtml = isEditingRemark
+      ? '<textarea class="ssn-remark-edit" autofocus placeholder="给这个子主题加个备注…" onclick="event.stopPropagation();" onblur="commitEditSuisuinianRemark(\''+t.id+'\', this.value)">'+esc(t.remark||"")+'</textarea>'
+      : '';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
           titleHtml+
+          noteIconHtml+
           '<span class="book-meta muted">'+msgs.length+' 条</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
+        remarkEditHtml+
       '</div>'+
       '<div class="row-actions"><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
     '</div>';
@@ -4023,6 +4039,16 @@ window.commitRenameSuisuinianTopic = function(id, value){
   if(t && value){ t.label = value; save(); }
   suisuinianRenamingTopic = null;
   render();
+};
+window.startEditSuisuinianRemark = function(id){
+  suisuinianEditingRemark = id;
+  render();
+};
+window.commitEditSuisuinianRemark = function(id, value){
+  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===id;})[0];
+  if(t) t.remark = (value||"").trim();
+  suisuinianEditingRemark = null;
+  save(); render();
 };
 window.deleteSuisuinianTopic = function(id){
   var n = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===id;}).length;
