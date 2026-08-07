@@ -755,7 +755,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"} },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -903,6 +903,7 @@ function normalizeData(d){
   }
   d.settings.categoryViewMode = d.settings.categoryViewMode || "list";
   if(d.settings.familyShowSiblingLines===undefined) d.settings.familyShowSiblingLines = true;
+  d.settings.passwordColumnLabels = d.settings.passwordColumnLabels || {username:"账号",password:"密码",note:"备注"};
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -4299,22 +4300,27 @@ function renderPasswords(){
 
   var siteKey = moduleCatView.passwords_site;
   var siteScoped = scoped.filter(function(r){ return passwordSiteKey(r)===siteKey; });
+  var colLabelsForRows = DATA.settings.passwordColumnLabels;
   var rows = siteScoped.map(function(r){
     var show = revealed[r.id];
     return '<tr>'+
-      '<td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" placeholder="账号" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td>'+
+      '<td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" placeholder="'+esc(colLabelsForRows.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td>'+
       '<td>'+(show
         ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
         : '<span class="pw-mask">••••••••••</span>')+
         '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td>'+
-      '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="备注" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
+      '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="'+esc(colLabelsForRows.note)+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
       '<td class="row-actions"><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
     '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
-  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，点「显示」可查看明文密码（仅本机可见），改完直接点别处就保存。",
+  var colLabels = DATA.settings.passwordColumnLabels;
+  var theadCells = ["username","password","note"].map(function(k){
+    return '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels[k])+'" onchange="renamePasswordColumn(\''+k+'\',this.value)"></th>';
+  }).join('')+'<th></th>';
+  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，点「显示」可查看明文密码（仅本机可见），改完直接点别处就保存，列头也能直接改名字。",
     '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
-    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr><th>账号</th><th>密码</th><th>备注</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>')
+    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
       : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
   );
 }
@@ -4343,6 +4349,14 @@ window.renamePasswordSite = function(oldName, newName){
   moduleCatView.passwords_site = newName;
   save(); render();
 };
+/* 账号/密码/备注这三列的列头名字整个密码管理模块通用（不分分类/网站），跟资产那边"只在当前表里生效"不一样，
+   因为这三列本来就是固定字段，不是每张表自己攒出来的动态字段 */
+window.renamePasswordColumn = function(key, value){
+  value = (value||"").trim();
+  if(!value){ render(); return; }
+  DATA.settings.passwordColumnLabels[key] = value;
+  save(); render();
+};
 window.deletePassword = function(id){
   confirmDelete("确定删除这条密码记录吗？", function(){
     DATA.passwords = DATA.passwords.filter(function(x){return x.id!==id;});
@@ -4358,16 +4372,17 @@ function renderPasswordDetailPage(id){
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   var show = revealed[r.id];
+  var colLabels = DATA.settings.passwordColumnLabels;
   return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deletePassword(\''+r.id+'\')">删除</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>网站/应用</th><td><input type="text" class="pw-inline-input" value="'+esc(r.site)+'" onchange="updatePasswordField(\''+r.id+'\',\'site\',this.value)"></td></tr>'+
-      '<tr><th>账号</th><td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td></tr>'+
-      '<tr><th>密码</th><td>'+(show
+      '<tr><th>'+esc(colLabels.username)+'</th><td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td></tr>'+
+      '<tr><th>'+esc(colLabels.password)+'</th><td>'+(show
         ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
         : '<span class="pw-mask">••••••••••</span>')+
         '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>'+
-      '<tr><th>备注</th><td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td></tr>'+
+      '<tr><th>'+esc(colLabels.note)+'</th><td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td></tr>'+
     '</table></div>';
 }
 
