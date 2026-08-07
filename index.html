@@ -256,6 +256,16 @@ table.data tr:last-child td{border-bottom:none}
 table.data tr:hover{background:var(--surface-2)}
 .pw-mask{font-family:'IBM Plex Mono',monospace; letter-spacing:.1em;}
 .reveal-btn{background:none;border:none;color:var(--accent); font-size:12px; margin-left:8px; text-decoration:underline; padding:0;}
+/* 密码/资产表格直接在格子里编辑，不跳编辑框：输入框看起来跟普通文字差不多，只有 hover/focus 才露出边框 */
+.pw-inline-input, .asset-inline-input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-size:13px; color:var(--text); font-family:inherit;}
+.pw-inline-input:hover, .asset-inline-input:hover{border-color:var(--border);}
+.pw-inline-input:focus, .asset-inline-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.cat-back-label-input{font-size:13px; font-weight:600; color:var(--text); flex:1; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-family:inherit;}
+.cat-back-label-input:hover{border-color:var(--border);}
+.cat-back-label-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+.asset-col-header-input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:2px 4px; border-radius:5px; font-size:inherit; font-weight:inherit; color:inherit; font-family:inherit;}
+.asset-col-header-input:hover{border-color:var(--border);}
+.asset-col-header-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .row-actions{display:flex; gap:8px;}
 .empty-state{padding:56px 20px; text-align:center; color:var(--text-dim);}
 .empty-state .big{font-size:30px; margin-bottom:10px; opacity:.5}
@@ -4251,44 +4261,87 @@ window.closeModal = function(){ document.getElementById("modalRoot").innerHTML="
 
 /* ================= 密码管理 ================= */
 var revealed = {};
+/* 密码管理三层：分类 -> 网站/应用（因为同一个网站可能注册了不止一个账号）-> 具体账号，
+   全部直接在界面/表格上改，不用跳编辑框弹窗 */
+function passwordSiteKey(r){ return (r.site||"").trim() || "(未命名网站)"; }
+window.enterPasswordSite = function(site){ moduleCatView.passwords_site = site; render(); };
+window.exitPasswordSite = function(){ moduleCatView.passwords_site = null; render(); };
+/* 换分类时（进另一个分类，或退回第一层）要把"当前网站"这个更深一层的状态也清掉，
+   不然切到新分类会直接卡在上一个分类里那个网站的第三层视图，对不上 */
+window.enterPasswordCategory = function(moduleId, key){ moduleCatView.passwords_site = null; enterModuleCategory(moduleId, key); };
+window.exitPasswordCategory = function(){ moduleCatView.passwords_site = null; exitModuleCategory("passwords"); };
 function renderPasswords(){
   var cats = getModuleCategories("passwords");
   if(moduleCatView.passwords===null || moduleCatView.passwords===undefined){
-    return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码。",
-      '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
-      renderCategoryFolders("passwords", DATA.passwords, function(it){return it.category||"";})
+    return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码。","",
+      renderCategoryFolders("passwords", DATA.passwords, function(it){return it.category||"";}, {clickFn:"enterPasswordCategory"})
     );
   }
-  var scoped = cats.length ? DATA.passwords.filter(function(r){ return (r.category||"")===moduleCatView.passwords; }) : DATA.passwords;
-  var rows = scoped.map(function(r){
+  var catKey = moduleCatView.passwords;
+  var scoped = cats.length ? DATA.passwords.filter(function(r){ return (r.category||"")===catKey; }) : DATA.passwords;
+
+  if(moduleCatView.passwords_site===null || moduleCatView.passwords_site===undefined){
+    var counts = {};
+    scoped.forEach(function(r){ var s=passwordSiteKey(r); counts[s]=(counts[s]||0)+1; });
+    var siteNames = Object.keys(counts).sort();
+    var rows = siteNames.map(function(s){
+      return '<div class="cat-folder-row" onclick="enterPasswordSite(\''+esc(s)+'\')"><span class="cflabel">'+esc(s)+'</span><span class="cfcount">'+counts[s]+'</span></div>';
+    }).join('');
+    var addRow = '<div class="book-toc-add">'+
+      '<input type="text" id="newPwSiteName" placeholder="新网站/应用名称，比如「淘宝」" onkeydown="if(event.key===\'Enter\'){addPasswordSiteInline();}">'+
+      '<button type="button" class="btn small ghost" onclick="addPasswordSiteInline()">+ 添加网站</button>'+
+    '</div>';
+    return moduleShell("passwords","🔐","passwords","这个分类下有哪些网站/应用，一个网站可以注册多个账号，点进去看具体账号。",
+      "",
+      categoryBackBar("passwords","exitPasswordCategory()") + (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🔐","这里还没有网站/应用","在下面添加一个")) + addRow
+    );
+  }
+
+  var siteKey = moduleCatView.passwords_site;
+  var siteScoped = scoped.filter(function(r){ return passwordSiteKey(r)===siteKey; });
+  var rows = siteScoped.map(function(r){
     var show = revealed[r.id];
-    return '<tr><td><span class="row-open-link" onclick="openItemTab(\'password\',\''+r.id+'\')">'+esc(r.site)+'</span></td><td class="mono">'+esc(r.username)+'</td>'+
-      '<td><span class="pw-mask">'+(show?esc(r.password):"••••••••••")+'</span>'+
-      '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td>'+
-      '<td class="muted">'+esc(r.note||"—")+'</td>'+
-      '<td class="row-actions"><button class="btn small ghost" onclick="editPassword(\''+r.id+'\')">编辑</button><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
+    return '<tr>'+
+      '<td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" placeholder="账号" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td>'+
+      '<td>'+(show
+        ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
+        : '<span class="pw-mask">••••••••••</span>')+
+        '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td>'+
+      '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="备注" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
+      '<td class="row-actions"><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
   }).join('');
-  var backBar = categoryBackBar("passwords");
-  return moduleShell("passwords","🔐","passwords","网站 / 应用账号密码，点击「显示」可查看明文（仅本机可见）。",
-    '<button class="btn solid" onclick="editPassword()">+ 新增密码</button>',
-    backBar + (scoped.length ? ('<div class="card-panel"><table class="data"><thead><tr><th>网站/应用</th><th>账号</th><th>密码</th><th>备注</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>')
-      : emptyState("🔐","这里还没有密码","点击右上角「新增密码」添加"))
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
+    '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
+  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，点「显示」可查看明文密码（仅本机可见），改完直接点别处就保存。",
+    '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
+    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr><th>账号</th><th>密码</th><th>备注</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>')
+      : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
   );
 }
 window.togglePw = function(id){ revealed[id]=!revealed[id]; render(); };
-window.editPassword = function(id){
-  var item = id ? DATA.passwords.filter(function(x){return x.id===id;})[0] : {site:"",username:"",password:"",note:"",category:moduleCatView.passwords||""};
-  openModal(id?"编辑密码":"新增密码",
-    field("site","网站 / 应用","text",item.site,true)+
-    field("username","账号","text",item.username,true)+
-    field("password","密码","text",item.password,true)+
-    moduleCategorySelectField("passwords", item.category)+
-    field("note","备注","textarea",item.note,false),
-    function(data){
-      if(id){ Object.assign(item,data); }
-      else{ data.id=uid(); DATA.passwords.push(data); }
-      save(); render(); toast(id?"已更新":"已新增");
-    });
+window.updatePasswordField = function(id, key, value){
+  var r = DATA.passwords.filter(function(x){return x.id===id;})[0]; if(!r) return;
+  r[key] = value; save(); render();
+};
+window.addPasswordSiteInline = function(){
+  var input = document.getElementById("newPwSiteName");
+  var value = (input.value||"").trim();
+  if(!value) return;
+  DATA.passwords.push({id:uid(), site:value, username:"", password:"", note:"", category:moduleCatView.passwords||""});
+  save();
+  moduleCatView.passwords_site = value;
+  render();
+};
+window.createPasswordAccountInline = function(){
+  DATA.passwords.push({id:uid(), site:moduleCatView.passwords_site, username:"", password:"", note:"", category:moduleCatView.passwords||""});
+  save(); render();
+};
+window.renamePasswordSite = function(oldName, newName){
+  newName = (newName||"").trim();
+  if(!newName || newName===oldName){ render(); return; }
+  DATA.passwords.forEach(function(r){ if(passwordSiteKey(r)===oldName) r.site = newName; });
+  moduleCatView.passwords_site = newName;
+  save(); render();
 };
 window.deletePassword = function(id){
   confirmDelete("确定删除这条密码记录吗？", function(){
@@ -4305,13 +4358,16 @@ function renderPasswordDetailPage(id){
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   var show = revealed[r.id];
-  return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码</div></div>'+
-    '<div class="row-actions"><button class="btn ghost" onclick="editPassword(\''+r.id+'\')">编辑</button><button class="btn danger" onclick="deletePassword(\''+r.id+'\')">删除</button></div></div>'+
+  return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码，直接改，失焦自动保存。</div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deletePassword(\''+r.id+'\')">删除</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
-      '<tr><th>网站/应用</th><td>'+esc(r.site)+'</td></tr>'+
-      '<tr><th>账号</th><td>'+esc(r.username)+'</td></tr>'+
-      '<tr><th>密码</th><td><span class="pw-mask">'+(show?esc(r.password):"••••••••••")+'</span><button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>'+
-      '<tr><th>备注</th><td>'+esc(r.note||"—")+'</td></tr>'+
+      '<tr><th>网站/应用</th><td><input type="text" class="pw-inline-input" value="'+esc(r.site)+'" onchange="updatePasswordField(\''+r.id+'\',\'site\',this.value)"></td></tr>'+
+      '<tr><th>账号</th><td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td></tr>'+
+      '<tr><th>密码</th><td>'+(show
+        ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
+        : '<span class="pw-mask">••••••••••</span>')+
+        '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>'+
+      '<tr><th>备注</th><td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td></tr>'+
     '</table></div>';
 }
 
@@ -4326,8 +4382,7 @@ function renderAssets(){
 
   // 第一层：地点
   if(locKey===null || locKey===undefined){
-    return moduleShell("assets","💳","assets","按地点整理银行卡、账户等资产信息。",
-      '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+    return moduleShell("assets","💳","assets","按地点整理银行卡、账户等资产信息。","",
       renderCategoryFolders("assets_location", DATA.assets, function(it){return it.location||"";},
         {clickFn:"assetEnterLocation", sectionLabel:"选择地点", manageTitle:"资产信息 · 地点管理"})
     );
@@ -4338,112 +4393,80 @@ function renderAssets(){
 
   // 第二层：类型（银行卡实体 / 电子信用 / 不动产 / 其他功能卡……可自定义增删）
   if(typeKey===null || typeKey===undefined){
-    return moduleShell("assets","💳","assets","选择这个地点下的资产类型。",
-      '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+    return moduleShell("assets","💳","assets","选择这个地点下的资产类型。","",
       categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 地点管理") +
       renderCategoryFolders("assets_type", byLoc, function(it){return it.assetType||"";},
         {clickFn:"assetEnterType", sectionLabel:"选择类型", manageTitle:"资产信息 · 类型管理"})
     );
   }
 
-  // 第三层：具体的卡/账户/会员卡……表格形式展现，列头按实际出现过的字段名动态生成
+  // 第三层：具体的卡/账户/会员卡……表格形式展现，列头按实际出现过的字段名动态生成，
+  // 名称/字段格子和列头名字都直接在表格上改，不跳编辑框
   var scoped = byLoc.filter(function(a){ return (a.assetType||"")===typeKey; });
   var columns = [];
   scoped.forEach(function(a){
     (a.fields||[]).forEach(function(f){
-      if(f.label && columns.indexOf(f.label)===-1){ columns.push(f.label); }
+      if(columns.indexOf(f.label)===-1){ columns.push(f.label); }
     });
   });
-  var theadCells = '<th>名称</th>'+columns.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'<th></th>';
+  var theadCells = '<th>名称</th>'+columns.map(function(c){
+    return '<th><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"></th>';
+  }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
-    var cells = '<td><span class="row-open-link" onclick="openItemTab(\'asset\',\''+a.id+'\')">'+esc(a.title||"未命名")+'</span></td>'+
-      columns.map(function(c){ return '<td>'+esc(fieldMap[c]!==undefined ? fieldMap[c] : "—")+'</td>'; }).join('')+
-      '<td class="row-actions"><button class="btn small ghost" onclick="editAsset(\''+a.id+'\')">✎</button><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
+    var cells = '<td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" placeholder="名称" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td>'+
+      columns.map(function(c){
+        return '<td><input type="text" class="asset-inline-input" value="'+esc(fieldMap[c]!==undefined?fieldMap[c]:"")+'" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(c)+'\',this.value)"></td>';
+      }).join('')+
+      '<td class="row-actions"><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
     return '<tr>'+cells+'</tr>';
   }).join('');
   var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table"><thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
-  return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，可左右拖动查看更多字段。",
-    '<button class="btn solid" onclick="editAsset()">+ 新增资产</button>',
+  return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，可左右拖动查看更多字段。",
+    '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>',
     categoryBackBar("assets_type","assetBackToTypes()","资产信息 · 类型管理") +
     (scoped.length ? tableHtml : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
   );
 }
-
-/* 新增/编辑资产：名称必填，其余字段完全自定义（跟时间经历的补充内容是同一套逻辑） */
-var assetDraft = null;
-window.editAsset = function(id){
-  var item = id ? DATA.assets.filter(function(x){return x.id===id;})[0] : null;
-  if(item){
-    assetDraft = {
-      id:item.id, title:item.title||"", location:item.location||"", assetType:item.assetType||"",
-      fields:(item.fields||[]).map(function(f){ return {id:f.id||uid(), label:f.label||"", value:f.value||""}; })
-    };
-  } else {
-    assetDraft = {id:null, title:"", location:moduleCatView.assets_location||"", assetType:moduleCatView.assets_type||"", fields:[]};
-  }
-  renderAssetEditModal();
+window.createAssetInline = function(){
+  DATA.assets.push({id:uid(), title:"", location:moduleCatView.assets_location||"", assetType:moduleCatView.assets_type||"", fields:[]});
+  save(); render();
 };
-function inlineCategorySelect(moduleId, currentVal, onchangeCall, labelText){
-  var cats = getModuleCategories(moduleId);
-  if(!cats.length) return "";
-  var opts = [{value:"",label:uncategorizedLabel(moduleId)}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
-  return '<div class="field"><label>'+esc(labelText)+'</label><select onchange="'+onchangeCall+'">'+
-    opts.map(function(o){ return '<option value="'+esc(o.value)+'"'+(o.value===currentVal?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')+
-  '</select></div>';
-}
-function renderAssetEditModal(){
-  var d = assetDraft;
-  var root = document.getElementById("modalRoot");
-  var rows = d.fields.map(function(f){
-    return '<div class="tl-field-row">'+
-      '<div class="tl-field-top">'+
-        '<input type="text" class="tl-field-label" placeholder="小标题，如：卡号 / 会员号" value="'+esc(f.label)+'" onchange="updateAssetDraftField(\''+f.id+'\',\'label\',this.value)">'+
-        '<button type="button" class="btn small danger" onclick="removeAssetDraftField(\''+f.id+'\')" title="删除这个字段">✕</button>'+
-      '</div>'+
-      '<textarea class="tl-field-value" placeholder="内容" onchange="updateAssetDraftField(\''+f.id+'\',\'value\',this.value)">'+esc(f.value)+'</textarea>'+
-    '</div>';
-  }).join('');
-  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal">'+
-    '<h3>'+(d.id?"编辑资产":"新增资产")+'</h3>'+
-    '<div class="field"><label>名称（必填，会显示在列表里）</label><input type="text" value="'+esc(d.title)+'" onchange="updateAssetDraftBasic(\'title\',this.value)"></div>'+
-    inlineCategorySelect("assets_location", d.location, "updateAssetDraftBasic('location',this.value)", "地点")+
-    inlineCategorySelect("assets_type", d.assetType, "updateAssetDraftBasic('assetType',this.value)", "类型")+
-    '<div class="field"><label>补充内容（可选，自己定义字段名和内容，比如卡号/会员号/持有人……随便加）</label>'+
-    '<div class="tl-fields-list">'+rows+'</div>'+
-    '<button type="button" class="btn small ghost" onclick="addAssetDraftField()" style="margin-top:6px">+ 添加字段</button>'+
-    '</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveAssetDraft()">保存</button></div>'+
-    '</div></div>';
-  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
-}
-window.updateAssetDraftBasic = function(key, value){ if(assetDraft) assetDraft[key] = value; };
-window.addAssetDraftField = function(){
-  assetDraft.fields.push({id:uid(), label:"", value:""});
-  renderAssetEditModal();
+window.updateAssetBasicField = function(id, key, value){
+  var a = DATA.assets.filter(function(x){return x.id===id;})[0]; if(!a) return;
+  a[key] = value; save(); render();
 };
-window.removeAssetDraftField = function(fid){
-  assetDraft.fields = assetDraft.fields.filter(function(f){return f.id!==fid;});
-  renderAssetEditModal();
+window.updateAssetFieldValue = function(id, label, value){
+  var a = DATA.assets.filter(function(x){return x.id===id;})[0]; if(!a) return;
+  a.fields = a.fields || [];
+  var f = a.fields.filter(function(x){return x.label===label;})[0];
+  if(f){ f.value = value; } else { a.fields.push({id:uid(), label:label, value:value}); }
+  save(); render();
 };
-window.updateAssetDraftField = function(fid, key, value){
-  var f = assetDraft.fields.filter(function(x){return x.id===fid;})[0];
-  if(f) f[key] = value;
+/* 改列头名字：只在当前这张表（同一个地点+类型）范围内生效，不去动其他地点/类型下面偶然同名的字段 */
+window.renameAssetColumn = function(oldLabel, newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel || newLabel===oldLabel){ render(); return; }
+  var locKey = moduleCatView.assets_location, typeKey = moduleCatView.assets_type;
+  DATA.assets.forEach(function(a){
+    if((a.location||"")!==locKey || (a.assetType||"")!==typeKey) return;
+    (a.fields||[]).forEach(function(f){ if(f.label===oldLabel) f.label = newLabel; });
+  });
+  save(); render();
 };
-window.saveAssetDraft = function(){
-  var d = assetDraft;
-  if(!d.title || !d.title.trim()){ toast("名称是必填的"); return; }
-  var cleanFields = d.fields.filter(function(f){ return (f.label&&f.label.trim()) || (f.value&&f.value.trim()); });
-  if(d.id){
-    var item = DATA.assets.filter(function(x){return x.id===d.id;})[0];
-    if(item){ item.title=d.title.trim(); item.location=d.location||""; item.assetType=d.assetType||""; item.fields=cleanFields; }
-  } else {
-    DATA.assets.push({id:uid(), title:d.title.trim(), location:d.location||"", assetType:d.assetType||"", fields:cleanFields});
-  }
-  var wasAdd = !d.id;
-  assetDraft = null;
-  save(); closeModal(); render(); toast(wasAdd?"已新增":"已更新");
+/* 加一列空字段：给当前表里每一行都挂一个空标签的字段，表头会多出一个可以直接输入名字的输入框 */
+window.addAssetColumnInline = function(){
+  var locKey = moduleCatView.assets_location, typeKey = moduleCatView.assets_type;
+  var scoped = DATA.assets.filter(function(a){ return (a.location||"")===locKey && (a.assetType||"")===typeKey; });
+  if(!scoped.length){ toast("先添加一条资产才能加字段列"); return; }
+  var hasBlank = scoped.some(function(a){ return (a.fields||[]).some(function(f){return f.label==="";}); });
+  if(hasBlank){ render(); return; }
+  scoped.forEach(function(a){
+    a.fields = a.fields || [];
+    a.fields.push({id:uid(), label:"", value:""});
+  });
+  save(); render();
 };
 window.deleteAsset = function(id){
   confirmDelete("确定删除这条资产记录吗？", function(){
@@ -4462,11 +4485,12 @@ function renderAssetDetailPage(id){
   var locLabel = a.location ? ((getModuleCategories("assets_location").filter(function(c){return c.key===a.location;})[0]||{}).label||uncategorizedLabel("assets_location")) : uncategorizedLabel("assets_location");
   var typeLabel = a.assetType ? ((getModuleCategories("assets_type").filter(function(c){return c.key===a.assetType;})[0]||{}).label||uncategorizedLabel("assets_type")) : uncategorizedLabel("assets_type");
   var fieldRows = (a.fields||[]).map(function(f){
-    return '<tr><th>'+esc(f.label||"—")+'</th><td>'+esc(f.value||"—")+'</td></tr>';
+    return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
   }).join('');
-  return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'</div></div>'+
-    '<div class="row-actions"><button class="btn ghost" onclick="editAsset(\''+a.id+'\')">编辑</button><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
+  return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
+      '<tr><th>名称</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
       '<tr><th>类型</th><td>'+esc(typeLabel)+'</td></tr>'+
       fieldRows+
