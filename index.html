@@ -597,15 +597,14 @@ table.data tr:hover{background:var(--surface-2)}
 .book-title{font-size:14px; font-weight:600; color:var(--text);}
 .book-meta{font-size:11px; flex:none;}
 .book-excerpt{font-size:12.5px; margin-top:4px; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.ssn-remark-wrap{position:relative; display:inline-block;}
+.ssn-remark-wrap{display:inline-block;}
 .ssn-remark-wrap.has-remark .book-title{text-decoration:underline dotted var(--border);}
-.ssn-remark-pop{display:none; position:absolute; left:0; top:100%; margin-top:6px; min-width:180px; max-width:260px;
+.ssn-remark-float{position:fixed; min-width:180px; max-width:260px;
   background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
-  padding:8px 10px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); z-index:80; cursor:pointer; white-space:pre-wrap;}
-.ssn-remark-wrap:hover .ssn-remark-pop{display:block;}
-.ssn-remark-pop.force-open{display:block;}
+  padding:8px 10px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); z-index:600; white-space:pre-wrap;}
+.ssn-remark-view{cursor:pointer;}
 .ssn-remark-view.placeholder{color:#a89a5c;}
-.ssn-remark-edit-pop{width:100%; box-sizing:border-box; min-height:54px; font-size:12px; line-height:1.6; padding:0; border:none; background:transparent; color:inherit; font-family:inherit; resize:vertical; outline:none;}
+.ssn-remark-edit-pop{display:block; width:100%; min-width:200px; box-sizing:border-box; min-height:60px; font-size:12px; line-height:1.6; padding:0; border:none; background:transparent; color:inherit; font-family:inherit; resize:vertical; outline:none;}
 .book-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
 /* 详情页：不走弹窗表单，标题/日期/分类/正文直接在页面里编辑，失焦自动保存，跟写文档一样 */
 .book-detail-title{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; font-family:'Fraunces',serif; font-size:26px; font-weight:600; color:var(--text); padding:4px 6px; border-radius:6px;}
@@ -723,6 +722,7 @@ table.data tr:hover{background:var(--surface-2)}
 <div id="modalRoot"></div>
 <div class="toast" id="toast"></div>
 <div class="tl-tooltip" id="tlTooltip"></div>
+<div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
 
 <script>
 /* ================= 数据层 ================= */
@@ -3922,7 +3922,6 @@ function renderBookCategoryEntries(compoundId){
    -> 留言板（气泡消息，按时间，也是独立标签页）。分栏只是外层的样式，点一栏是真的打开第二层
    那个标签页，不是把子主题直接摊在栏里——不然点子主题会直接跳到留言板，就变回两层了 */
 var suisuinianRenamingTopic = null;
-var suisuinianEditingRemark = null;
 var suisuinianEditingMessage = null; /* 当前正在编辑内容的留言 id，点气泡文字进入编辑，失焦保存 */
 window.startEditSuisuinianMessage = function(id){
   suisuinianEditingMessage = id;
@@ -3982,15 +3981,8 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
       ? '<input type="text" class="book-toc-title" style="flex:none; width:140px;" value="'+esc(t.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+t.id+'\', this.value)">'
       : '<span class="row-open-link book-title" onclick="suisuinianTopicSingleClick(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
     var hasRemark = !!(t.remark && t.remark.trim());
-    var isEditingRemark = suisuinianEditingRemark===t.id;
-    /* 备注：悬浮在标题上展示便签式提示框，类似表格注释；点提示框本身进入编辑，跟标题的单击/双击各自独立 */
-    var popContent = isEditingRemark
-      ? '<textarea class="ssn-remark-edit-pop" autofocus placeholder="给这个子主题加个备注…" onclick="event.stopPropagation();" onblur="commitEditSuisuinianRemark(\''+t.id+'\', this.value)">'+esc(t.remark||"")+'</textarea>'
-      : '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'" onclick="event.stopPropagation();startEditSuisuinianRemark(\''+t.id+'\')">'+(hasRemark?esc(t.remark):"点击添加备注")+'</div>';
-    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+(isEditingRemark?' force-open':'')+'">'+
-        titleHtml+
-        '<span class="ssn-remark-pop'+(isEditingRemark?' force-open':'')+'">'+popContent+'</span>'+
-      '</span>';
+    /* 备注：悬浮在标题上时，在最上层（body 级悬浮框，不受表格裁剪）弹出一个便签框，位置随可视空间灵活摆放；点便签框本身进入编辑 */
+    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-topic="'+t.id+'">'+titleHtml+'</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
@@ -4044,16 +4036,80 @@ window.commitRenameSuisuinianTopic = function(id, value){
   suisuinianRenamingTopic = null;
   render();
 };
-window.startEditSuisuinianRemark = function(id){
-  suisuinianEditingRemark = id;
-  render();
+/* 子主题备注：body 级悬浮便签框，不受表格/卡片裁剪限制，位置根据可视空间灵活上下左右摆放。
+   悬浮展示、离开延迟收起；点便签框本身切到编辑态，失焦即保存并收起。 */
+var ssnRemarkHideTimer = null;
+var ssnRemarkOpenTopic = null;
+function ssnRemarkClearHide(){ clearTimeout(ssnRemarkHideTimer); }
+function ssnRemarkScheduleHide(){
+  var box = document.getElementById("ssnRemarkFloat");
+  if(box && box.querySelector(".ssn-remark-edit-pop")) return; /* 编辑中交给 textarea 失焦处理，不在这里收起 */
+  clearTimeout(ssnRemarkHideTimer);
+  ssnRemarkHideTimer = setTimeout(function(){
+    box.style.display = "none";
+    ssnRemarkOpenTopic = null;
+  }, 200);
+}
+function ssnRemarkPositionNear(box, anchorEl){
+  var r = anchorEl.getBoundingClientRect();
+  var br = box.getBoundingClientRect();
+  var left = r.left;
+  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
+  if(left < 6) left = 6;
+  var top = r.bottom + 6;
+  if(top + br.height > window.innerHeight - 6){
+    var above = r.top - br.height - 6;
+    top = above >= 6 ? above : Math.max(6, window.innerHeight - br.height - 6);
+  }
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+}
+window.ssnRemarkShow = function(topicId, anchorEl){
+  ssnRemarkClearHide();
+  var box = document.getElementById("ssnRemarkFloat");
+  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===topicId;})[0];
+  if(!box || !t) return;
+  ssnRemarkOpenTopic = topicId;
+  var hasRemark = !!(t.remark && t.remark.trim());
+  box.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(t.remark):"点击添加备注")+'</div>';
+  box.style.display = "block";
+  ssnRemarkPositionNear(box, anchorEl);
+  box.querySelector(".ssn-remark-view").onclick = function(){ ssnRemarkEdit(topicId, anchorEl); };
 };
-window.commitEditSuisuinianRemark = function(id, value){
-  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===id;})[0];
-  if(t) t.remark = (value||"").trim();
-  suisuinianEditingRemark = null;
-  save(); render();
+window.ssnRemarkEdit = function(topicId, anchorEl){
+  ssnRemarkClearHide();
+  var box = document.getElementById("ssnRemarkFloat");
+  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===topicId;})[0];
+  if(!box || !t) return;
+  box.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="给这个子主题加个备注…"></textarea>';
+  var ta = box.querySelector("textarea");
+  ta.value = t.remark||"";
+  box.style.display = "block";
+  ssnRemarkPositionNear(box, anchorEl);
+  ta.focus();
+  ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
+  ta.addEventListener("blur", function(){
+    var v = (ta.value||"").trim();
+    if(t.remark!==v){ t.remark = v; save(); render(); }
+    box.style.display = "none";
+    ssnRemarkOpenTopic = null;
+  });
 };
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest(".ssn-remark-wrap") : null;
+  if(el) ssnRemarkShow(el.getAttribute("data-remark-topic"), el);
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest(".ssn-remark-wrap") : null;
+  if(el) ssnRemarkScheduleHide();
+});
+(function(){
+  var box = document.getElementById("ssnRemarkFloat");
+  if(box){
+    box.addEventListener("mouseenter", ssnRemarkClearHide);
+    box.addEventListener("mouseleave", ssnRemarkScheduleHide);
+  }
+})();
 window.deleteSuisuinianTopic = function(id){
   var n = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===id;}).length;
   confirmDelete("确定删除这个子主题吗？"+(n?("里面的 "+n+" 条留言会一起永久删除，"):"")+"不能撤销。", function(){
