@@ -4302,28 +4302,32 @@ function renderPasswords(){
   var siteScoped = scoped.filter(function(r){ return passwordSiteKey(r)===siteKey; });
   var colLabelsForRows = DATA.settings.passwordColumnLabels;
   var rows = siteScoped.map(function(r){
-    var show = revealed[r.id];
+    var show = passwordsRevealAll;
     return '<tr>'+
       '<td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" placeholder="'+esc(colLabelsForRows.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td>'+
       '<td>'+(show
         ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
-        : '<span class="pw-mask">••••••••••</span>')+
-        '<button class="reveal-btn" onclick="togglePw(\''+r.id+'\')">'+(show?"隐藏":"显示")+'</button></td>'+
+        : '<span class="pw-mask">••••••••••</span>')+'</td>'+
       '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="'+esc(colLabelsForRows.note)+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
       '<td class="row-actions"><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
     '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
   var colLabels = DATA.settings.passwordColumnLabels;
-  var theadCells = ["username","password","note"].map(function(k){
-    return '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels[k])+'" onchange="renamePasswordColumn(\''+k+'\',this.value)"></th>';
-  }).join('')+'<th></th>';
-  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，点「显示」可查看明文密码（仅本机可见），改完直接点别处就保存，列头也能直接改名字。",
-    '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
+  /* "密码"这一列名字固定住，不给改；账号/备注还是可以改 */
+  var theadCells = '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)"></th>'+
+    '<th>密码</th>'+
+    '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)"></th>'+
+    '<th></th>';
+  var revealBtn = '<button class="btn ghost small" onclick="togglePasswordsRevealAll()">'+(passwordsRevealAll?"🙈 隐藏密码":"👁 显示密码")+'</button>';
+  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字。",
+    revealBtn+'<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
     backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
       : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
   );
 }
+var passwordsRevealAll = false; /* 显示/隐藏放在大标题这一层统一控制一次，不用每一行自己点 */
+window.togglePasswordsRevealAll = function(){ passwordsRevealAll = !passwordsRevealAll; render(); };
 window.togglePw = function(id){ revealed[id]=!revealed[id]; render(); };
 window.updatePasswordField = function(id, key, value){
   var r = DATA.passwords.filter(function(x){return x.id===id;})[0]; if(!r) return;
