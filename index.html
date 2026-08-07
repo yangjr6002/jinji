@@ -256,6 +256,7 @@ table.data tr:last-child td{border-bottom:none}
 table.data tr:hover{background:var(--surface-2)}
 .pw-mask{font-family:'IBM Plex Mono',monospace; letter-spacing:.1em;}
 .reveal-btn{background:none;border:none;color:var(--accent); font-size:12px; margin-left:8px; text-decoration:underline; padding:0;}
+.reveal-btn-header{background:none; border:none; cursor:pointer; font-size:12px; padding:0 2px; vertical-align:middle;}
 /* 密码/资产表格直接在格子里编辑，不跳编辑框：输入框看起来跟普通文字差不多，只有 hover/focus 才露出边框 */
 .pw-inline-input, .asset-inline-input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-size:13px; color:var(--text); font-family:inherit;}
 .pw-inline-input:hover, .asset-inline-input:hover{border-color:var(--border);}
@@ -4314,14 +4315,14 @@ function renderPasswords(){
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
     '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
   var colLabels = DATA.settings.passwordColumnLabels;
-  /* "密码"这一列名字固定住，不给改；账号/备注还是可以改 */
+  /* "密码"这一列名字固定住，不给改；账号/备注还是可以改。显示/隐藏按钮就挂在"密码"这个字旁边，
+     不要放去页面最上面的大标题栏——离密码列太远，一眼看不出是控制哪个的 */
   var theadCells = '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)"></th>'+
-    '<th>密码</th>'+
+    '<th>密码 <button type="button" class="reveal-btn-header" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"🙈":"👁")+'</button></th>'+
     '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)"></th>'+
     '<th></th>';
-  var revealBtn = '<button class="btn ghost small" onclick="togglePasswordsRevealAll()">'+(passwordsRevealAll?"🙈 隐藏密码":"👁 显示密码")+'</button>';
   return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字。",
-    revealBtn+'<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
+    '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
     backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
       : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
   );
