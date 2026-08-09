@@ -238,19 +238,22 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   box-shadow:var(--shadow); background:var(--surface); cursor:grab;
 }
 .asset-table-wrap.grabbing{cursor:grabbing;}
-.asset-table{border-collapse:collapse; width:max-content; min-width:100%; font-size:13px;}
+.asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px;}
 .asset-table th{
-  position:sticky; top:0; z-index:2; text-align:left; white-space:nowrap;
+  position:sticky; top:0; z-index:2; text-align:left; white-space:nowrap; overflow:hidden;
   padding:11px 16px; background:var(--surface-2); color:var(--text-dim);
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
-  border-bottom:1px solid var(--border);
+  border-bottom:1px solid var(--border); box-sizing:border-box;
 }
-.asset-table td{padding:11px 16px; white-space:nowrap; border-bottom:1px solid var(--border-soft); color:var(--text);}
+.asset-table td{padding:11px 16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--border-soft); color:var(--text); box-sizing:border-box;}
 .asset-table tr:last-child td{border-bottom:none;}
 .asset-table tr:hover td{background:var(--surface-2);}
 .asset-table td .row-actions{display:flex; gap:6px;}
-table.data{width:100%; border-collapse:collapse; font-size:13.5px;}
-table.data th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
+th.col-resizable{position:relative;}
+.col-resize-handle{position:absolute; top:0; right:-4px; width:8px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
+.col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
+table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
+table.data th{position:relative; text-align:left; white-space:nowrap; overflow:hidden; box-sizing:border-box; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
 table.data td{padding:13px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle;}
 table.data tr:last-child td{border-bottom:none}
 table.data tr:hover{background:var(--surface-2)}
@@ -765,7 +768,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"} },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{} },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -914,6 +917,8 @@ function normalizeData(d){
   d.settings.categoryViewMode = d.settings.categoryViewMode || "list";
   if(d.settings.familyShowSiblingLines===undefined) d.settings.familyShowSiblingLines = true;
   d.settings.passwordColumnLabels = d.settings.passwordColumnLabels || {username:"账号",password:"密码",note:"备注"};
+  d.settings.passwordColumnWidths = d.settings.passwordColumnWidths || {};
+  d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -4478,13 +4483,20 @@ function renderPasswords(){
   var colLabels = DATA.settings.passwordColumnLabels;
   /* "密码"这一列名字固定住，不给改；账号/备注还是可以改。显示/隐藏按钮就挂在"密码"这个字旁边，
      不要放去页面最上面的大标题栏——离密码列太远，一眼看不出是控制哪个的 */
-  var theadCells = '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)"></th>'+
-    '<th>密码 <button type="button" class="reveal-btn-header" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"🙈":"👁")+'</button></th>'+
-    '<th><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)"></th>'+
+  var pwColWidths = [
+    getPasswordColWidth("username")||140,
+    getPasswordColWidth("password")||150,
+    getPasswordColWidth("note")||180,
+    56
+  ];
+  var pwColgroupHtml = '<colgroup>'+pwColWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
+  var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)">'+colResizeHandle("password","","username")+'</th>'+
+    '<th class="col-resizable">密码 <button type="button" class="reveal-btn-header" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"🙈":"👁")+'</button>'+colResizeHandle("password","","password")+'</th>'+
+    '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)">'+colResizeHandle("password","","note")+'</th>'+
     '<th></th>';
-  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字。",
+  return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字，列头右边缘可以拖动调整列宽。",
     '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
-    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data"><thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
+    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data">'+pwColgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
       : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
   );
 }
@@ -4558,6 +4570,62 @@ window.assetBackToLocations = function(){ moduleCatView.assets_location = null; 
 window.assetEnterType = function(moduleId, key){ moduleCatView.assets_type = key; render(); };
 window.assetBackToTypes = function(){ moduleCatView.assets_type = null; render(); };
 
+/* 资产表格/密码表格列宽可拖拽调整，宽度存进 settings 里持久化，跟着这张表（资产按地点+类型区分，密码全局共用）走。
+   实际列宽用 <colgroup><col> 控制（比直接设 th 宽度在 table-layout:fixed 下更可靠），拖拽手柄挂在每个可调整的 th 右边缘。 */
+function getAssetColWidth(scope, label){
+  var m = (DATA.settings.assetColumnWidths||{})[scope];
+  return (m && m[label]) ? m[label] : null;
+}
+function getPasswordColWidth(label){
+  return (DATA.settings.passwordColumnWidths||{})[label] || null;
+}
+function colResizeHandle(kind, scope, label){
+  return '<span class="col-resize-handle" data-resize-kind="'+kind+'" data-resize-scope="'+esc(scope||"")+'" data-resize-label="'+esc(label)+'"></span>';
+}
+var colResizeState = null;
+document.addEventListener("mousedown", function(e){
+  var handle = e.target.closest ? e.target.closest(".col-resize-handle") : null;
+  if(!handle) return;
+  e.preventDefault();
+  var th = handle.closest("th");
+  var table = handle.closest("table");
+  var colgroup = table ? table.querySelector("colgroup") : null;
+  var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+  var col = colgroup ? colgroup.children[idx] : null;
+  var startWidth = (col && col.style.width) ? parseFloat(col.style.width) : th.getBoundingClientRect().width;
+  colResizeState = {
+    col: col, th: th, startX: e.clientX, startWidth: startWidth,
+    kind: handle.getAttribute("data-resize-kind"),
+    scope: handle.getAttribute("data-resize-scope"),
+    label: handle.getAttribute("data-resize-label")
+  };
+  handle.classList.add("active");
+  document.body.style.userSelect = "none";
+});
+document.addEventListener("mousemove", function(e){
+  if(!colResizeState) return;
+  var delta = e.clientX - colResizeState.startX;
+  var w = Math.max(50, colResizeState.startWidth + delta);
+  if(colResizeState.col) colResizeState.col.style.width = w+"px";
+  else colResizeState.th.style.width = w+"px";
+});
+document.addEventListener("mouseup", function(){
+  if(!colResizeState) return;
+  var w = colResizeState.col ? parseFloat(colResizeState.col.style.width) : parseFloat(colResizeState.th.style.width);
+  w = Math.round(w);
+  if(colResizeState.kind==="asset"){
+    DATA.settings.assetColumnWidths[colResizeState.scope] = DATA.settings.assetColumnWidths[colResizeState.scope] || {};
+    DATA.settings.assetColumnWidths[colResizeState.scope][colResizeState.label] = w;
+  }else if(colResizeState.kind==="password"){
+    DATA.settings.passwordColumnWidths[colResizeState.label] = w;
+  }
+  save();
+  var activeHandle = document.querySelector(".col-resize-handle.active");
+  if(activeHandle) activeHandle.classList.remove("active");
+  document.body.style.userSelect = "";
+  colResizeState = null;
+  render();
+});
 function renderAssets(){
   var locKey = moduleCatView.assets_location;
 
@@ -4590,8 +4658,12 @@ function renderAssets(){
       if(columns.indexOf(f.label)===-1){ columns.push(f.label); }
     });
   });
-  var theadCells = '<th>名称</th>'+columns.map(function(c){
-    return '<th><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"></th>';
+  var assetScopeKey = locKey+"::"+typeKey;
+  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 110;
+  var colWidths = [nameColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 140; })).concat([44]);
+  var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
+  var theadCells = '<th class="col-resizable">名称'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+columns.map(function(c){
+    return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)">'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
   }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
@@ -4603,7 +4675,7 @@ function renderAssets(){
       '<td class="row-actions"><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
     return '<tr>'+cells+'</tr>';
   }).join('');
-  var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table"><thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+  var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table">'+colgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
   return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，可左右拖动查看更多字段。",
     '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>',
     categoryBackBar("assets_type","assetBackToTypes()","资产信息 · 类型管理") +
