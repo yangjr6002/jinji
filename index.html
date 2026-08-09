@@ -4173,7 +4173,8 @@ function ssnRemarkPositionNear(box, anchorEl){
   var top = r.bottom + 6;
   if(top + br.height > window.innerHeight - 6){
     var above = r.top - br.height - 6;
-    top = above >= 6 ? above : Math.max(6, window.innerHeight - br.height - 6);
+    /* 上下都放不下时，贴着悬浮源本身摆（不再乱飘到屏幕别处），避免盖住上方的分类名/人物名这类标题文字 */
+    top = above >= 6 ? above : Math.max(r.top, 6);
   }
   box.style.left = left+"px";
   box.style.top = top+"px";
@@ -5214,7 +5215,8 @@ function idNotePositionNear(box, anchorEl){
   var top = r.bottom + 6;
   if(top + br.height > window.innerHeight - 6){
     var above = r.top - br.height - 6;
-    top = above >= 6 ? above : Math.max(6, window.innerHeight - br.height - 6);
+    /* 上下都放不下时，贴着悬浮源本身摆（不再乱飘到屏幕别处），避免盖住上方的分类名/人物名这类标题文字 */
+    top = above >= 6 ? above : Math.max(r.top, 6);
   }
   box.style.left = left+"px";
   box.style.top = top+"px";
