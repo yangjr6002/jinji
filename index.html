@@ -304,6 +304,24 @@ table.data tr:hover{background:var(--surface-2)}
 }
 .upload-tile:hover{border-color:var(--text-faint); color:var(--text)}
 .upload-tile input{display:none}
+/* 证件照管理：官方证件/普通证件照 */
+.idph-branch-grid{display:flex; gap:16px; flex-wrap:wrap;}
+.idph-branch-card{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:26px 22px; width:180px; text-align:center; cursor:pointer; transition:transform .12s, box-shadow .12s;}
+.idph-branch-card:hover{transform:translateY(-2px); box-shadow:var(--shadow-lg);}
+.idph-branch-icon{font-size:34px; margin-bottom:8px;}
+.idph-branch-card h3{font-size:14px; margin:0 0 4px; color:var(--text);}
+.idph-branch-card .sub{font-size:11.5px; color:var(--text-dim);}
+.idph-thumb-wrap{cursor:pointer;}
+.idph-foot{display:flex; align-items:center; gap:6px; padding:8px 10px;}
+.idph-year-input{flex:1; min-width:0; box-sizing:border-box; border:1px solid var(--border); border-radius:6px; padding:4px 7px; font-size:12px; color:var(--text); background:var(--surface); font-family:inherit;}
+.idph-year-input:focus{outline:none; border-color:var(--accent);}
+.idph-detail-grid{display:flex; gap:20px; flex-wrap:wrap; margin-top:14px;}
+.idph-detail-side{flex:1; min-width:200px; max-width:320px;}
+.idph-detail-label{font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:8px;}
+.idph-detail-img{width:100%; border-radius:10px; border:1px solid var(--border); display:block; background:var(--surface-2);}
+.idph-detail-actions{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+.idph-variant-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-top:16px;}
+.idph-variant-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px;}
 
 /* timeline (life experience) */
 .tl-filter-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;}
@@ -726,6 +744,7 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="toast" id="toast"></div>
 <div class="tl-tooltip" id="tlTooltip"></div>
 <div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
+<div class="ssn-remark-float" id="idNoteFloat" style="display:none;"></div>
 
 <script>
 /* ================= 数据层 ================= */
@@ -792,6 +811,9 @@ var DEFAULT_DATA = {
     {id:"i1", label:"身份证 · 正面", dataUrl:""},
     {id:"i2", label:"护照", dataUrl:""}
   ],
+  idPeople:[{id:"me", name:"我"}],
+  idOfficialDocs:[],
+  idRegularPhotos:[],
   albumPhotos:[
     {id:"al1", album:"2025 云南", caption:"洱海边", dataUrl:""},
     {id:"al2", album:"2025 云南", caption:"苍山日出", dataUrl:""},
@@ -974,6 +996,9 @@ function normalizeData(d){
   d.profile = d.profile || {name:"", avatarUrl:""};
   d.passwords = d.passwords || [];
   d.idPhotos = d.idPhotos || [];
+  d.idPeople = d.idPeople || [];
+  d.idOfficialDocs = d.idOfficialDocs || [];
+  d.idRegularPhotos = d.idRegularPhotos || [];
   d.albumPhotos = d.albumPhotos || [];
   d.contacts = d.contacts || [];
   return d;
@@ -1168,7 +1193,7 @@ var MODULES = [
   {id:"basicinfo", icon:"👤", label:"基本信息", desc:"姓名、生日等身份信息", sensitive:true, count:function(){return (DATA.basicInfo||[]).length;}},
   {id:"passwords", icon:"🔐", label:"密码管理", desc:"网站账号密码", sensitive:true, count:function(){return DATA.passwords.length;}},
   {id:"assets", icon:"💳", label:"资产信息", desc:"银行卡账户", sensitive:true, count:function(){return DATA.assets.length;}},
-  {id:"idphotos", icon:"🪪", label:"证件照管理", desc:"证件照片备份", sensitive:true, count:function(){return DATA.idPhotos.length;}},
+  {id:"idphotos", icon:"🪪", label:"证件照管理", desc:"证件照片备份", sensitive:true, count:function(){return (DATA.idOfficialDocs||[]).length + (DATA.idRegularPhotos||[]).length;}},
   {id:"album", icon:"📷", label:"相册管理", desc:"生活照片回忆", count:function(){return DATA.albumPhotos.length;}},
   {id:"contacts", icon:"👥", label:"人物关系", desc:"联系人与备注", count:function(){return DATA.contacts.length;}}
 ];
@@ -1205,7 +1230,7 @@ function render(){
   else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); setupFamilyGraph(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
   else if(VIEW==="assets"){ app.innerHTML = renderAssets(); setupDragScroll("assetTableScroll"); }
-  else if(VIEW==="idphotos") app.innerHTML = renderPhotoModule("idphotos","idPhotos","🪪","idphotos","身份证、护照、驾照等证件照片，仅保存在本机浏览器。","label");
+  else if(VIEW==="idphotos") app.innerHTML = renderIdPhotosModule();
   else if(VIEW==="album") app.innerHTML = renderPhotoModule("album","albumPhotos","📷","album","按相册整理的生活瞬间。","caption","album");
   else if(VIEW==="contacts") app.innerHTML = renderContacts();
   else if(DATA.customBoards && DATA.customBoards.some(function(b){return b.id===VIEW;})) app.innerHTML = renderCustomBoardPage(VIEW);
@@ -4769,6 +4794,383 @@ function renderAssetDetailPage(id){
 }
 
 /* ================= 证件照 / 相册（共用） ================= */
+/* ================= 证件照管理：官方证件 / 普通证件照，各自 人物 → 分类/直接列表 → 具体图片 三四层 =================
+   官方证件：人物 → 证件分类（图标网格，自定义） → 该分类下的证件（正反面两张原图，按时间新到旧） → 详情页下载正反面原图
+   普通证件照：人物 → 证件照列表（按时间新到旧） → 详情页管理这张照片的各个尺寸文件，各自下载原图
+   两边共用同一份"人物"列表；图片一律用 FileReader 读原始文件存成 dataURL，不经过 canvas 缩放/压缩，上传下载都是原始字节。 */
+function renderIdPhotosModule(){
+  var branch = moduleCatView.idphotos_branch;
+  if(!branch){
+    return moduleShell("idphotos","🪪","idphotos","身份证、护照等官方证件，和日常用的证件照分开管理。","",
+      '<div class="idph-branch-grid">'+
+        '<div class="idph-branch-card" onclick="idPhotosEnterBranch(\'official\')"><div class="idph-branch-icon">🪪</div><h3>官方证件</h3><div class="sub">身份证、护照、驾照…</div></div>'+
+        '<div class="idph-branch-card" onclick="idPhotosEnterBranch(\'regular\')"><div class="idph-branch-icon">📸</div><h3>普通证件照</h3><div class="sub">1寸/2寸等日常证件照片</div></div>'+
+      '</div>'
+    );
+  }
+  var personId = moduleCatView.idphotos_person;
+  if(personId===null || personId===undefined){
+    return moduleShell("idphotos", branch==="official"?"🪪":"📸", "idphotos",
+      (branch==="official"?"官方证件":"普通证件照")+" · 选择人物，人物可以自己增加、改名。","",
+      '<div class="cat-back-bar"><button class="btn ghost small" onclick="idPhotosBackToBranches()">‹ 返回</button></div>'+
+      renderIdPeopleList(branch)
+    );
+  }
+  var person = (DATA.idPeople||[]).filter(function(p){return p.id===personId;})[0];
+  if(!person){ moduleCatView.idphotos_person=null; return renderIdPhotosModule(); }
+
+  if(branch==="official"){
+    var catKey = moduleCatView.idofficial;
+    if(catKey===null || catKey===undefined){
+      return moduleShell("idphotos","🪪","idphotos","官方证件 · "+esc(person.name)+"，选择证件分类，分类可以自己增加。","",
+        '<div class="cat-back-bar"><button class="btn ghost small" onclick="idPhotosBackToPeople()">‹ 返回</button><span class="cat-back-label">'+esc(person.name)+'</span></div>'+
+        renderIdOfficialCategoryGrid(personId)
+      );
+    }
+    if(moduleCatView.idphotos_doc){
+      return renderIdOfficialDocDetail(moduleCatView.idphotos_doc);
+    }
+    return renderIdOfficialDocList(personId, catKey);
+  }else{
+    if(moduleCatView.idphotos_photo){
+      return renderIdRegularPhotoDetail(moduleCatView.idphotos_photo);
+    }
+    return renderIdRegularPhotoList(personId);
+  }
+}
+window.idPhotosEnterBranch = function(branch){
+  moduleCatView.idphotos_branch = branch; moduleCatView.idphotos_person = null;
+  moduleCatView.idofficial = null; moduleCatView.idphotos_doc = null; moduleCatView.idphotos_photo = null;
+  render();
+};
+window.idPhotosBackToBranches = function(){
+  moduleCatView.idphotos_branch = null; moduleCatView.idphotos_person = null;
+  moduleCatView.idofficial = null; moduleCatView.idphotos_doc = null; moduleCatView.idphotos_photo = null;
+  render();
+};
+window.idPhotosEnterPerson = function(personId){
+  moduleCatView.idphotos_person = personId;
+  moduleCatView.idofficial = null; moduleCatView.idphotos_doc = null; moduleCatView.idphotos_photo = null;
+  render();
+};
+window.idPhotosBackToPeople = function(){
+  moduleCatView.idphotos_person = null;
+  moduleCatView.idofficial = null; moduleCatView.idphotos_doc = null; moduleCatView.idphotos_photo = null;
+  render();
+};
+window.idOfficialExitCategory = function(){
+  moduleCatView.idphotos_doc = null;
+  exitModuleCategory("idofficial");
+};
+window.idOfficialOpenDoc = function(id){ moduleCatView.idphotos_doc = id; render(); };
+window.idOfficialCloseDoc = function(){ moduleCatView.idphotos_doc = null; render(); };
+window.idRegularOpenPhoto = function(id){ moduleCatView.idphotos_photo = id; render(); };
+window.idRegularClosePhoto = function(){ moduleCatView.idphotos_photo = null; render(); };
+
+function renderIdPeopleList(branch){
+  var people = DATA.idPeople||[];
+  var rows = people.map(function(p){
+    return '<div class="cat-folder-row">'+
+      '<input type="text" class="cat-name-input" style="flex:1" value="'+esc(p.name)+'" onchange="renameIdPerson(\''+p.id+'\',this.value)" onclick="event.stopPropagation()">'+
+      '<span class="cflabel" style="cursor:pointer;flex:none;padding:0 10px" onclick="idPhotosEnterPerson(\''+p.id+'\')">进入 ›</span>'+
+      '<button class="btn small danger" onclick="event.stopPropagation();deleteIdPerson(\''+p.id+'\')">删除</button>'+
+    '</div>';
+  }).join('');
+  var addRow = '<div class="book-toc-add">'+
+    '<input type="text" id="newIdPersonName" placeholder="姓名，比如「我」「爸」「妈」" onkeydown="if(event.key===\'Enter\'){addIdPerson();}">'+
+    '<button type="button" class="btn small ghost" onclick="addIdPerson()">+ 添加人物</button>'+
+  '</div>';
+  return (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🧑","还没有添加人物","在下面添加一个")) + addRow;
+}
+window.addIdPerson = function(){
+  var input = document.getElementById("newIdPersonName");
+  var value = (input.value||"").trim();
+  if(!value) return;
+  DATA.idPeople = DATA.idPeople || [];
+  DATA.idPeople.push({id:uid(), name:value});
+  save(); render();
+};
+window.renameIdPerson = function(id, value){
+  value = (value||"").trim();
+  var p = (DATA.idPeople||[]).filter(function(x){return x.id===id;})[0];
+  if(p && value){ p.name = value; save(); }
+  render();
+};
+window.deleteIdPerson = function(id){
+  confirmDelete("确定删除这个人吗？TA名下的官方证件和证件照也会一起删除，不能撤销。", function(){
+    DATA.idPeople = (DATA.idPeople||[]).filter(function(x){return x.id!==id;});
+    DATA.idOfficialDocs = (DATA.idOfficialDocs||[]).filter(function(x){return x.personId!==id;});
+    DATA.idRegularPhotos = (DATA.idRegularPhotos||[]).filter(function(x){return x.personId!==id;});
+    if(moduleCatView.idphotos_person===id) moduleCatView.idphotos_person=null;
+    save(); render(); toast("已删除");
+  });
+};
+
+var ID_OFFICIAL_CAT_ICONS = {"身份证":"🪪","护照":"📔","驾照":"🚗","户口本":"📕","港澳通行证":"🛂","台湾通行证":"🛂","军官证":"🎖️","学生证":"🎓","社保卡":"💳"};
+function idOfficialCatIcon(label){ return ID_OFFICIAL_CAT_ICONS[label] || "📁"; }
+function renderIdOfficialCategoryGrid(personId){
+  var cats = getModuleCategories("idofficial");
+  var docs = (DATA.idOfficialDocs||[]).filter(function(d){return d.personId===personId;});
+  var counts = {};
+  docs.forEach(function(d){ var k=d.categoryKey||""; counts[k]=(counts[k]||0)+1; });
+  var cards = cats.map(function(c){
+    return '<div class="folder" onclick="enterModuleCategory(\'idofficial\',\''+c.key+'\')">'+
+      '<div class="ftop"><span class="ficon">'+idOfficialCatIcon(c.label)+'</span><span class="count">'+(counts[c.key]||0)+'</span></div>'+
+      '<h3>'+esc(c.label)+'</h3></div>';
+  }).join('');
+  var addRow = '<div class="book-toc-add">'+
+    '<input type="text" id="newIdOfficialCatName" placeholder="新证件分类，比如「护照」" onkeydown="if(event.key===\'Enter\'){addIdOfficialCategoryInline();}">'+
+    '<button type="button" class="btn small ghost" onclick="addIdOfficialCategoryInline()">+ 添加分类</button>'+
+  '</div>';
+  return '<div class="section-header-row"><div class="section-label">证件分类</div><button class="gear-btn" onclick="manageModuleCategories(\'idofficial\',\'官方证件 · 分类管理\')" title="管理分类">⚙</button></div>'+
+    (cards ? ('<div class="tab-grid">'+cards+'</div>') : emptyState("🪪","还没有证件分类","在下面添加一个")) + addRow;
+}
+window.addIdOfficialCategoryInline = function(){
+  var input = document.getElementById("newIdOfficialCatName");
+  var value = (input.value||"").trim();
+  if(!value) return;
+  DATA.moduleCategories.idofficial = DATA.moduleCategories.idofficial || [];
+  DATA.moduleCategories.idofficial.push({key:uid(), label:value});
+  save(); render();
+};
+
+function renderIdOfficialDocList(personId, catKey){
+  var cats = getModuleCategories("idofficial");
+  var cur = cats.filter(function(c){return c.key===catKey;})[0];
+  var label = cur ? cur.label : uncategorizedLabel("idofficial");
+  var docs = (DATA.idOfficialDocs||[]).filter(function(d){return d.personId===personId && (d.categoryKey||"")===catKey;})
+    .sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
+  var cards = docs.map(function(d){
+    return '<div class="photo-card idph-card">'+
+      '<div class="idph-thumb-wrap" data-idnote-kind="official" data-idnote-id="'+d.id+'" onclick="idOfficialOpenDoc(\''+d.id+'\')">'+
+        (d.frontDataUrl ? '<img class="thumb" src="'+d.frontDataUrl+'">' : '<div class="thumb placeholder">🪪</div>')+
+      '</div>'+
+      '<div class="idph-foot">'+
+        '<input type="text" class="idph-year-input" value="'+esc(d.year||"")+'" placeholder="年份" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)">'+
+        '<button class="btn small danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')">✕</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idOfficialExitCategory()">‹ 返回</button><span class="cat-back-label">'+esc(label)+'</span></div>';
+  return moduleShell("idphotos","🪪","idphotos","官方证件 · "+esc(label)+"，按上传时间从新到旧排列，图片上悬浮可以看/编辑证件信息。",
+    '<button class="btn solid" onclick="createIdOfficialDoc(\''+personId+'\',\''+catKey+'\')">+ 新增证件</button>',
+    backBar + (docs.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("🪪","这里还没有证件","点击右上角「新增证件」添加"))
+  );
+}
+window.createIdOfficialDoc = function(personId, catKey){
+  var id = uid();
+  DATA.idOfficialDocs = DATA.idOfficialDocs || [];
+  DATA.idOfficialDocs.push({id:id, personId:personId, categoryKey:catKey||"", year:"", note:"", frontDataUrl:"", backDataUrl:"", createdAt:new Date().toISOString()});
+  save();
+  moduleCatView.idphotos_doc = id;
+  render();
+};
+window.updateIdOfficialDocField = function(id, key, value){
+  var d = (DATA.idOfficialDocs||[]).filter(function(x){return x.id===id;})[0]; if(!d) return;
+  d[key] = value; save(); render();
+};
+window.deleteIdOfficialDoc = function(id){
+  confirmDelete("确定删除这条证件记录吗？", function(){
+    DATA.idOfficialDocs = (DATA.idOfficialDocs||[]).filter(function(x){return x.id!==id;});
+    if(moduleCatView.idphotos_doc===id) moduleCatView.idphotos_doc=null;
+    save(); render(); toast("已删除");
+  });
+};
+function renderIdOfficialDocDetail(docId){
+  var d = (DATA.idOfficialDocs||[]).filter(function(x){return x.id===docId;})[0];
+  if(!d){ moduleCatView.idphotos_doc=null; return renderIdPhotosModule(); }
+  var cats = getModuleCategories("idofficial");
+  var cat = cats.filter(function(c){return c.key===d.categoryKey;})[0];
+  var catLabel = cat ? cat.label : uncategorizedLabel("idofficial");
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idOfficialCloseDoc()">‹ 返回</button><span class="cat-back-label">'+esc(catLabel)+'</span></div>';
+  function sideBlock(sideKey, sideLabel){
+    var url = d[sideKey];
+    return '<div class="idph-detail-side">'+
+      '<div class="idph-detail-label">'+sideLabel+'</div>'+
+      (url ?
+        ('<img class="idph-detail-img" src="'+url+'">'+
+        '<div class="idph-detail-actions">'+
+          '<a class="btn small ghost" style="text-decoration:none;display:inline-block" href="'+url+'" download="'+esc(catLabel+"_"+sideLabel+"_"+(d.year||""))+'">⬇ 下载原图</a>'+
+          '<label class="btn small ghost" style="display:inline-block">重新上传<input type="file" accept="image/*" style="display:none" onchange="uploadIdOfficialSide(this,\''+d.id+'\',\''+sideKey+'\')"></label>'+
+        '</div>')
+      : ('<label class="upload-tile" style="height:160px">📤 上传'+sideLabel+'<input type="file" accept="image/*" onchange="uploadIdOfficialSide(this,\''+d.id+'\',\''+sideKey+'\')"></label>'))+
+    '</div>';
+  }
+  return '<div class="module-head"><div><h2>🪪 '+esc(catLabel)+' · '+esc(d.year||"未填年份")+'</h2><div class="sub">正反面全景图，点「下载原图」拿到没有压缩过的原始文件。</div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')">删除</button></div></div>'+
+    backBar+
+    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
+    '<div class="idph-detail-grid">'+sideBlock("frontDataUrl","正面")+sideBlock("backDataUrl","反面")+'</div>';
+}
+window.uploadIdOfficialSide = function(input, docId, sideKey){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var d = (DATA.idOfficialDocs||[]).filter(function(x){return x.id===docId;})[0]; if(!d) return;
+    d[sideKey] = e.target.result;
+    try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); d[sideKey]=""; return; }
+    render(); toast("已上传");
+  };
+  reader.readAsDataURL(file);
+};
+
+function renderIdRegularPhotoList(personId){
+  var person = (DATA.idPeople||[]).filter(function(p){return p.id===personId;})[0];
+  var photos = (DATA.idRegularPhotos||[]).filter(function(p){return p.personId===personId;})
+    .sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
+  var cards = photos.map(function(p){
+    var cover = (p.variants&&p.variants[0]) ? p.variants[0].dataUrl : "";
+    return '<div class="photo-card idph-card">'+
+      '<div class="idph-thumb-wrap" data-idnote-kind="regular" data-idnote-id="'+p.id+'" onclick="idRegularOpenPhoto(\''+p.id+'\')">'+
+        (cover ? '<img class="thumb" src="'+cover+'">' : '<div class="thumb placeholder">📸</div>')+
+      '</div>'+
+      '<div class="idph-foot">'+
+        '<input type="text" class="idph-year-input" value="'+esc(p.year||"")+'" placeholder="年份" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)">'+
+        '<button class="btn small danger" onclick="deleteIdRegularPhoto(\''+p.id+'\')">✕</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idPhotosBackToPeople()">‹ 返回</button><span class="cat-back-label">'+esc(person?person.name:"")+'</span></div>';
+  return moduleShell("idphotos","📸","idphotos","普通证件照 · "+esc(person?person.name:"")+"，按上传时间从新到旧排列，图片上悬浮可以看/编辑证件信息。",
+    '<button class="btn solid" onclick="createIdRegularPhoto(\''+personId+'\')">+ 新增证件照</button>',
+    backBar + (photos.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("📸","这里还没有证件照","点击右上角「新增证件照」添加"))
+  );
+}
+window.createIdRegularPhoto = function(personId){
+  var id = uid();
+  DATA.idRegularPhotos = DATA.idRegularPhotos || [];
+  DATA.idRegularPhotos.push({id:id, personId:personId, year:"", note:"", createdAt:new Date().toISOString(), variants:[]});
+  save();
+  moduleCatView.idphotos_photo = id;
+  render();
+};
+window.updateIdRegularPhotoField = function(id, key, value){
+  var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
+  p[key] = value; save(); render();
+};
+window.deleteIdRegularPhoto = function(id){
+  confirmDelete("确定删除这条证件照记录吗？", function(){
+    DATA.idRegularPhotos = (DATA.idRegularPhotos||[]).filter(function(x){return x.id!==id;});
+    if(moduleCatView.idphotos_photo===id) moduleCatView.idphotos_photo=null;
+    save(); render(); toast("已删除");
+  });
+};
+function renderIdRegularPhotoDetail(photoId){
+  var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0];
+  if(!p){ moduleCatView.idphotos_photo=null; return renderIdPhotosModule(); }
+  var person = (DATA.idPeople||[]).filter(function(x){return x.id===p.personId;})[0];
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idRegularClosePhoto()">‹ 返回</button><span class="cat-back-label">'+esc(person?person.name:"")+'</span></div>';
+  var variants = p.variants||[];
+  var cards = variants.map(function(v){
+    return '<div class="idph-variant-card">'+
+      (v.dataUrl ? '<img class="idph-detail-img" src="'+v.dataUrl+'">' : '<div class="thumb placeholder">📸</div>')+
+      '<input type="text" class="idph-year-input" value="'+esc(v.label||"")+'" placeholder="尺寸，比如「1寸」" onchange="updateIdRegularVariantLabel(\''+p.id+'\',\''+v.id+'\',this.value)">'+
+      (v.dataUrl ? ('<div class="idph-detail-actions"><a class="btn small ghost" style="text-decoration:none;display:inline-block" href="'+v.dataUrl+'" download="'+esc((person?person.name:"")+"_"+(v.label||"证件照"))+'">⬇ 下载原图</a><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')">删除</button></div>')
+        : ('<div class="idph-detail-actions"><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')">删除</button></div>'))+
+    '</div>';
+  }).join('');
+  var uploadTile = '<div class="idph-variant-card"><label class="upload-tile" style="height:140px">📤 上传新尺寸<input type="file" accept="image/*" onchange="uploadIdRegularVariant(this,\''+p.id+'\')"></label></div>';
+  return '<div class="module-head"><div><h2>📸 '+esc(person?person.name:"")+' · '+esc(p.year||"未填年份")+'</h2><div class="sub">同一张证件照的不同尺寸文件，各自下载原图（不压缩、不改变实际尺寸）。</div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deleteIdRegularPhoto(\''+p.id+'\')">删除整条记录</button></div></div>'+
+    backBar+
+    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(p.year||"")+'" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)"></div>'+
+    '<div class="idph-variant-grid">'+cards+uploadTile+'</div>';
+}
+window.uploadIdRegularVariant = function(input, photoId){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
+    p.variants = p.variants || [];
+    p.variants.push({id:uid(), label:"", dataUrl:e.target.result});
+    try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); p.variants.pop(); return; }
+    render(); toast("已上传");
+  };
+  reader.readAsDataURL(file);
+};
+window.updateIdRegularVariantLabel = function(photoId, variantId, value){
+  var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
+  var v = (p.variants||[]).filter(function(x){return x.id===variantId;})[0]; if(!v) return;
+  v.label = value; save(); render();
+};
+window.deleteIdRegularVariant = function(photoId, variantId){
+  var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
+  p.variants = (p.variants||[]).filter(function(x){return x.id!==variantId;});
+  save(); render();
+};
+
+/* 证件缩略图上悬浮的可编辑备注（证件号、有效期之类），跟碎碎念子主题、家庭关系那两处悬浮便签同一套样式和交互 */
+var idNoteHideTimer = null;
+function idNoteClearHide(){ clearTimeout(idNoteHideTimer); }
+function idNoteScheduleHide(){
+  var box = document.getElementById("idNoteFloat");
+  if(box && box.querySelector(".ssn-remark-edit-pop")) return;
+  clearTimeout(idNoteHideTimer);
+  idNoteHideTimer = setTimeout(function(){ if(box){ box.style.display="none"; } }, 200);
+}
+function idNoteRecord(kind, id){
+  var list = kind==="official" ? (DATA.idOfficialDocs||[]) : (DATA.idRegularPhotos||[]);
+  return list.filter(function(x){return x.id===id;})[0];
+}
+function idNotePositionNear(box, anchorEl){
+  var r = anchorEl.getBoundingClientRect();
+  var br = box.getBoundingClientRect();
+  var left = r.left;
+  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
+  if(left < 6) left = 6;
+  var top = r.bottom + 6;
+  if(top + br.height > window.innerHeight - 6){
+    var above = r.top - br.height - 6;
+    top = above >= 6 ? above : Math.max(6, window.innerHeight - br.height - 6);
+  }
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+}
+window.idNoteShow = function(kind, id, anchorEl){
+  idNoteClearHide();
+  var box = document.getElementById("idNoteFloat");
+  var rec = idNoteRecord(kind, id);
+  if(!box || !rec) return;
+  var hasNote = !!(rec.note && rec.note.trim());
+  box.innerHTML = '<div class="ssn-remark-view'+(hasNote?'':' placeholder')+'">'+(hasNote?esc(rec.note):"点击添加证件信息备注")+'</div>';
+  box.style.display = "block";
+  idNotePositionNear(box, anchorEl);
+  box.querySelector(".ssn-remark-view").onclick = function(){ idNoteEdit(kind, id, anchorEl); };
+};
+window.idNoteEdit = function(kind, id, anchorEl){
+  idNoteClearHide();
+  var box = document.getElementById("idNoteFloat");
+  var rec = idNoteRecord(kind, id);
+  if(!box || !rec) return;
+  box.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="编辑证件信息，比如证件号、有效期…"></textarea>';
+  var ta = box.querySelector("textarea");
+  ta.value = rec.note||"";
+  box.style.display = "block";
+  idNotePositionNear(box, anchorEl);
+  ta.focus();
+  ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
+  ta.addEventListener("blur", function(){
+    var v = (ta.value||"").trim();
+    if(rec.note!==v){ rec.note = v; save(); }
+    box.style.display = "none";
+  });
+};
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest("[data-idnote-kind]") : null;
+  if(el) idNoteShow(el.getAttribute("data-idnote-kind"), el.getAttribute("data-idnote-id"), el);
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest("[data-idnote-kind]") : null;
+  if(el) idNoteScheduleHide();
+});
+(function(){
+  var box = document.getElementById("idNoteFloat");
+  if(box){
+    box.addEventListener("mouseenter", idNoteClearHide);
+    box.addEventListener("mouseleave", idNoteScheduleHide);
+  }
+})();
+
 function renderPhotoModule(viewId, dataKey, icon, key, sub, captionField, albumField){
   var list = DATA[dataKey];
   var groups = {};
