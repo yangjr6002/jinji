@@ -250,7 +250,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table tr:hover td{background:var(--surface-2);}
 .asset-table td .row-actions{display:flex; gap:6px;}
 th.col-resizable{position:relative;}
-.col-resize-handle{position:absolute; top:0; right:-4px; width:8px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
+.col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
 table.data th{position:relative; text-align:left; white-space:nowrap; overflow:hidden; box-sizing:border-box; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
@@ -768,7 +768,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{} },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{}, assetTitleColumnLabel:"名称" },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -919,6 +919,7 @@ function normalizeData(d){
   d.settings.passwordColumnLabels = d.settings.passwordColumnLabels || {username:"账号",password:"密码",note:"备注"};
   d.settings.passwordColumnWidths = d.settings.passwordColumnWidths || {};
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
+  d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "名称";
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -4662,7 +4663,7 @@ function renderAssets(){
   var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 110;
   var colWidths = [nameColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 140; })).concat([44]);
   var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
-  var theadCells = '<th class="col-resizable">名称'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+columns.map(function(c){
+  var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+columns.map(function(c){
     return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)">'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
   }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
@@ -4706,6 +4707,13 @@ window.renameAssetColumn = function(oldLabel, newLabel){
     if((a.location||"")!==locKey || (a.assetType||"")!==typeKey) return;
     (a.fields||[]).forEach(function(f){ if(f.label===oldLabel) f.label = newLabel; });
   });
+  save(); render();
+};
+/* "名称"这一列是资产的固定字段（不是动态字段），所有地点/类型的表共用同一个列头名字，跟密码管理那三个固定列同一个思路 */
+window.renameAssetTitleColumn = function(newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel){ render(); return; }
+  DATA.settings.assetTitleColumnLabel = newLabel;
   save(); render();
 };
 /* 加一列空字段：给当前表里每一行都挂一个空标签的字段，表头会多出一个可以直接输入名字的输入框。
@@ -4753,7 +4761,7 @@ function renderAssetDetailPage(id){
   return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
-      '<tr><th>名称</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
+      '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
       '<tr><th>类型</th><td>'+esc(typeLabel)+'</td></tr>'+
       fieldRows+
