@@ -466,6 +466,7 @@ table.data tr:hover{background:var(--surface-2)}
   background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
   padding:7px 9px; font-size:11px; line-height:1.6; white-space:normal; width:max-content; max-width:220px;
   box-shadow:var(--shadow-lg); z-index:500; text-align:left; font-weight:400;
+  cursor:text; user-select:text;
 }
 .tl-tip-row b{color:#8a7420; font-weight:600;}
 .hz-year-branches{
@@ -2597,10 +2598,20 @@ function keywordWithTip(text, t){
     }).join('');
   return '<span class="tl-tip-wrap has-tip" data-tip="'+esc(tipHtml)+'">'+esc(text)+'</span>';
 }
-/* 悬浮提示统一挂在 body 上用 position:fixed 显示，不受时间轴滚动容器裁剪影响 */
+/* 悬浮提示统一挂在 body 上用 position:fixed 显示，不受时间轴滚动容器裁剪影响。
+   鼠标离开源头后不立刻收起，留一点缓冲时间让鼠标能移进提示框本身；移进提示框里就一直留着，方便选中里面的文字复制。 */
+var tlTooltipHideTimer = null;
+function scheduleTlTooltipHide(){
+  clearTimeout(tlTooltipHideTimer);
+  tlTooltipHideTimer = setTimeout(function(){
+    var tip = document.getElementById("tlTooltip");
+    if(tip) tip.style.display = "none";
+  }, 250);
+}
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".tl-tip-wrap.has-tip") : null;
   if(!el) return;
+  clearTimeout(tlTooltipHideTimer);
   var tip = document.getElementById("tlTooltip");
   if(!tip) return;
   tip.innerHTML = el.getAttribute("data-tip")||"";
@@ -2617,9 +2628,15 @@ document.addEventListener("mouseout", function(e){
   var el = e.target.closest ? e.target.closest(".tl-tip-wrap.has-tip") : null;
   if(!el) return;
   if(e.relatedTarget && el.contains(e.relatedTarget)) return;
-  var tip = document.getElementById("tlTooltip");
-  if(tip) tip.style.display = "none";
+  scheduleTlTooltipHide();
 });
+(function(){
+  var tip = document.getElementById("tlTooltip");
+  if(tip){
+    tip.addEventListener("mouseenter", function(){ clearTimeout(tlTooltipHideTimer); });
+    tip.addEventListener("mouseleave", scheduleTlTooltipHide);
+  }
+})();
 window.setTimelineFilter = function(key){
   timelineFilter = key; render();
 };
