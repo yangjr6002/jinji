@@ -322,6 +322,11 @@ table.data tr:hover{background:var(--surface-2)}
 .idph-detail-actions{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
 .idph-variant-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-top:16px;}
 .idph-variant-card{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:8px;}
+.idph-fields{margin-top:20px; max-width:480px;}
+.idph-fields-label{font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:8px;}
+.idph-field-row{display:flex; gap:8px; margin-bottom:8px;}
+.idph-field-label{flex:none; width:120px;}
+.idph-field-value{flex:1; min-width:0;}
 
 /* timeline (life experience) */
 .tl-filter-row{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px;}
@@ -744,8 +749,6 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="toast" id="toast"></div>
 <div class="tl-tooltip" id="tlTooltip"></div>
 <div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
-<div class="ssn-remark-float" id="idNoteFloat" style="display:none;"></div>
-
 <script>
 /* ================= 数据层 ================= */
 /* 单页应用的本机持久化键。备份/恢复用于跨浏览器或清理缓存时迁移数据。 */
@@ -1000,9 +1003,9 @@ function normalizeData(d){
   d.idPeople = d.idPeople || [];
   d.idBranches = (d.idBranches && d.idBranches.length) ? d.idBranches : [{id:"official", name:"官方证件", kind:"official"},{id:"regular", name:"普通证件照", kind:"regular"}];
   d.idOfficialDocs = d.idOfficialDocs || [];
-  d.idOfficialDocs.forEach(function(x){ if(!x.branchId) x.branchId = "official"; });
+  d.idOfficialDocs.forEach(function(x){ if(!x.branchId) x.branchId = "official"; x.fields = x.fields || []; });
   d.idRegularPhotos = d.idRegularPhotos || [];
-  d.idRegularPhotos.forEach(function(x){ if(!x.branchId) x.branchId = "regular"; });
+  d.idRegularPhotos.forEach(function(x){ if(!x.branchId) x.branchId = "regular"; x.fields = x.fields || []; });
   if(d.moduleCategories.idofficial && !d.moduleCategories.idofficial_official){
     d.moduleCategories.idofficial_official = d.moduleCategories.idofficial;
     delete d.moduleCategories.idofficial;
@@ -5035,7 +5038,7 @@ function renderIdOfficialDocList(branch,personId, catKey){
     .sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); });
   var cards = docs.map(function(d){
     return '<div class="photo-card idph-card">'+
-      '<div class="idph-thumb-wrap" data-idnote-kind="official" data-idnote-id="'+d.id+'" onclick="idOfficialOpenDoc(\''+d.id+'\')">'+
+      '<div class="idph-thumb-wrap tl-tip-wrap has-tip" data-tip="'+esc(idDocTipHtml(d))+'" onclick="idOfficialOpenDoc(\''+d.id+'\')">'+
         (d.frontDataUrl ? '<img class="thumb" src="'+d.frontDataUrl+'">' : '<div class="thumb placeholder">🪪</div>')+
       '</div>'+
       '<div class="idph-foot">'+
@@ -5053,7 +5056,7 @@ function renderIdOfficialDocList(branch,personId, catKey){
 window.createIdOfficialDoc = function(branchId,personId, catKey){
   var id = uid();
   DATA.idOfficialDocs = DATA.idOfficialDocs || [];
-  DATA.idOfficialDocs.push({id:id, branchId:branchId, personId:personId, categoryKey:catKey||"", year:"", note:"", frontDataUrl:"", backDataUrl:"", createdAt:new Date().toISOString()});
+  DATA.idOfficialDocs.push({id:id, branchId:branchId, personId:personId, categoryKey:catKey||"", year:"", fields:[], frontDataUrl:"", backDataUrl:"", createdAt:new Date().toISOString()});
   save();
   moduleCatView.idphotos_doc = id;
   render();
@@ -5094,7 +5097,8 @@ function renderIdOfficialDocDetail(docId){
     '<div class="row-actions"><button class="btn danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')">删除</button></div></div>'+
     backBar+
     '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
-    '<div class="idph-detail-grid">'+sideBlock("frontDataUrl","正面")+sideBlock("backDataUrl","反面")+'</div>';
+    '<div class="idph-detail-grid">'+sideBlock("frontDataUrl","正面")+sideBlock("backDataUrl","反面")+'</div>'+
+    renderIdFieldsEditor("official", d);
 }
 window.uploadIdOfficialSide = function(input, docId, sideKey){
   var file = input.files[0]; if(!file) return;
@@ -5115,7 +5119,7 @@ function renderIdRegularPhotoList(branch,personId){
   var cards = photos.map(function(p){
     var cover = (p.variants&&p.variants[0]) ? p.variants[0].dataUrl : "";
     return '<div class="photo-card idph-card">'+
-      '<div class="idph-thumb-wrap" data-idnote-kind="regular" data-idnote-id="'+p.id+'" onclick="idRegularOpenPhoto(\''+p.id+'\')">'+
+      '<div class="idph-thumb-wrap tl-tip-wrap has-tip" data-tip="'+esc(idDocTipHtml(p))+'" onclick="idRegularOpenPhoto(\''+p.id+'\')">'+
         (cover ? '<img class="thumb" src="'+cover+'">' : '<div class="thumb placeholder">📸</div>')+
       '</div>'+
       '<div class="idph-foot">'+
@@ -5133,7 +5137,7 @@ function renderIdRegularPhotoList(branch,personId){
 window.createIdRegularPhoto = function(branchId,personId){
   var id = uid();
   DATA.idRegularPhotos = DATA.idRegularPhotos || [];
-  DATA.idRegularPhotos.push({id:id, branchId:branchId, personId:personId, year:"", note:"", createdAt:new Date().toISOString(), variants:[]});
+  DATA.idRegularPhotos.push({id:id, branchId:branchId, personId:personId, year:"", fields:[], createdAt:new Date().toISOString(), variants:[]});
   save();
   moduleCatView.idphotos_photo = id;
   render();
@@ -5168,7 +5172,8 @@ function renderIdRegularPhotoDetail(photoId){
     '<div class="row-actions"><button class="btn danger" onclick="deleteIdRegularPhoto(\''+p.id+'\')">删除整条记录</button></div></div>'+
     backBar+
     '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(p.year||"")+'" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)"></div>'+
-    '<div class="idph-variant-grid">'+cards+uploadTile+'</div>';
+    '<div class="idph-variant-grid">'+cards+uploadTile+'</div>'+
+    renderIdFieldsEditor("regular", p);
 }
 window.uploadIdRegularVariant = function(input, photoId){
   var file = input.files[0]; if(!file) return;
@@ -5193,78 +5198,50 @@ window.deleteIdRegularVariant = function(photoId, variantId){
   save(); render();
 };
 
-/* 证件缩略图上悬浮的可编辑备注（证件号、有效期之类），跟碎碎念子主题、家庭关系那两处悬浮便签同一套样式和交互 */
-var idNoteHideTimer = null;
-function idNoteClearHide(){ clearTimeout(idNoteHideTimer); }
-function idNoteScheduleHide(){
-  var box = document.getElementById("idNoteFloat");
-  if(box && box.querySelector(".ssn-remark-edit-pop")) return;
-  clearTimeout(idNoteHideTimer);
-  idNoteHideTimer = setTimeout(function(){ if(box){ box.style.display="none"; } }, 200);
-}
-function idNoteRecord(kind, id){
+/* 证件信息用结构化字段（跟资产的自定义字段同一个思路：字段名+内容，可以自己加），
+   在详情页里编辑，缩略图上悬浮直接展示这些字段——复用时间轴关键词那一套只读悬浮提示（tl-tip-wrap/data-tip），
+   不用再单独做一套可编辑悬浮框，简单也不会挡住别的内容。 */
+function idFieldsRecord(kind, id){
   var list = kind==="official" ? (DATA.idOfficialDocs||[]) : (DATA.idRegularPhotos||[]);
   return list.filter(function(x){return x.id===id;})[0];
 }
-function idNotePositionNear(box, anchorEl){
-  var r = anchorEl.getBoundingClientRect();
-  var br = box.getBoundingClientRect();
-  var left = r.left;
-  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
-  if(left < 6) left = 6;
-  var top = r.bottom + 6;
-  if(top + br.height > window.innerHeight - 6){
-    var above = r.top - br.height - 6;
-    /* 上下都放不下时，贴着悬浮源本身摆（不再乱飘到屏幕别处），避免盖住上方的分类名/人物名这类标题文字 */
-    top = above >= 6 ? above : Math.max(r.top, 6);
-  }
-  box.style.left = left+"px";
-  box.style.top = top+"px";
+function idDocTipHtml(rec){
+  var fields = rec.fields||[];
+  if(!fields.length) return '<div class="tl-tip-row">还没有填写证件信息</div>';
+  return fields.map(function(f){ return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>'; }).join('');
 }
-window.idNoteShow = function(kind, id, anchorEl){
-  idNoteClearHide();
-  var box = document.getElementById("idNoteFloat");
-  var rec = idNoteRecord(kind, id);
-  if(!box || !rec) return;
-  var hasNote = !!(rec.note && rec.note.trim());
-  box.innerHTML = '<div class="ssn-remark-view'+(hasNote?'':' placeholder')+'">'+(hasNote?esc(rec.note):"点击添加证件信息备注")+'</div>';
-  box.style.display = "block";
-  idNotePositionNear(box, anchorEl.closest(".photo-card")||anchorEl);
-  box.querySelector(".ssn-remark-view").onclick = function(){ idNoteEdit(kind, id, anchorEl); };
+function renderIdFieldsEditor(kind, rec){
+  var rows = (rec.fields||[]).map(function(f){
+    return '<div class="idph-field-row">'+
+      '<input type="text" class="asset-inline-input idph-field-label" value="'+esc(f.label)+'" placeholder="字段名，比如「有效期」" onchange="updateIdFieldLabel(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input idph-field-value" value="'+esc(f.value)+'" placeholder="内容，比如「证件号码」" onchange="updateIdFieldValue(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
+      '<button class="btn small danger" onclick="deleteIdField(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\')">✕</button>'+
+    '</div>';
+  }).join('');
+  return '<div class="idph-fields"><div class="idph-fields-label">证件信息（会自动显示在缩略图悬浮提示里）</div>'+rows+
+    '<button type="button" class="btn small ghost" onclick="addIdField(\''+kind+'\',\''+rec.id+'\')">+ 添加字段</button></div>';
+}
+window.addIdField = function(kind, id){
+  var rec = idFieldsRecord(kind, id); if(!rec) return;
+  rec.fields = rec.fields || [];
+  rec.fields.push({id:uid(), label:"", value:""});
+  save(); render();
 };
-window.idNoteEdit = function(kind, id, anchorEl){
-  idNoteClearHide();
-  var box = document.getElementById("idNoteFloat");
-  var rec = idNoteRecord(kind, id);
-  if(!box || !rec) return;
-  box.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="编辑证件信息，比如证件号、有效期…"></textarea>';
-  var ta = box.querySelector("textarea");
-  ta.value = rec.note||"";
-  box.style.display = "block";
-  idNotePositionNear(box, anchorEl.closest(".photo-card")||anchorEl);
-  ta.focus();
-  ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
-  ta.addEventListener("blur", function(){
-    var v = (ta.value||"").trim();
-    if(rec.note!==v){ rec.note = v; save(); }
-    box.style.display = "none";
-  });
+window.updateIdFieldLabel = function(kind, id, fieldId, value){
+  var rec = idFieldsRecord(kind, id); if(!rec) return;
+  var f = (rec.fields||[]).filter(function(x){return x.id===fieldId;})[0]; if(!f) return;
+  f.label = value; save(); render();
 };
-document.addEventListener("mouseover", function(e){
-  var el = e.target.closest ? e.target.closest("[data-idnote-kind]") : null;
-  if(el) idNoteShow(el.getAttribute("data-idnote-kind"), el.getAttribute("data-idnote-id"), el);
-});
-document.addEventListener("mouseout", function(e){
-  var el = e.target.closest ? e.target.closest("[data-idnote-kind]") : null;
-  if(el) idNoteScheduleHide();
-});
-(function(){
-  var box = document.getElementById("idNoteFloat");
-  if(box){
-    box.addEventListener("mouseenter", idNoteClearHide);
-    box.addEventListener("mouseleave", idNoteScheduleHide);
-  }
-})();
+window.updateIdFieldValue = function(kind, id, fieldId, value){
+  var rec = idFieldsRecord(kind, id); if(!rec) return;
+  var f = (rec.fields||[]).filter(function(x){return x.id===fieldId;})[0]; if(!f) return;
+  f.value = value; save(); render();
+};
+window.deleteIdField = function(kind, id, fieldId){
+  var rec = idFieldsRecord(kind, id); if(!rec) return;
+  rec.fields = (rec.fields||[]).filter(function(x){return x.id!==fieldId;});
+  save(); render();
+};
 
 function renderPhotoModule(viewId, dataKey, icon, key, sub, captionField, albumField){
   var list = DATA[dataKey];
