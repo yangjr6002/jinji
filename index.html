@@ -1682,7 +1682,9 @@ function setupFamilyGraph(){
     openFamilyEdgeLabelEditor(e.target.id());
   });
   familyGraph.on("tap", function(e){ if(e.target===familyGraph){ closeFamilyCard(); closeFamilyEdgeLabel(); } });
-  familyGraph.on("pan zoom position", function(){ renderFamilyCardOverlay(); renderFamilyEdgeLabelOverlay(); });
+  familyGraph.on("pan zoom position", function(){ renderFamilyCardOverlay(); renderFamilyEdgeLabelOverlay(); renderFamRemarkOverlay(); });
+  familyGraph.on("mouseover", "node.member", function(e){ famRemarkHover(e.target.id()); });
+  familyGraph.on("mouseout", "node.member", function(e){ famRemarkLeave(); });
   familyGraph.on("grab", "node.member", function(e){
     var gp = e.target.position();
     famDragStartPos = {x:gp.x, y:gp.y}; // 记住按下瞬间的位置（必须拷贝一份，position() 返回的是内部引用，直接存会跟着后面拖动一起变）
@@ -1822,6 +1824,79 @@ window.toggleFamilyMainBranch = function(id){
   var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0]; if(!p) return;
   p.isMainBranch = !p.isMainBranch;
   save(); render();
+};
+/* 方框上悬浮的备注便签：不用点开整张卡片，鼠标放在方框上就能看/改备注（跟碎碎念子主题那个悬浮便签同一个样式）。
+   位置跟卡片一样挂在 fam-graph-wrap 上，跟着 Cytoscape 节点的屏幕坐标走。 */
+var famRemarkFor = null;
+var famRemarkEditing = false;
+var famRemarkHideTimer = null;
+function famRemarkClearHide(){ clearTimeout(famRemarkHideTimer); }
+function famRemarkScheduleHide(){
+  if(famRemarkEditing) return;
+  clearTimeout(famRemarkHideTimer);
+  famRemarkHideTimer = setTimeout(function(){ famRemarkFor = null; renderFamRemarkOverlay(); }, 200);
+}
+function renderFamRemarkOverlay(){
+  var graphEl = document.getElementById("familyGraph");
+  var wrap = document.getElementById("familyGraphWrap");
+  var old = document.getElementById("famRemarkOverlay");
+  if(old) old.remove();
+  if(!famRemarkFor || !wrap || !graphEl || !familyGraph) return;
+  var node = familyGraph.getElementById(famRemarkFor);
+  if(!node || !node.length) return;
+  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===famRemarkFor;})[0];
+  if(!p) return;
+  var pos = node.renderedPosition();
+  var h = node.renderedOuterHeight();
+  var containerW = graphEl.clientWidth, containerH = graphEl.clientHeight;
+  var boxWidth = 190, halfW = boxWidth/2;
+  var left = pos.x;
+  if(left - halfW < 4) left = halfW + 4;
+  if(left + halfW > containerW - 4) left = containerW - 4 - halfW;
+  var estHeight = famRemarkEditing ? 90 : 56;
+  var top = pos.y - h/2 - 10 - estHeight;
+  if(top < 4){
+    top = pos.y + h/2 + 10;
+    if(top + estHeight > containerH - 4) top = Math.max(4, containerH - estHeight - 4);
+  }
+  var div = document.createElement("div");
+  div.id = "famRemarkOverlay";
+  div.className = "ssn-remark-float";
+  div.style.position = "absolute";
+  div.style.left = left+"px";
+  div.style.top = top+"px";
+  div.style.width = boxWidth+"px";
+  ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
+    div.addEventListener(evt, function(e){ e.stopPropagation(); });
+  });
+  if(famRemarkEditing){
+    div.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="给TA加个备注…">'+esc(p.remark||"")+'</textarea>';
+    wrap.appendChild(div);
+    var ta = div.querySelector("textarea");
+    ta.focus();
+    ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
+    ta.addEventListener("blur", function(){
+      var v = (ta.value||"").trim();
+      if(p.remark!==v){ p.remark = v; save(); }
+      famRemarkEditing = false; famRemarkFor = null;
+      renderFamRemarkOverlay();
+    });
+  }else{
+    var hasRemark = !!(p.remark && p.remark.trim());
+    div.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(p.remark):"点击添加备注")+'</div>';
+    wrap.appendChild(div);
+    div.querySelector(".ssn-remark-view").onclick = function(){ famRemarkEditing = true; renderFamRemarkOverlay(); };
+    div.addEventListener("mouseenter", famRemarkClearHide);
+    div.addEventListener("mouseleave", famRemarkScheduleHide);
+  }
+}
+window.famRemarkHover = function(id){
+  famRemarkClearHide();
+  famRemarkFor = id;
+  renderFamRemarkOverlay();
+};
+window.famRemarkLeave = function(){
+  famRemarkScheduleHide();
 };
 /* 点连线（配偶虚线/亲子箭头）弹一个小输入框在那条线中点附近，可以直接打字标注/改这条关系的文字，
    回车或点别处失焦就保存；配偶存到 familySpouseLabels，亲子存到 familyEdgeLabels（按边自身的 id 存）。 */
