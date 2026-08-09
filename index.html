@@ -5229,7 +5229,7 @@ window.idNoteShow = function(kind, id, anchorEl){
   var hasNote = !!(rec.note && rec.note.trim());
   box.innerHTML = '<div class="ssn-remark-view'+(hasNote?'':' placeholder')+'">'+(hasNote?esc(rec.note):"点击添加证件信息备注")+'</div>';
   box.style.display = "block";
-  idNotePositionNear(box, anchorEl);
+  idNotePositionNear(box, anchorEl.closest(".photo-card")||anchorEl);
   box.querySelector(".ssn-remark-view").onclick = function(){ idNoteEdit(kind, id, anchorEl); };
 };
 window.idNoteEdit = function(kind, id, anchorEl){
@@ -5241,7 +5241,7 @@ window.idNoteEdit = function(kind, id, anchorEl){
   var ta = box.querySelector("textarea");
   ta.value = rec.note||"";
   box.style.display = "block";
-  idNotePositionNear(box, anchorEl);
+  idNotePositionNear(box, anchorEl.closest(".photo-card")||anchorEl);
   ta.focus();
   ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
   ta.addEventListener("blur", function(){
