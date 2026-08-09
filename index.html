@@ -4636,18 +4636,28 @@ window.renameAssetColumn = function(oldLabel, newLabel){
   });
   save(); render();
 };
-/* 加一列空字段：给当前表里每一行都挂一个空标签的字段，表头会多出一个可以直接输入名字的输入框 */
+/* 加一列空字段：给当前表里每一行都挂一个空标签的字段，表头会多出一个可以直接输入名字的输入框。
+   表格可能左右很宽，新列加在最右边容易被横向滚动条挡住看不见，误以为点了没反应，所以加完自动把它滚到可视范围内并聚焦。 */
 window.addAssetColumnInline = function(){
   var locKey = moduleCatView.assets_location, typeKey = moduleCatView.assets_type;
   var scoped = DATA.assets.filter(function(a){ return (a.location||"")===locKey && (a.assetType||"")===typeKey; });
   if(!scoped.length){ toast("先添加一条资产才能加字段列"); return; }
   var hasBlank = scoped.some(function(a){ return (a.fields||[]).some(function(f){return f.label==="";}); });
-  if(hasBlank){ render(); return; }
-  scoped.forEach(function(a){
-    a.fields = a.fields || [];
-    a.fields.push({id:uid(), label:"", value:""});
-  });
-  save(); render();
+  if(hasBlank){
+    toast("已经有一个未命名的字段列了，先给它起个名字");
+  }else{
+    scoped.forEach(function(a){
+      a.fields = a.fields || [];
+      a.fields.push({id:uid(), label:"", value:""});
+    });
+    save();
+  }
+  render();
+  setTimeout(function(){
+    var headers = document.querySelectorAll(".asset-col-header-input");
+    var last = headers[headers.length-1];
+    if(last){ last.scrollIntoView({block:"nearest", inline:"end"}); last.focus(); }
+  }, 0);
 };
 window.deleteAsset = function(id){
   confirmDelete("确定删除这条资产记录吗？", function(){
