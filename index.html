@@ -1047,10 +1047,14 @@ function migrateAssetItem(a){
   };
 }
 var DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
-function warnStorageOnce(){
+function warnStorageOnce(payloadForSize){
   if(!storageAvailable) return;
   storageAvailable = false;
-  toast("当前环境无法保存数据，改动只在这次打开期间有效，刷新或关闭后会丢失", 7000);
+  var sizeHint = "";
+  if(payloadForSize){
+    try{ sizeHint = "（当前数据约 "+(new Blob([payloadForSize]).size/1024/1024).toFixed(2)+" MB，很可能是存储空间超过浏览器上限了，去「备份与恢复」看看用量、导出备份后删掉一些旧照片再试）"; }catch(e){}
+  }
+  toast("当前环境无法保存数据，改动只在这次打开期间有效，刷新或关闭后会丢失"+sizeHint, 9000);
 }
 async function loadDataAsync(){
   var raw = null;
@@ -1072,9 +1076,9 @@ var __lastSnapshot = null;
 var UNDO_MAX = 50;
 function persistToStorage(payload){
   if(hasArtifactStorage){
-    window.storage.set(STORE_KEY, payload, false).catch(function(){ warnStorageOnce(); });
+    window.storage.set(STORE_KEY, payload, false).catch(function(){ warnStorageOnce(payload); });
   } else {
-    try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(); }
+    try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(payload); }
   }
 }
 function save(){
@@ -1210,11 +1214,23 @@ function toast(msg, duration){
 }
 
 /* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
+/* 存储空间用量：localStorage 一般只有 5～10MB（视浏览器而定），照片存多了很容易顶到上限，
+   顶到之后新内容会"保存不了"但界面上看不出快满了，所以在备份面板里直接显示一下当前用了多少 */
+function storageUsageHtml(){
+  var payload = JSON.stringify(DATA);
+  var bytes = new Blob([payload]).size;
+  var mb = (bytes/1024/1024).toFixed(2);
+  var pct = Math.min(100, Math.round(bytes/(5*1024*1024)*100));
+  var warn = pct>=80;
+  return '<div class="sub" style="margin-bottom:6px">当前数据总大小约 <b>'+mb+' MB</b>'+(warn?'（已经接近浏览器常见的 5～10MB 上限，新内容可能存不进去了）':'（浏览器一般能存 5～10MB，视浏览器而定）')+'</div>'+
+    '<div style="height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-bottom:16px"><div style="height:100%;width:'+pct+'%;background:'+(warn?'var(--danger)':'var(--accent)')+'"></div></div>';
+}
 window.openBackupModal = function(){
   var root=document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>备份与恢复</h3>'+
     '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
+    storageUsageHtml()+
     '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
     '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
       '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
