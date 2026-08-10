@@ -703,6 +703,10 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
 .ssn-composer-row{display:flex; gap:6px; align-items:flex-end;}
 .book-lightbox-img{max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:var(--shadow-lg); display:block;}
+/* 有图片的条目只挂一个小角标，不直接铺缩略图；鼠标移上去才弹出悬浮框看图，跟备注那些悬浮框一个风格 */
+.book-photo-badge{display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:1px 7px; cursor:pointer; flex:none;}
+.book-photo-badge:hover{border-color:var(--accent); color:var(--accent);}
+.book-photo-float{display:none; position:fixed; z-index:600; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:var(--shadow-lg); flex-wrap:wrap; gap:6px; max-width:220px;}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -766,6 +770,7 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="toast" id="toast"></div>
 <div class="tl-tooltip" id="tlTooltip"></div>
 <div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
+<div class="book-photo-float" id="bookPhotoFloat" style="display:none;"></div>
 <script>
 /* ================= 数据层 ================= */
 /* 单页应用的本机持久化键。备份/恢复用于跨浏览器或清理缓存时迁移数据。 */
@@ -4392,6 +4397,11 @@ function suisuinianTimeLabel(iso){
   return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+" "+weekdays[d.getDay()];
 }
 var suisuinianComposerTopicId = null;
+var suisuinianFilterHasImage = false;
+window.toggleSuisuinianImageFilter = function(){
+  suisuinianFilterHasImage = !suisuinianFilterHasImage;
+  render();
+};
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
   if(!topic){
@@ -4406,14 +4416,16 @@ function renderSuisuinianTopicBoard(topicId){
       var d = (a.createdAt||"").localeCompare(b.createdAt||"");
       return sortAsc ? d : -d;
     });
+  if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
   var bubbles = msgs.map(function(m){
     var contentHtml = suisuinianEditingMessage===m.id
       ? '<textarea class="ssn-bubble-edit" autofocus onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content)+'</div>';
     return '<div class="ssn-bubble">'+
       contentHtml+
-      bookImageGalleryHtml("suisuinian", m.id, m.images)+
-      '<div class="ssn-bubble-meta"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+      '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+      bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
+      '</span>'+
       '<span class="ssn-bubble-meta-actions">'+
         bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
         '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
@@ -4428,6 +4440,7 @@ function renderSuisuinianTopicBoard(topicId){
     '<div class="module-head"><div>'+titleHtml+
     '<div class="sub">留言板形式，按时间'+(sortAsc?"升序":"降序")+'排列。</div></div>'+
     '<div class="row-actions">'+
+    '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>'+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     '<button class="btn ghost small" onclick="deleteSuisuinianTopic(\''+topic.id+'\')">删除子主题</button>'+
     '</div></div>'+
@@ -4466,18 +4479,66 @@ window.createBookEntryInline = function(moduleId, categoryKey){
   save();
   openItemTab(moduleId, entry.id);
 };
-/* 日志/碎碎念内容里加照片：跟评论框的加图按钮一个思路，缩略图直接挂在内容下面，点开看大图。
-   两边的条目都是通过 bookEntries(moduleId) 拿到的（碎碎念留言也算一种"条目"），所以这一套可以共用。 */
-function bookImageGalleryHtml(moduleId, id, images){
-  if(!images || !images.length) return "";
-  var thumbs = images.map(function(img, idx){
-    return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
-  }).join('');
-  return '<div class="book-img-gallery">'+thumbs+'</div>';
-}
+/* 日志/碎碎念内容里加照片：跟评论框的加图按钮一个思路，条目本身只挂一个小角标（见下面 bookPhotoBadgeHtml），
+   悬浮才展示缩略图，点开看大图。两边的条目都是通过 bookEntries(moduleId) 拿到的，这一套可以共用。 */
 function bookImageAddButtonHtml(moduleId, id, extraClass){
   return '<label class="book-img-add-icon'+(extraClass?(' '+extraClass):'')+'" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>';
 }
+/* 有图片的条目只显示一个小角标，不占地方；鼠标移上去悬浮展示缩略图，点缩略图看大图。
+   跟碎碎念子主题备注、家庭关系那两处悬浮框同一个交互，只是内容换成图片。 */
+function bookPhotoBadgeHtml(moduleId, id, images){
+  if(!images || !images.length) return "";
+  return '<span class="book-photo-badge" data-module="'+moduleId+'" data-id="'+id+'">📷 '+images.length+'</span>';
+}
+var bookPhotoHideTimer = null;
+function bookPhotoClearHide(){ clearTimeout(bookPhotoHideTimer); }
+function bookPhotoScheduleHide(){
+  clearTimeout(bookPhotoHideTimer);
+  bookPhotoHideTimer = setTimeout(function(){
+    var box = document.getElementById("bookPhotoFloat");
+    if(box) box.style.display = "none";
+  }, 200);
+}
+function bookPhotoPositionNear(box, anchorEl){
+  var r = anchorEl.getBoundingClientRect();
+  var br = box.getBoundingClientRect();
+  var left = r.left;
+  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
+  if(left < 6) left = 6;
+  var top = r.bottom + 6;
+  if(top + br.height > window.innerHeight - 6){
+    var above = r.top - br.height - 6;
+    top = above >= 6 ? above : Math.max(r.top, 6);
+  }
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+}
+window.bookPhotoBadgeShow = function(moduleId, id, anchorEl){
+  bookPhotoClearHide();
+  var box = document.getElementById("bookPhotoFloat");
+  var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
+  if(!box || !item || !item.images || !item.images.length) return;
+  box.innerHTML = item.images.map(function(img, idx){
+    return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
+  }).join('');
+  box.style.display = "flex";
+  bookPhotoPositionNear(box, anchorEl);
+};
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest(".book-photo-badge") : null;
+  if(el) bookPhotoBadgeShow(el.getAttribute("data-module"), el.getAttribute("data-id"), el);
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest(".book-photo-badge") : null;
+  if(el) bookPhotoScheduleHide();
+});
+(function(){
+  var box = document.getElementById("bookPhotoFloat");
+  if(box){
+    box.addEventListener("mouseenter", bookPhotoClearHide);
+    box.addEventListener("mouseleave", bookPhotoScheduleHide);
+  }
+})();
 window.uploadBookEntryImage = function(input, moduleId, id){
   var file = input.files[0]; if(!file) return;
   readImageFileAsDataUrl(file, function(dataUrl){
@@ -4519,10 +4580,10 @@ function renderBookDetailPage(moduleId, id){
     '</div>'+
     '</div><div class="row-actions">'+
     bookImageAddButtonHtml(moduleId, sel.id)+
+    bookPhotoBadgeHtml(moduleId, sel.id, sel.images)+
     '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
-    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>'+
-    bookImageGalleryHtml(moduleId, sel.id, sel.images);
+    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
