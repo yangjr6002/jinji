@@ -687,6 +687,16 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
+/* 留言/日志内容里的加图片：跟评论框那种小相机图标按钮同一个思路，缩略图一排，点开看大图，删除叉在角上 */
+.book-img-gallery{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.book-img-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-soft); flex:none;}
+.book-img-thumb img{width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in;}
+.book-img-del{position:absolute; top:2px; right:2px; width:16px; height:16px; line-height:16px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font-size:10px; cursor:pointer;}
+.book-img-add{width:64px; height:64px; flex:none; border:1.5px dashed var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text-dim); cursor:pointer; background:var(--surface-2);}
+.book-img-add:hover{border-color:var(--text-faint); color:var(--text);}
+.book-img-add input{display:none;}
+.ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
+.book-lightbox-img{max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:var(--shadow-lg); display:block;}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -4254,12 +4264,42 @@ window.deleteSuisuinianTopic = function(id){
     if(!closeTabAndMaybeGoHome("suisuinianTopic", id)) render();
   }, "确认删除子主题", "确定删除");
 };
+var suisuinianComposerImages = [];
+function suisuinianComposerImageGalleryHtml(){
+  if(!suisuinianComposerImages.length) return "";
+  var thumbs = suisuinianComposerImages.map(function(img, idx){
+    return '<div class="book-img-thumb"><img src="'+img+'"><button type="button" class="book-img-del" onclick="removeSuisuinianComposerImage('+idx+')" title="移除">✕</button></div>';
+  }).join('');
+  return '<div class="book-img-gallery">'+thumbs+'</div>';
+}
+window.uploadSuisuinianComposerImage = function(input){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    suisuinianComposerImages.push(e.target.result);
+    var draft = document.getElementById("suisuinianComposer");
+    var v = draft ? draft.value : "";
+    render();
+    var nd = document.getElementById("suisuinianComposer");
+    if(nd) nd.value = v;
+  };
+  reader.readAsDataURL(file);
+};
+window.removeSuisuinianComposerImage = function(idx){
+  suisuinianComposerImages.splice(idx,1);
+  var draft = document.getElementById("suisuinianComposer");
+  var v = draft ? draft.value : "";
+  render();
+  var nd = document.getElementById("suisuinianComposer");
+  if(nd) nd.value = v;
+};
 window.addSuisuinianMessage = function(topicId){
   var input = document.getElementById("suisuinianComposer");
   var value = (input.value||"").trim();
-  if(!value) return;
+  if(!value && !suisuinianComposerImages.length) return;
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
-  DATA.suisuinianEntries.push({id:uid(), topic:topicId, createdAt:new Date().toISOString(), content:value});
+  DATA.suisuinianEntries.push({id:uid(), topic:topicId, createdAt:new Date().toISOString(), content:value, images:suisuinianComposerImages.slice()});
+  suisuinianComposerImages = [];
   save(); render();
 };
 window.deleteSuisuinianMessage = function(id){
@@ -4279,12 +4319,14 @@ function suisuinianTimeLabel(iso){
   var weekdays = ["周日","周一","周二","周三","周四","周五","周六"];
   return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+" "+weekdays[d.getDay()];
 }
+var suisuinianComposerTopicId = null;
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
   if(!topic){
     return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
+  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; }
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
   var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
   var msgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;})
@@ -4298,6 +4340,7 @@ function renderSuisuinianTopicBoard(topicId){
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content)+'</div>';
     return '<div class="ssn-bubble">'+
       contentHtml+
+      bookImageGalleryHtml("suisuinian", m.id, m.images)+
       '<div class="ssn-bubble-meta"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
       '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button></div>'+
     '</div>';
@@ -4315,8 +4358,12 @@ function renderSuisuinianTopicBoard(topicId){
     '</div></div>'+
     '<div class="card-panel ssn-feed">'+bubbles+'</div>'+
     '<div class="ssn-composer">'+
-      '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');this.value=\'\';}"></textarea>'+
-      '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\');document.getElementById(\'suisuinianComposer\').value=\'\';">发送</button>'+
+      '<label class="book-img-add" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
+      '<div class="ssn-composer-col">'+
+        suisuinianComposerImageGalleryHtml()+
+        '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+      '</div>'+
+      '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>';
 }
 window.toggleBookSort = function(moduleId){
@@ -4339,10 +4386,43 @@ window.updateBookField = function(moduleId, id, key, value){
   save(); render();
 };
 window.createBookEntryInline = function(moduleId, categoryKey){
-  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:""};
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:"", images:[]};
   bookEntries(moduleId).push(entry);
   save();
   openItemTab(moduleId, entry.id);
+};
+/* 日志/碎碎念内容里加照片：跟评论框的加图按钮一个思路，缩略图直接挂在内容下面，点开看大图。
+   两边的条目都是通过 bookEntries(moduleId) 拿到的（碎碎念留言也算一种"条目"），所以这一套可以共用。 */
+function bookImageGalleryHtml(moduleId, id, images){
+  var thumbs = (images||[]).map(function(img, idx){
+    return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
+  }).join('');
+  return '<div class="book-img-gallery">'+thumbs+
+    '<label class="book-img-add" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>'+
+  '</div>';
+}
+window.uploadBookEntryImage = function(input, moduleId, id){
+  var file = input.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
+    item.images = item.images || [];
+    item.images.push(e.target.result);
+    try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); item.images.pop(); return; }
+    render();
+  };
+  reader.readAsDataURL(file);
+};
+window.deleteBookEntryImage = function(moduleId, id, idx){
+  var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
+  item.images = item.images || [];
+  item.images.splice(idx,1);
+  save(); render();
+};
+window.viewBookImage = function(src){
+  var root = document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask" style="cursor:zoom-out"><img class="book-lightbox-img" src="'+src+'" onclick="event.stopPropagation();"></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
 };
 function renderBookDetailPage(moduleId, id){
   var sel = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
@@ -4365,7 +4445,8 @@ function renderBookDetailPage(moduleId, id){
     '</div><div class="row-actions">'+
     '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
-    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
+    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>'+
+    bookImageGalleryHtml(moduleId, sel.id, sel.images);
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
