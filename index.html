@@ -642,6 +642,12 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
 .book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:320px; font-family:inherit;}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
+/* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
+.book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:80px;}
+.book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
+.book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+.book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:120px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent;}
+.book-chapter-content:focus{outline:none; background:var(--surface-2); border-radius:6px;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
 .book-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
@@ -987,6 +993,12 @@ function normalizeData(d){
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
   d.journalEntries = d.journalEntries || [];
+  /* 日志一篇内部改成"一个个板块"（chapters）之后，老数据的单一大文本框内容要自动搬进第一个板块，不能丢 */
+  d.journalEntries.forEach(function(j){
+    if(!j.chapters){
+      j.chapters = (j.content && j.content.trim()) ? [{id:uid(), content:j.content, images:j.images||[], createdAt:(j.date?j.date+"T00:00:00.000Z":new Date().toISOString())}] : [];
+    }
+  });
   d.suisuinianEntries = d.suisuinianEntries || [];
   d.suisuinianTopics = d.suisuinianTopics || [];
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
@@ -4112,12 +4124,9 @@ function renderBookSection(moduleId){
   return moduleShell(moduleId,"",moduleId,cfg.tocHint, "", renderBookCategoryList(moduleId));
 }
 /* "bookCategory" 标签页的内容：日志显示这个分类下的条目列表，碎碎念显示这个分类下的子主题列表。
-   compoundId 是 moduleId+"::"+categoryKey 拼出来的，用来在同一个标签类型里区分是哪个板块的哪个分类 */
-var bookFilterHasImage = {};
-window.toggleBookImageFilter = function(moduleId){
-  bookFilterHasImage[moduleId] = !bookFilterHasImage[moduleId];
-  render();
-};
+   compoundId 是 moduleId+"::"+categoryKey 拼出来的，用来在同一个标签类型里区分是哪个板块的哪个分类。
+   加新一篇、筛选有图、悬浮图片这些都是"一篇日志内部"（第三层，见 renderJournalChapters）的功能，
+   这一层（第二层，选哪一篇）保持原来的简单列表就好，不重复放这些按钮。 */
 function renderBookCategoryEntries(compoundId){
   var sepIdx = compoundId.indexOf("::");
   var moduleId = compoundId.slice(0, sepIdx);
@@ -4128,30 +4137,28 @@ function renderBookCategoryEntries(compoundId){
   var entries = bookEntries(moduleId);
   var scoped = entries.filter(function(j){ return (j.category||"")===categoryKey; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
-  if(bookFilterHasImage[moduleId]) scoped = scoped.filter(function(j){ return j.images && j.images.length; });
   var rows = scoped.map(function(j){
+    var latestChapter = (j.chapters||[]).slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
+    var excerpt = latestChapter ? bookExcerpt(latestChapter.content) : bookExcerpt(j.content);
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
           '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
-          bookPhotoBadgeHtml(moduleId, j.id, j.images)+
           '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
         '</div>'+
-        '<div class="book-excerpt muted">'+esc(bookExcerpt(j.content))+'</div>'+
+        '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
       '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
-  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右下角按钮添加");
+  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
   var curCat = cats.filter(function(c){return c.key===categoryKey;})[0];
   var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
-  var filterBtn = '<button class="btn small '+(bookFilterHasImage[moduleId]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+moduleId+'\')">'+(bookFilterHasImage[moduleId]?"✓ 只看有图":"筛选：只看有图")+'</button>';
-  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表，一篇一篇长文章，右下角加新的一篇。</div></div>'+
-    '<div class="row-actions">'+filterBtn+'</div></div>'+
-    backBar + listHtml +
-    '<button type="button" class="book-fab" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')" title="'+esc(cfg.addLabel)+'">+</button>';
+  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')">'+cfg.addLabel+'</button>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表。</div></div>'+addBtn+'</div>'+
+    backBar + listHtml;
 }
 /* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，独立标签页）
    -> 留言板（气泡消息，按时间，也是独立标签页）。分栏只是外层的样式，点一栏是真的打开第二层
@@ -4486,13 +4493,25 @@ window.updateBookField = function(moduleId, id, key, value){
   save(); render();
 };
 window.createBookEntryInline = function(moduleId, categoryKey){
-  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:"", images:[]};
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:"", images:[], chapters:[]};
   bookEntries(moduleId).push(entry);
   save();
   openItemTab(moduleId, entry.id);
 };
 /* 日志/碎碎念内容里加照片：跟评论框的加图按钮一个思路，条目本身只挂一个小角标（见下面 bookPhotoBadgeHtml），
-   悬浮才展示缩略图，点开看大图。两边的条目都是通过 bookEntries(moduleId) 拿到的，这一套可以共用。 */
+   悬浮才展示缩略图，点开看大图。moduleId 除了 "journal"/"suisuinian"（直接查 bookEntries）以外，
+   还支持 "journalChapter"（日志一篇内部的板块，id 用 "entryId::chapterId" 拼出来，嵌套查一层）。 */
+function resolveBookRecord(moduleId, id){
+  if(moduleId==="journalChapter"){
+    var sep = id.indexOf("::");
+    var entryId = id.slice(0,sep), chapterId = id.slice(sep+2);
+    var entry = bookEntries("journal").filter(function(x){return x.id===entryId;})[0];
+    if(!entry) return null;
+    entry.chapters = entry.chapters || [];
+    return entry.chapters.filter(function(c){return c.id===chapterId;})[0];
+  }
+  return bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
+}
 function bookImageAddButtonHtml(moduleId, id, extraClass){
   return '<label class="book-img-add-icon'+(extraClass?(' '+extraClass):'')+'" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>';
 }
@@ -4528,7 +4547,7 @@ function bookPhotoPositionNear(box, anchorEl){
 window.bookPhotoBadgeShow = function(moduleId, id, anchorEl){
   bookPhotoClearHide();
   var box = document.getElementById("bookPhotoFloat");
-  var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
+  var item = resolveBookRecord(moduleId, id);
   if(!box || !item || !item.images || !item.images.length) return;
   box.innerHTML = item.images.map(function(img, idx){
     return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
@@ -4554,7 +4573,7 @@ document.addEventListener("mouseout", function(e){
 window.uploadBookEntryImage = function(input, moduleId, id){
   var file = input.files[0]; if(!file) return;
   readImageFileAsDataUrl(file, function(dataUrl){
-    var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
+    var item = resolveBookRecord(moduleId, id); if(!item) return;
     item.images = item.images || [];
     item.images.push(dataUrl);
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); item.images.pop(); return; }
@@ -4562,7 +4581,7 @@ window.uploadBookEntryImage = function(input, moduleId, id){
   });
 };
 window.deleteBookEntryImage = function(moduleId, id, idx){
-  var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
+  var item = resolveBookRecord(moduleId, id); if(!item) return;
   item.images = item.images || [];
   item.images.splice(idx,1);
   save(); render();
@@ -4591,11 +4610,66 @@ function renderBookDetailPage(moduleId, id){
       catSelect+
     '</div>'+
     '</div><div class="row-actions">'+
-    bookImageAddButtonHtml(moduleId, sel.id)+
-    bookPhotoBadgeHtml(moduleId, sel.id, sel.images)+
     '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
-    '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>';
+    (moduleId==="journal" ? renderJournalChapters(sel.id) :
+      '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>');
+}
+/* 日志一篇内部：不是一个大文本框，是一个个"板块"（长篇内容），按时间排列，跟碎碎念留言板一个思路——
+   只是把"泡泡"换成大段文字块，板块可以单独加照片、可以筛选只看带图的、右下角悬浮按钮加新板块。 */
+var bookFilterHasImage = {};
+window.toggleBookImageFilter = function(key){
+  bookFilterHasImage[key] = !bookFilterHasImage[key];
+  render();
+};
+window.addJournalChapter = function(entryId){
+  var entry = bookEntries("journal").filter(function(x){return x.id===entryId;})[0]; if(!entry) return;
+  entry.chapters = entry.chapters || [];
+  entry.chapters.push({id:uid(), content:"", images:[], createdAt:new Date().toISOString()});
+  save(); render();
+};
+window.updateJournalChapterContent = function(entryId, chapterId, value){
+  var ch = resolveBookRecord("journalChapter", entryId+"::"+chapterId); if(!ch) return;
+  ch.content = value; save(); render();
+};
+window.deleteJournalChapter = function(entryId, chapterId){
+  confirmDelete("确定删除这个板块吗？", function(){
+    var entry = bookEntries("journal").filter(function(x){return x.id===entryId;})[0]; if(!entry) return;
+    entry.chapters = (entry.chapters||[]).filter(function(c){return c.id!==chapterId;});
+    save(); render(); toast("已删除");
+  });
+};
+function renderJournalChapters(entryId){
+  var entry = bookEntries("journal").filter(function(x){return x.id===entryId;})[0];
+  if(!entry) return "";
+  entry.chapters = entry.chapters || [];
+  var sortKey = "journalChapters:"+entryId;
+  DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
+  var sortAsc = !!DATA.settings.bookSortAsc[sortKey];
+  var chapters = entry.chapters.slice().sort(function(a,b){
+    var d = (a.createdAt||"").localeCompare(b.createdAt||"");
+    return sortAsc ? d : -d;
+  });
+  if(bookFilterHasImage[sortKey]) chapters = chapters.filter(function(c){ return c.images && c.images.length; });
+  var blocks = chapters.map(function(ch){
+    return '<div class="book-chapter">'+
+      '<div class="book-chapter-head">'+
+        '<span class="ssn-bubble-meta-actions"><span class="muted" style="font-size:11px">'+esc(suisuinianTimeLabel(ch.createdAt))+'</span>'+
+        bookPhotoBadgeHtml("journalChapter", entryId+"::"+ch.id, ch.images)+
+        '</span>'+
+        '<span class="ssn-bubble-meta-actions">'+
+          bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id)+
+          '<button type="button" class="ssn-bubble-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
+        '</span>'+
+      '</div>'+
+      '<textarea class="book-chapter-content" placeholder="写这一段…" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+    '</div>';
+  }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点右下角「+」加第一个板块</div>';
+  var filterBtn = '<button class="btn small '+(bookFilterHasImage[sortKey]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+sortKey+'\')">'+(bookFilterHasImage[sortKey]?"✓ 只看有图":"筛选：只看有图")+'</button>';
+  var sortBtn = '<button class="btn small ghost" onclick="toggleBookSort(\''+sortKey+'\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>';
+  return '<div class="row-actions" style="margin-bottom:12px">'+filterBtn+sortBtn+'</div>'+
+    '<div class="book-chapters">'+blocks+'</div>'+
+    '<button type="button" class="book-fab" onclick="addJournalChapter(\''+entryId+'\')" title="+ 新增板块">+</button>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
