@@ -1131,34 +1131,58 @@ function reorderById(arr, fromId, targetId){
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
 /* 统一的图片文件读取：iPhone"实况"照片/HEIC·HEIF 格式绝大多数浏览器的 <img> 标签原生显示不出来，
-   看起来就像"上传了但不显示"。这里读取前先探测一下，是 HEIC/HEIF 就用 heic2any 转成 PNG 再存；
-   其他格式完全不动，直接读原始字节，不压缩不改变尺寸。全站所有图片上传的地方都走这一个函数。 */
+   看起来就像"上传了但不显示"。这里读取前先探测一下，是 HEIC/HEIF 就用 heic2any 转成 PNG 再存。
+   另外，本机浏览器 localStorage 一般只有几 MB 的总配额，手机原图（尤其实况照片/HEIC）动辄好几 MB，
+   存多了会直接超配额导致"保存不了"；所以日志/碎碎念/相册/头像/背景图这类"随手贴一张"的场景，
+   统一压缩到长边最多 1600px、JPEG 85% 质量再存。只有证件照（opts.noCompress）按用户明确要求保留原始字节。 */
 function isHeicFile(file){
   var type = (file.type||"").toLowerCase();
   var name = (file.name||"").toLowerCase();
   return type==="image/heic" || type==="image/heif" || name.endsWith(".heic") || name.endsWith(".heif");
 }
-function readImageFileAsDataUrl(file, callback, onError){
+function compressImageDataUrl(dataUrl, callback){
+  var img = new Image();
+  img.onload = function(){
+    var maxSide = 1600;
+    var w = img.naturalWidth||img.width, h = img.naturalHeight||img.height;
+    if(!w || !h){ callback(dataUrl); return; }
+    var scale = Math.min(1, maxSide/Math.max(w,h));
+    var cw = Math.max(1, Math.round(w*scale)), ch = Math.max(1, Math.round(h*scale));
+    try{
+      var canvas = document.createElement("canvas");
+      canvas.width = cw; canvas.height = ch;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, cw, ch);
+      callback(canvas.toDataURL("image/jpeg", 0.85));
+    }catch(e){ callback(dataUrl); }
+  };
+  img.onerror = function(){ callback(dataUrl); };
+  img.src = dataUrl;
+}
+function readImageFileAsDataUrl(file, callback, opts){
+  opts = opts || {};
+  function finish(dataUrl){
+    if(opts.noCompress){ callback(dataUrl); } else { compressImageDataUrl(dataUrl, callback); }
+  }
   if(isHeicFile(file) && window.heic2any){
     heic2any({blob:file, toType:"image/png"}).then(function(converted){
       var blob = Array.isArray(converted) ? converted[0] : converted;
       var reader = new FileReader();
-      reader.onload = function(e){ callback(e.target.result); };
+      reader.onload = function(e){ finish(e.target.result); };
       reader.readAsDataURL(blob);
     }).catch(function(err){
-      /* 转换失败也不能让这张照片直接丢了：退回去存原始文件字节。
-         浏览器可能还是显示不出缩略图，但数据在，之后可以下载出来用别的软件打开。 */
+      /* 转换失败也不能让这张照片直接丢了：退回去用原始文件字节继续走压缩这一步（压缩本身不依赖 HEIC 解码，
+         普通 <img>/canvas 一样读不了 HEIC，所以这里如果原文件真是 HEIC，压缩也会失败，最终会退回原始字节）。 */
       console.error("HEIC/HEIF 转换失败", err);
       toast("这张照片格式转换失败（"+((err&&(err.message||err.code))||"未知错误")+"），已保存原始文件，缩略图可能显示不出来");
       var reader = new FileReader();
-      reader.onload = function(e){ callback(e.target.result); };
+      reader.onload = function(e){ finish(e.target.result); };
       reader.readAsDataURL(file);
-      if(onError) onError(err);
     });
     return;
   }
   var reader = new FileReader();
-  reader.onload = function(e){ callback(e.target.result); };
+  reader.onload = function(e){ finish(e.target.result); };
   reader.readAsDataURL(file);
 }
 
@@ -5241,7 +5265,7 @@ window.uploadIdOfficialSide = function(input, docId, sideKey){
     d[sideKey] = dataUrl;
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); d[sideKey]=""; return; }
     render(); toast("已上传");
-  });
+  }, {noCompress:true});
 };
 
 function renderIdRegularPhotoList(branch,personId){
@@ -5315,7 +5339,7 @@ window.uploadIdRegularVariant = function(input, photoId){
     p.variants.push({id:uid(), label:"", dataUrl:dataUrl});
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); p.variants.pop(); return; }
     render(); toast("已上传");
-  });
+  }, {noCompress:true});
 };
 window.updateIdRegularVariantLabel = function(photoId, variantId, value){
   var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
