@@ -707,6 +707,9 @@ table.data tr:hover{background:var(--surface-2)}
 .book-photo-badge{display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:1px 7px; cursor:pointer; flex:none;}
 .book-photo-badge:hover{border-color:var(--accent); color:var(--accent);}
 .book-photo-float{display:none; position:fixed; z-index:600; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:var(--shadow-lg); flex-wrap:wrap; gap:6px; max-width:220px;}
+/* 日志这类"一篇一篇长文章"的列表，新增按钮放右下角悬浮圆按钮，跟着页面滚动一直在，不用滚回顶部去点 */
+.book-fab{position:fixed; right:24px; bottom:24px; width:52px; height:52px; border-radius:50%; background:var(--text); color:#fff; font-size:26px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-lg); cursor:pointer; z-index:50; border:none; transition:.15s;}
+.book-fab:hover{background:#000; transform:translateY(-2px);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -4110,6 +4113,11 @@ function renderBookSection(moduleId){
 }
 /* "bookCategory" 标签页的内容：日志显示这个分类下的条目列表，碎碎念显示这个分类下的子主题列表。
    compoundId 是 moduleId+"::"+categoryKey 拼出来的，用来在同一个标签类型里区分是哪个板块的哪个分类 */
+var bookFilterHasImage = {};
+window.toggleBookImageFilter = function(moduleId){
+  bookFilterHasImage[moduleId] = !bookFilterHasImage[moduleId];
+  render();
+};
 function renderBookCategoryEntries(compoundId){
   var sepIdx = compoundId.indexOf("::");
   var moduleId = compoundId.slice(0, sepIdx);
@@ -4120,11 +4128,13 @@ function renderBookCategoryEntries(compoundId){
   var entries = bookEntries(moduleId);
   var scoped = entries.filter(function(j){ return (j.category||"")===categoryKey; })
     .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+  if(bookFilterHasImage[moduleId]) scoped = scoped.filter(function(j){ return j.images && j.images.length; });
   var rows = scoped.map(function(j){
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
           '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
+          bookPhotoBadgeHtml(moduleId, j.id, j.images)+
           '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(bookExcerpt(j.content))+'</div>'+
@@ -4132,14 +4142,16 @@ function renderBookCategoryEntries(compoundId){
       '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
-  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
+  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右下角按钮添加");
   var curCat = cats.filter(function(c){return c.key===categoryKey;})[0];
   var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
-  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')">'+cfg.addLabel+'</button>';
-  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表。</div></div>'+addBtn+'</div>'+
-    backBar + listHtml;
+  var filterBtn = '<button class="btn small '+(bookFilterHasImage[moduleId]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+moduleId+'\')">'+(bookFilterHasImage[moduleId]?"✓ 只看有图":"筛选：只看有图")+'</button>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表，一篇一篇长文章，右下角加新的一篇。</div></div>'+
+    '<div class="row-actions">'+filterBtn+'</div></div>'+
+    backBar + listHtml +
+    '<button type="button" class="book-fab" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')" title="'+esc(cfg.addLabel)+'">+</button>';
 }
 /* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，独立标签页）
    -> 留言板（气泡消息，按时间，也是独立标签页）。分栏只是外层的样式，点一栏是真的打开第二层
