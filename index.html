@@ -692,10 +692,15 @@ table.data tr:hover{background:var(--surface-2)}
 .book-img-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-soft); flex:none;}
 .book-img-thumb img{width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in;}
 .book-img-del{position:absolute; top:2px; right:2px; width:16px; height:16px; line-height:16px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font-size:10px; cursor:pointer;}
-.book-img-add{width:64px; height:64px; flex:none; border:1.5px dashed var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--text-dim); cursor:pointer; background:var(--surface-2);}
-.book-img-add:hover{border-color:var(--text-faint); color:var(--text);}
-.book-img-add input{display:none;}
+/* 加照片是偶尔才用的动作，不用做成很显眼的大方块——一个小图标按钮就够，留言泡泡里的甚至平时藏起来，鼠标移上这条留言才露出来 */
+.book-img-add-icon{border:none; background:none; color:var(--text-faint); font-size:15px; padding:2px 6px; border-radius:5px; cursor:pointer; flex:none; line-height:1;}
+.book-img-add-icon:hover{background:var(--surface-2); color:var(--text);}
+.book-img-add-icon input{display:none;}
+.ssn-bubble-meta-actions{display:flex; align-items:center; gap:2px;}
+.ssn-bubble-addimg{opacity:0; transition:.12s;}
+.ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
+.ssn-composer-row{display:flex; gap:6px; align-items:flex-end;}
 .book-lightbox-img{max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:var(--shadow-lg); display:block;}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
@@ -4342,7 +4347,10 @@ function renderSuisuinianTopicBoard(topicId){
       contentHtml+
       bookImageGalleryHtml("suisuinian", m.id, m.images)+
       '<div class="ssn-bubble-meta"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
-      '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button></div>'+
+      '<span class="ssn-bubble-meta-actions">'+
+        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+        '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+      '</span></div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
   var titleHtml = suisuinianRenamingTopic===topic.id
@@ -4358,7 +4366,7 @@ function renderSuisuinianTopicBoard(topicId){
     '</div></div>'+
     '<div class="card-panel ssn-feed">'+bubbles+'</div>'+
     '<div class="ssn-composer">'+
-      '<label class="book-img-add" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
+      '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
         '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
@@ -4394,12 +4402,14 @@ window.createBookEntryInline = function(moduleId, categoryKey){
 /* 日志/碎碎念内容里加照片：跟评论框的加图按钮一个思路，缩略图直接挂在内容下面，点开看大图。
    两边的条目都是通过 bookEntries(moduleId) 拿到的（碎碎念留言也算一种"条目"），所以这一套可以共用。 */
 function bookImageGalleryHtml(moduleId, id, images){
-  var thumbs = (images||[]).map(function(img, idx){
+  if(!images || !images.length) return "";
+  var thumbs = images.map(function(img, idx){
     return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
   }).join('');
-  return '<div class="book-img-gallery">'+thumbs+
-    '<label class="book-img-add" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>'+
-  '</div>';
+  return '<div class="book-img-gallery">'+thumbs+'</div>';
+}
+function bookImageAddButtonHtml(moduleId, id, extraClass){
+  return '<label class="book-img-add-icon'+(extraClass?(' '+extraClass):'')+'" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>';
 }
 window.uploadBookEntryImage = function(input, moduleId, id){
   var file = input.files[0]; if(!file) return;
@@ -4443,6 +4453,7 @@ function renderBookDetailPage(moduleId, id){
       catSelect+
     '</div>'+
     '</div><div class="row-actions">'+
+    bookImageAddButtonHtml(moduleId, sel.id)+
     '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
     '</div></div>'+
     '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>'+
