@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 <style>
 :root{
   --bg:#FFFFFF;
@@ -1129,6 +1130,31 @@ function reorderById(arr, fromId, targetId){
 }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
 
+/* 统一的图片文件读取：iPhone"实况"照片/HEIC·HEIF 格式绝大多数浏览器的 <img> 标签原生显示不出来，
+   看起来就像"上传了但不显示"。这里读取前先探测一下，是 HEIC/HEIF 就用 heic2any 转成 PNG 再存；
+   其他格式完全不动，直接读原始字节，不压缩不改变尺寸。全站所有图片上传的地方都走这一个函数。 */
+function isHeicFile(file){
+  var type = (file.type||"").toLowerCase();
+  var name = (file.name||"").toLowerCase();
+  return type==="image/heic" || type==="image/heif" || name.endsWith(".heic") || name.endsWith(".heif");
+}
+function readImageFileAsDataUrl(file, callback, onError){
+  if(isHeicFile(file) && window.heic2any){
+    heic2any({blob:file, toType:"image/png"}).then(function(converted){
+      var blob = Array.isArray(converted) ? converted[0] : converted;
+      var reader = new FileReader();
+      reader.onload = function(e){ callback(e.target.result); };
+      reader.readAsDataURL(blob);
+    }).catch(function(){
+      if(onError) onError(); else toast("这张实况照片/HEIC 格式转换失败，换一张试试");
+    });
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e){ callback(e.target.result); };
+  reader.readAsDataURL(file);
+}
+
 /* ---- 名称自定义 ---- */
 var DEFAULT_LABELS = {
   passwords:"密码管理", assets:"资产信息", idphotos:"证件照管理", album:"相册管理", contacts:"人物关系",
@@ -2226,17 +2252,15 @@ window.openBgSettings = function(){
 };
 window.uploadBgImage = function(input){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
+  readImageFileAsDataUrl(file, function(dataUrl){
     DATA.settings = DATA.settings || {};
-    DATA.settings.bgImage = e.target.result;
+    DATA.settings.bgImage = dataUrl;
     if(DATA.settings.bgOpacity===undefined) DATA.settings.bgOpacity = 0.15;
     try{ save(); }catch(err){ toast("保存失败：本地存储空间不足"); return; }
     applyBackgroundImage();
     toast("背景图已更新");
     if(document.getElementById("mmask")){ openBgSettings(); }
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.removeBgImage = function(){
   if(DATA.settings){ delete DATA.settings.bgImage; }
@@ -2255,14 +2279,12 @@ window.commitBgOpacity = function(val){
 };
 window.uploadAvatar = function(input){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    DATA.profile.avatarUrl = e.target.result;
+  readImageFileAsDataUrl(file, function(dataUrl){
+    DATA.profile.avatarUrl = dataUrl;
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); return; }
     render(); toast("头像已更新");
     if(document.querySelector(".avatar-preview-box")){ previewAvatar(); }
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.editName = function(){
   openModal("编辑姓名",
@@ -4279,16 +4301,14 @@ function suisuinianComposerImageGalleryHtml(){
 }
 window.uploadSuisuinianComposerImage = function(input){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    suisuinianComposerImages.push(e.target.result);
+  readImageFileAsDataUrl(file, function(dataUrl){
+    suisuinianComposerImages.push(dataUrl);
     var draft = document.getElementById("suisuinianComposer");
     var v = draft ? draft.value : "";
     render();
     var nd = document.getElementById("suisuinianComposer");
     if(nd) nd.value = v;
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.removeSuisuinianComposerImage = function(idx){
   suisuinianComposerImages.splice(idx,1);
@@ -4413,15 +4433,13 @@ function bookImageAddButtonHtml(moduleId, id, extraClass){
 }
 window.uploadBookEntryImage = function(input, moduleId, id){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
+  readImageFileAsDataUrl(file, function(dataUrl){
     var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
     item.images = item.images || [];
-    item.images.push(e.target.result);
+    item.images.push(dataUrl);
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); item.images.pop(); return; }
     render();
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.deleteBookEntryImage = function(moduleId, id, idx){
   var item = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!item) return;
@@ -5211,14 +5229,12 @@ function renderIdOfficialDocDetail(docId){
 }
 window.uploadIdOfficialSide = function(input, docId, sideKey){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
+  readImageFileAsDataUrl(file, function(dataUrl){
     var d = (DATA.idOfficialDocs||[]).filter(function(x){return x.id===docId;})[0]; if(!d) return;
-    d[sideKey] = e.target.result;
+    d[sideKey] = dataUrl;
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); d[sideKey]=""; return; }
     render(); toast("已上传");
-  };
-  reader.readAsDataURL(file);
+  });
 };
 
 function renderIdRegularPhotoList(branch,personId){
@@ -5286,15 +5302,13 @@ function renderIdRegularPhotoDetail(photoId){
 }
 window.uploadIdRegularVariant = function(input, photoId){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
+  readImageFileAsDataUrl(file, function(dataUrl){
     var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
     p.variants = p.variants || [];
-    p.variants.push({id:uid(), label:"", dataUrl:e.target.result});
+    p.variants.push({id:uid(), label:"", dataUrl:dataUrl});
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); p.variants.pop(); return; }
     render(); toast("已上传");
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.updateIdRegularVariantLabel = function(photoId, variantId, value){
   var p = (DATA.idRegularPhotos||[]).filter(function(x){return x.id===photoId;})[0]; if(!p) return;
@@ -5380,16 +5394,14 @@ function renderPhotoModule(viewId, dataKey, icon, key, sub, captionField, albumF
 }
 window.uploadPhoto = function(input, dataKey, captionField, albumField){
   var file = input.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var item = {id:uid(), dataUrl:e.target.result};
+  readImageFileAsDataUrl(file, function(dataUrl){
+    var item = {id:uid(), dataUrl:dataUrl};
     item[captionField] = "新照片";
     if(albumField) item[albumField] = "未分组";
     DATA[dataKey].push(item);
     try{ save(); }catch(err){ toast("保存失败：浏览器本地存储空间不足"); DATA[dataKey].pop(); return; }
     render(); toast("已上传");
-  };
-  reader.readAsDataURL(file);
+  });
 };
 window.editPhoto = function(dataKey, id, captionField, albumField){
   var item = DATA[dataKey].filter(function(x){return x.id===id;})[0];
