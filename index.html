@@ -1145,8 +1145,15 @@ function readImageFileAsDataUrl(file, callback, onError){
       var reader = new FileReader();
       reader.onload = function(e){ callback(e.target.result); };
       reader.readAsDataURL(blob);
-    }).catch(function(){
-      if(onError) onError(); else toast("这张实况照片/HEIC 格式转换失败，换一张试试");
+    }).catch(function(err){
+      /* 转换失败也不能让这张照片直接丢了：退回去存原始文件字节。
+         浏览器可能还是显示不出缩略图，但数据在，之后可以下载出来用别的软件打开。 */
+      console.error("HEIC/HEIF 转换失败", err);
+      toast("这张照片格式转换失败（"+((err&&(err.message||err.code))||"未知错误")+"），已保存原始文件，缩略图可能显示不出来");
+      var reader = new FileReader();
+      reader.onload = function(e){ callback(e.target.result); };
+      reader.readAsDataURL(file);
+      if(onError) onError(err);
     });
     return;
   }
