@@ -1178,7 +1178,7 @@ function readImageFileAsDataUrl(file, callback, opts){
       /* 转换失败也不能让这张照片直接丢了：退回去用原始文件字节继续走压缩这一步（压缩本身不依赖 HEIC 解码，
          普通 <img>/canvas 一样读不了 HEIC，所以这里如果原文件真是 HEIC，压缩也会失败，最终会退回原始字节）。 */
       console.error("HEIC/HEIF 转换失败", err);
-      toast("这张照片格式转换失败（"+((err&&(err.message||err.code))||"未知错误")+"），已保存原始文件，缩略图可能显示不出来");
+      toast("这张照片是 HEIC/HEIF 格式，转换失败（"+((err&&(err.message||err.code))||"未知错误")+"），可能是较新的编码方式转换库还不支持。已保存原始文件但缩略图可能显示不出来——建议在手机相册里把它「导出/分享」为 JPG 格式后再重新上传一次，肯定能用。", 9000);
       var reader = new FileReader();
       reader.onload = function(e){ finish(e.target.result); };
       reader.readAsDataURL(file);
