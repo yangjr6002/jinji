@@ -4239,12 +4239,12 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
   var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","点右上角「+」添加一个");
   var curCat = cats.filter(function(c){return c.key===catKey;})[0];
   var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
-  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
-    '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
   var addBtn = suisuinianAddingTopic
-    ? '<input type="text" id="suisuinianNewTopic" class="cat-name-input" style="width:150px" placeholder="新子主题名称，比如「云南行」" autofocus onkeydown="if(event.key===\'Enter\'){addSuisuinianTopicInline(\''+catKey+'\');}if(event.key===\'Escape\'){cancelAddSuisuinianTopic();}" onblur="if(!this.value.trim())cancelAddSuisuinianTopic();">'
-    : '<button type="button" class="gear-btn" onclick="startAddSuisuinianTopic()" title="添加子主题">+</button>';
-  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这个分类下自己建的子主题，点一个进去看留言板。</div></div>'+addBtn+'</div>'+
+    ? '<input type="text" id="suisuinianNewTopic" class="cat-name-input" style="width:150px; margin-left:auto;" placeholder="新子主题名称，比如「云南行」" autofocus onkeydown="if(event.key===\'Enter\'){addSuisuinianTopicInline(\''+catKey+'\');}if(event.key===\'Escape\'){cancelAddSuisuinianTopic();}" onblur="if(!this.value.trim())cancelAddSuisuinianTopic();">'
+    : '<button type="button" class="gear-btn" style="margin-left:auto;" onclick="startAddSuisuinianTopic()" title="添加子主题">+</button>';
+  var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
+    '<span class="cat-back-label">'+esc(titleLabel)+'</span>'+addBtn+'</div>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这个分类下自己建的子主题，点一个进去看留言板。</div></div></div>'+
     backBar + listHtml;
 }
 var suisuinianAddingTopic = false;
