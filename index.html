@@ -89,6 +89,14 @@ button{font-family:inherit;cursor:pointer}
   background:transparent; color:var(--text-dim); transition:.15s; white-space:nowrap; cursor:pointer;
 }
 .toptab-dyn:hover{border-color:var(--text-faint); color:var(--text);}
+/* 顶栏标签按层级给文字上色：第一层（整个板块）/第二层（分类、单条列表）/第三层（具体内容，日志一篇、留言板），
+   比小圆点明显；选中态（.active）的深色背景+白字优先级更高，放在这几条后面，选中的时候还是看白字 */
+.toptab-dyn.lv1{color:#9B6FD1;}
+.toptab-dyn.lv2{color:#2F86C9;}
+.toptab-dyn.lv3{color:#2F9E5E;}
+.toptab-dyn.lv1:hover{color:#9B6FD1;}
+.toptab-dyn.lv2:hover{color:#2F86C9;}
+.toptab-dyn.lv3:hover{color:#2F9E5E;}
 .toptab-dyn.active{background:var(--text); color:#fff; border-color:var(--text);}
 .toptab-dyn .tclose{
   width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -96,12 +104,6 @@ button{font-family:inherit;cursor:pointer}
 }
 .toptab-dyn.active .tclose{background:rgba(255,255,255,.25); color:#fff;}
 .toptab-dyn .tclose:hover{background:var(--danger); color:#fff;}
-/* 顶栏标签按层级上色：第一层（整个板块）/第二层（分类、单条列表）/第三层（具体内容，日志一篇、留言板）
-   用一个小圆点区分，颜色不受选中态背景切换影响，一眼能看出这个标签是哪一层打开的 */
-.toptab-lv-dot{display:inline-block; width:6px; height:6px; border-radius:50%; flex:none;}
-.toptab-lv-dot.lv1{background:#B08BD6;}
-.toptab-lv-dot.lv2{background:#4E9BD1;}
-.toptab-lv-dot.lv3{background:#4FAE7C;}
 
 .wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
 
@@ -1426,8 +1428,7 @@ function renderTopTabsBar(){
     var label = raw.length>10 ? (raw.slice(0,10)+"…") : raw;
     var onClickCall = tab.type==="module" ? ("go('"+tab.id+"')") : ("switchToItemTab('"+tab.key+"')");
     var icon = tabIcon(tab);
-    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+
-      '<span class="toptab-lv-dot lv'+tabLevel(tab)+'" title="第'+tabLevel(tab)+'层"></span>'+
+    return '<span class="toptab-dyn lv'+tabLevel(tab)+(active?" active":"")+'" onclick="'+onClickCall+'" title="第'+tabLevel(tab)+'层">'+
       (icon?icon+' ':'')+esc(label)+
       '<span class="tclose" onclick="closeItemTab(event,\''+tab.key+'\')" title="关闭">✕</span></span>';
   }).join('');
