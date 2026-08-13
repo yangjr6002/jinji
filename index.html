@@ -416,6 +416,8 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag-field-row{display:flex; gap:4px;}
 .travel-tag-field-row input{min-width:0;}
 .travel-tag-edit-actions{display:flex; gap:6px; justify-content:space-between; margin-top:2px;}
+.travel-tag-rename-input{width:100%; box-sizing:border-box; text-align:center; font-size:12.5px; font-weight:600; font-family:inherit; color:var(--text); border:1px solid var(--accent); background:var(--surface-2); border-radius:6px; padding:8px 6px;}
+.travel-tag-rename-input:focus{outline:none;}
 @media (max-width:700px){ .travel-tag-grid{grid-template-columns:repeat(3,1fr);} }
 @media (max-width:420px){ .travel-tag-grid{grid-template-columns:repeat(2,1fr);} }
 .hz-timeline-wrap{padding:6px 4px 20px; overflow:hidden;}
@@ -3242,10 +3244,31 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
 /* 旅游类别不用树状时间轴，改成一格一格的地点标签，一行最多6个；不再用弹窗编辑，
    鼠标悬浮标签直接弹出悬浮框看备注，点悬浮框本身进入编辑（跟碎碎念子主题备注那套一个思路）。
    新加的地点还是照常存进 lifeTimeline（category:"travel"），世界版图那边会按关键词自动定位点亮。 */
+var travelTagRenamingId = null;
+window.startRenameTravelTag = function(id){
+  travelTagRenamingId = id;
+  render();
+  /* autofocus 属性在 innerHTML 整体替换出来的输入框上不一定生效（实测双击后 document.activeElement 还是 body，
+     打字根本落不到框里），这里手动 focus+select 兜底 */
+  var input = document.querySelector(".travel-tag-rename-input");
+  if(input){ input.focus(); input.select(); }
+};
+window.commitRenameTravelTag = function(id, value){
+  value = (value||"").trim();
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(t && value) t.keyword = value;
+  travelTagRenamingId = null;
+  save(); render();
+};
 function renderTravelTagGrid(items){
   var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
   var tags = sorted.map(function(t){
-    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="travelTagDblClickEdit(\''+t.id+'\',this)" title="悬浮看备注，双击编辑">'+esc(t.keyword||"未命名地点")+'</div>';
+    /* 双击直接就地改地名（标签本身变成输入框），跟这次会话里其他"双击改名"的地方同一个交互；
+       悬浮弹出的便签框负责看/改日期和备注字段，两者分工 */
+    if(travelTagRenamingId===t.id){
+      return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
+    }
+    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
   var addTag = '<div class="travel-tag travel-tag-add" onclick="createTravelTagInline()">+ 添加地点</div>';
   return '<div class="travel-tag-grid">'+tags+addTag+'</div>';
@@ -3353,10 +3376,6 @@ window.travelTagShow = function(id, anchorEl){
   box.style.display = "block";
   travelTagPositionNear(box, anchorEl);
   box.querySelector(".ssn-remark-view").onclick = function(){ travelTagRenderEdit(id); };
-};
-window.travelTagDblClickEdit = function(id, anchorEl){
-  travelTagAnchorEl = anchorEl;
-  travelTagRenderEdit(id);
 };
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
