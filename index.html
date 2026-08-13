@@ -692,7 +692,7 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-bubble-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-del{opacity:1;}
 .ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
-.ssn-composer{display:flex; gap:8px; margin-top:10px; align-items:flex-end;}
+.ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
 /* 留言/日志内容里的加图片：跟评论框那种小相机图标按钮同一个思路，缩略图一排，点开看大图，删除叉在角上 */
 .book-img-gallery{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
@@ -4463,7 +4463,6 @@ function renderSuisuinianTopicBoard(topicId){
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     '<button class="btn ghost small" onclick="deleteSuisuinianTopic(\''+topic.id+'\')">删除子主题</button>'+
     '</div></div>'+
-    '<div class="card-panel ssn-feed">'+bubbles+'</div>'+
     '<div class="ssn-composer">'+
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
@@ -4471,7 +4470,8 @@ function renderSuisuinianTopicBoard(topicId){
         '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
-    '</div>';
+    '</div>'+
+    '<div class="card-panel ssn-feed">'+bubbles+'</div>';
 }
 window.toggleBookSort = function(moduleId){
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
