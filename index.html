@@ -3245,7 +3245,7 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
 function renderTravelTagGrid(items){
   var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
   var tags = sorted.map(function(t){
-    return '<div class="travel-tag" data-travel-id="'+t.id+'">'+esc(t.keyword||"未命名地点")+'</div>';
+    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="travelTagDblClickEdit(\''+t.id+'\',this)" title="悬浮看备注，双击编辑">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
   var addTag = '<div class="travel-tag travel-tag-add" onclick="createTravelTagInline()">+ 添加地点</div>';
   return '<div class="travel-tag-grid">'+tags+addTag+'</div>';
@@ -3353,6 +3353,10 @@ window.travelTagShow = function(id, anchorEl){
   box.style.display = "block";
   travelTagPositionNear(box, anchorEl);
   box.querySelector(".ssn-remark-view").onclick = function(){ travelTagRenderEdit(id); };
+};
+window.travelTagDblClickEdit = function(id, anchorEl){
+  travelTagAnchorEl = anchorEl;
+  travelTagRenderEdit(id);
 };
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
