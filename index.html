@@ -3253,12 +3253,41 @@ window.startRenameTravelTag = function(id){
   var input = document.querySelector(".travel-tag-rename-input");
   if(input){ input.focus(); input.select(); }
 };
+/* 标签改名/新建后要跟旧的编辑浮窗一样，真的去 OpenStreetMap 定位一次，把坐标存进 t.geo，
+   不然地图那边找不到坐标（世界版图只认 t.geo，不会现读关键词临时定位）。geocodeLocation/pickGeoFromList
+   是世界版图那一节已有的函数，这里直接复用，不用重新实现一套。 */
+async function geocodeAndSetTravelGeo(id, locText){
+  locText = (locText||"").trim();
+  if(!locText) return;
+  toast("正在定位「"+locText+"」…");
+  var results = await geocodeLocation(locText);
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!t) return;
+  if(results===null){
+    toast("定位失败："+lastGeocodeError+"，这条经历暂时不会出现在地图上", 6000);
+    return;
+  }
+  if(results.length===0){
+    toast("没找到「"+locText+"」，这条经历暂时不会出现在地图上");
+    delete t.geo;
+    save(); render();
+    return;
+  }
+  var geo;
+  if(results.length===1){ geo = results[0]; }
+  else { geo = await pickGeoFromList(results, locText); if(!geo){ toast("已跳过定位"); return; } }
+  t.geo = geo;
+  save(); render();
+  toast("「"+locText+"」已在地图上点亮");
+}
 window.commitRenameTravelTag = function(id, value){
   value = (value||"").trim();
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  var changed = !!(t && value && t.keyword!==value);
   if(t && value) t.keyword = value;
   travelTagRenamingId = null;
   save(); render();
+  if(changed) geocodeAndSetTravelGeo(id, value);
 };
 function renderTravelTagGrid(items){
   var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
@@ -3280,7 +3309,10 @@ window.createTravelTagInline = function(){
 };
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
-  t.keyword = (value||"").trim(); save(); render();
+  value = (value||"").trim();
+  var changed = !!(value && t.keyword!==value);
+  t.keyword = value; save(); render();
+  if(changed) geocodeAndSetTravelGeo(id, value);
 };
 window.updateTravelDate = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
