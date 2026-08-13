@@ -4192,10 +4192,10 @@ function renderSuisuinianCategoryBoard(){
         : '<span class="book-board-col-title" ondblclick="event.stopPropagation();startRenameBookCategory(\''+moduleId+'\',\''+key+'\')" title="双击改名">'+esc(label)+'</span>');
     var delFn = isFixed ? "deleteSuisuinianUncategorized()" : "deleteBookCategory('"+moduleId+"','"+key+"')";
     var delBtn = '<button type="button" class="book-board-col-del" onclick="event.stopPropagation();'+delFn+'" title="删除">✕</button>';
-    /* 栏里预览最多8个子主题的标题（纯预览，点哪都进第二层，不单独可点） */
+    /* 栏里预览最多3个子主题的标题（纯预览，点哪都进第二层，不单独可点） */
     var topics = suisuinianTopics(key);
-    var previewItems = topics.slice(0,8).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
-    var moreHint = topics.length>8 ? '<div class="book-board-col-preview-more">还有 '+(topics.length-8)+' 个…</div>' : '';
+    var previewItems = topics.slice(0,3).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
+    var moreHint = topics.length>3 ? '<div class="book-board-col-preview-more">还有 '+(topics.length-3)+' 个…</div>' : '';
     var preview = topics.length ? (previewItems+moreHint) : '<div class="book-board-col-preview-empty">还没有子主题</div>';
     return '<div class="book-board-col book-board-col-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+key+'\')">'+
       '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
