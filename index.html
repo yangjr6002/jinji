@@ -409,6 +409,13 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag .tl-tip-wrap{cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;}
 .travel-tag-add{color:var(--text-dim); border-style:dashed; font-weight:500;}
 .travel-tag-add:hover{color:var(--text); border-color:var(--text-faint); box-shadow:none;}
+/* 地点标签悬浮框里的编辑表单：地名、日期、备注字段，都不用弹窗，直接在悬浮框里改 */
+.travel-tag-edit-form{display:flex; flex-direction:column; gap:6px; min-width:200px;}
+.travel-tag-edit-form input{width:100%; box-sizing:border-box;}
+.travel-tag-fields{display:flex; flex-direction:column; gap:4px;}
+.travel-tag-field-row{display:flex; gap:4px;}
+.travel-tag-field-row input{min-width:0;}
+.travel-tag-edit-actions{display:flex; gap:6px; justify-content:space-between; margin-top:2px;}
 @media (max-width:700px){ .travel-tag-grid{grid-template-columns:repeat(3,1fr);} }
 @media (max-width:420px){ .travel-tag-grid{grid-template-columns:repeat(2,1fr);} }
 .hz-timeline-wrap{padding:6px 4px 20px; overflow:hidden;}
@@ -797,6 +804,7 @@ table.data tr:hover{background:var(--surface-2)}
 <div class="tl-tooltip" id="tlTooltip"></div>
 <div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
 <div class="book-photo-float" id="bookPhotoFloat" style="display:none;"></div>
+<div class="ssn-remark-float" id="travelTagFloat" style="display:none;"></div>
 <script>
 /* ================= 数据层 ================= */
 /* 单页应用的本机持久化键。备份/恢复用于跨浏览器或清理缓存时迁移数据。 */
@@ -3231,16 +3239,136 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
   rows += '<div class="tlv-year-row add" onclick="editTimelineEntry()"><span class="tlv-year-label">+ 添加经历</span></div>';
   return '<div class="tl-vertical">'+rows+'</div>';
 }
-/* 旅游类别不用树状时间轴，改成一格一格的地点标签，一行最多6个；标签复用关键词悬浮提示（悬浮看备注字段），
-   点标签直接打开原有的编辑浮窗改名字/日期/备注字段。新加的地点本来就会被世界版图按关键词自动定位点亮。 */
+/* 旅游类别不用树状时间轴，改成一格一格的地点标签，一行最多6个；不再用弹窗编辑，
+   鼠标悬浮标签直接弹出悬浮框看备注，点悬浮框本身进入编辑（跟碎碎念子主题备注那套一个思路）。
+   新加的地点还是照常存进 lifeTimeline（category:"travel"），世界版图那边会按关键词自动定位点亮。 */
 function renderTravelTagGrid(items){
   var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
   var tags = sorted.map(function(t){
-    return '<div class="travel-tag" onclick="editTimelineEntry(\''+t.id+'\')">'+keywordWithTip(t.keyword||"未命名地点", t)+'</div>';
+    return '<div class="travel-tag" data-travel-id="'+t.id+'">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
-  var addTag = '<div class="travel-tag travel-tag-add" onclick="editTimelineEntry()">+ 添加地点</div>';
+  var addTag = '<div class="travel-tag travel-tag-add" onclick="createTravelTagInline()">+ 添加地点</div>';
   return '<div class="travel-tag-grid">'+tags+addTag+'</div>';
 }
+window.createTravelTagInline = function(){
+  var id = uid();
+  DATA.lifeTimeline.push({id:id, date:new Date().toISOString().slice(0,7), keyword:"新地点", category:"travel", fields:[]});
+  save(); render();
+};
+window.updateTravelKeyword = function(id, value){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  t.keyword = (value||"").trim(); save(); render();
+};
+window.updateTravelDate = function(id, value){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  t.date = (value||"").trim(); save(); render();
+};
+window.addTravelField = function(id){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  t.fields = t.fields || [];
+  t.fields.push({id:uid(), label:"", value:""});
+  save(); render();
+};
+window.updateTravelFieldLabel = function(id, fieldId, value){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  var f = (t.fields||[]).filter(function(x){return x.id===fieldId;})[0]; if(!f) return;
+  f.label = value; save(); render();
+};
+window.updateTravelFieldValue = function(id, fieldId, value){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  var f = (t.fields||[]).filter(function(x){return x.id===fieldId;})[0]; if(!f) return;
+  f.value = value; save(); render();
+};
+window.deleteTravelField = function(id, fieldId){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  t.fields = (t.fields||[]).filter(function(x){return x.id!==fieldId;});
+  save(); render();
+};
+window.deleteTravelEntry = function(id){
+  confirmDelete("确定删除这个地点吗？", function(){
+    DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
+    var box = document.getElementById("travelTagFloat");
+    if(box) box.style.display = "none";
+    save(); render(); toast("已删除");
+  });
+};
+var travelTagHideTimer = null;
+var travelTagAnchorEl = null;
+function travelTagClearHide(){ clearTimeout(travelTagHideTimer); }
+function travelTagScheduleHide(){
+  var box = document.getElementById("travelTagFloat");
+  if(box && box.querySelector(".travel-tag-edit-form")) return;
+  clearTimeout(travelTagHideTimer);
+  travelTagHideTimer = setTimeout(function(){ if(box) box.style.display = "none"; }, 200);
+}
+function travelTagPositionNear(box, anchorEl){
+  var r = anchorEl.getBoundingClientRect();
+  var br = box.getBoundingClientRect();
+  var left = r.left;
+  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
+  if(left < 6) left = 6;
+  var top = r.bottom + 6;
+  if(top + br.height > window.innerHeight - 6){
+    var above = r.top - br.height - 6;
+    top = above >= 6 ? above : Math.max(r.top, 6);
+  }
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+}
+function travelTagFieldsFormHtml(t, id){
+  return (t.fields||[]).map(function(f){
+    return '<div class="travel-tag-field-row">'+
+      '<input type="text" class="asset-inline-input" value="'+esc(f.label)+'" placeholder="字段名" onchange="updateTravelFieldLabel(\''+id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input" value="'+esc(f.value)+'" placeholder="内容" onchange="updateTravelFieldValue(\''+id+'\',\''+f.id+'\',this.value)">'+
+      '<button type="button" class="btn small danger" onclick="deleteTravelField(\''+id+'\',\''+f.id+'\');travelTagRenderEdit(\''+id+'\')">✕</button>'+
+    '</div>';
+  }).join('');
+}
+window.travelTagRenderEdit = function(id){
+  var box = document.getElementById("travelTagFloat");
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!box || !t) return;
+  travelTagClearHide();
+  box.innerHTML = '<div class="travel-tag-edit-form">'+
+    '<input type="text" class="asset-inline-input" value="'+esc(t.keyword||"")+'" placeholder="地名" onchange="updateTravelKeyword(\''+id+'\',this.value)">'+
+    '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onchange="updateTravelDate(\''+id+'\',this.value)">'+
+    '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
+    '<div class="travel-tag-edit-actions">'+
+      '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteTravelEntry(\''+id+'\')">删除</button>'+
+    '</div>'+
+  '</div>';
+  box.style.display = "block";
+  if(travelTagAnchorEl) travelTagPositionNear(box, travelTagAnchorEl);
+};
+window.travelTagShow = function(id, anchorEl){
+  travelTagClearHide();
+  travelTagAnchorEl = anchorEl;
+  var box = document.getElementById("travelTagFloat");
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!box || !t) return;
+  var dateLine = t.dateEnd ? (esc(t.date||"—")+" ~ "+esc(t.dateEnd)) : esc(t.date||"—");
+  var fieldsHtml = (t.fields||[]).map(function(f){ return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>'; }).join('') || '<div class="tl-tip-row muted">点击编辑备注</div>';
+  box.innerHTML = '<div class="ssn-remark-view"><div class="tl-tip-row"><b>'+esc(t.keyword||"未命名地点")+'</b></div><div class="tl-tip-row">'+dateLine+'</div>'+fieldsHtml+'</div>';
+  box.style.display = "block";
+  travelTagPositionNear(box, anchorEl);
+  box.querySelector(".ssn-remark-view").onclick = function(){ travelTagRenderEdit(id); };
+};
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  if(el) travelTagShow(el.getAttribute("data-travel-id"), el);
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  if(el) travelTagScheduleHide();
+});
+(function(){
+  var box = document.getElementById("travelTagFloat");
+  if(box){
+    box.addEventListener("mouseenter", travelTagClearHide);
+    box.addEventListener("mouseleave", travelTagScheduleHide);
+  }
+})();
 function renderTimelineSection(){
   var all = DATA.lifeTimeline.slice().sort(function(a,b){ return dateSortKey(a.date).localeCompare(dateSortKey(b.date)); });
   var items = timelineFilter==="all" ? all : all.filter(function(t){ return (t.category||"other")===timelineFilter; });
