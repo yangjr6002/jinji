@@ -402,6 +402,15 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-filter-chip:hover{border-color:var(--text-faint); color:var(--text);}
 .tl-filter-chip.active{background:var(--chip-color, var(--text)); border-color:var(--chip-color, var(--text)); color:#fff;}
 .tl-map-cta{margin-top:12px;}
+/* 旅游地点标签：一行6个，鼠标悬浮看备注（关键词悬浮提示复用），点开原有编辑浮窗改内容 */
+.travel-tag-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:6px;}
+.travel-tag{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; transition:.12s; overflow:hidden;}
+.travel-tag:hover{border-color:var(--accent); box-shadow:var(--shadow);}
+.travel-tag .tl-tip-wrap{cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;}
+.travel-tag-add{color:var(--text-dim); border-style:dashed; font-weight:500;}
+.travel-tag-add:hover{color:var(--text); border-color:var(--text-faint); box-shadow:none;}
+@media (max-width:700px){ .travel-tag-grid{grid-template-columns:repeat(3,1fr);} }
+@media (max-width:420px){ .travel-tag-grid{grid-template-columns:repeat(2,1fr);} }
 .hz-timeline-wrap{padding:6px 4px 20px; overflow:hidden;}
 .hz-timeline{position:relative; height:76px; overflow-x:auto; overflow-y:hidden; cursor:grab; -webkit-overflow-scrolling:touch; transition:height .15s ease;}
 .hz-timeline.grabbing{cursor:grabbing;}
@@ -3222,6 +3231,16 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
   rows += '<div class="tlv-year-row add" onclick="editTimelineEntry()"><span class="tlv-year-label">+ 添加经历</span></div>';
   return '<div class="tl-vertical">'+rows+'</div>';
 }
+/* 旅游类别不用树状时间轴，改成一格一格的地点标签，一行最多6个；标签复用关键词悬浮提示（悬浮看备注字段），
+   点标签直接打开原有的编辑浮窗改名字/日期/备注字段。新加的地点本来就会被世界版图按关键词自动定位点亮。 */
+function renderTravelTagGrid(items){
+  var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
+  var tags = sorted.map(function(t){
+    return '<div class="travel-tag" onclick="editTimelineEntry(\''+t.id+'\')">'+keywordWithTip(t.keyword||"未命名地点", t)+'</div>';
+  }).join('');
+  var addTag = '<div class="travel-tag travel-tag-add" onclick="editTimelineEntry()">+ 添加地点</div>';
+  return '<div class="travel-tag-grid">'+tags+addTag+'</div>';
+}
 function renderTimelineSection(){
   var all = DATA.lifeTimeline.slice().sort(function(a,b){ return dateSortKey(a.date).localeCompare(dateSortKey(b.date)); });
   var items = timelineFilter==="all" ? all : all.filter(function(t){ return (t.category||"other")===timelineFilter; });
@@ -3234,11 +3253,13 @@ function renderTimelineSection(){
     '<button class="title-edit-btn" onclick="editSectionLabel(\'timeline\')" title="重命名">✎</button></div>'+
     '<div class="sub">'+(isAll
       ? '"全部"是一张坐标图：横轴是时间和你的年纪，纵轴是各个类别，一眼看到某个年纪各方面都发生了什么。点某个类别单独看，会变成可以展开的树状轴。'
-      : ('按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。'))+
+      : timelineFilter==="travel"
+        ? '一个标签就是一个去过的地方，鼠标悬浮看备注信息，点标签编辑；新加的地点会自动去「世界版图」上定位点亮。'
+        : ('按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。'))+
     '</div></div>'+
     '<div style="display:flex; gap:6px;">'+
-    '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>'+
-    (isAll ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>')+
+    (timelineFilter==="travel" ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>')+
+    (isAll || timelineFilter==="travel" ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>')+
     (isAll ? '' : '<button class="btn solid small" onclick="editTimelineEntry()">+</button>')+
     '</div>'+
   '</div>';
@@ -3255,6 +3276,9 @@ function renderTimelineSection(){
   if(isAll){
     axis = renderTimelineMatrix(items, granularity);
     hint = items.length ? '' : '<div class="hz-detail-hint">还没有记录，点击右上角「+」添加第一段经历</div>';
+  } else if(timelineFilter==="travel"){
+    axis = renderTravelTagGrid(items);
+    hint = "";
   } else {
     var usePeriods = (timelineFilter==="school" || timelineFilter==="work" || timelineFilter==="residence");
     var layout = buildTimelineLayout(items, granularity, usePeriods);
