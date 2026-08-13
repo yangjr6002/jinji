@@ -96,6 +96,12 @@ button{font-family:inherit;cursor:pointer}
 }
 .toptab-dyn.active .tclose{background:rgba(255,255,255,.25); color:#fff;}
 .toptab-dyn .tclose:hover{background:var(--danger); color:#fff;}
+/* 顶栏标签按层级上色：第一层（整个板块）/第二层（分类、单条列表）/第三层（具体内容，日志一篇、留言板）
+   用一个小圆点区分，颜色不受选中态背景切换影响，一眼能看出这个标签是哪一层打开的 */
+.toptab-lv-dot{display:inline-block; width:6px; height:6px; border-radius:50%; flex:none;}
+.toptab-lv-dot.lv1{background:#B08BD6;}
+.toptab-lv-dot.lv2{background:#4E9BD1;}
+.toptab-lv-dot.lv3{background:#4FAE7C;}
 
 .wrap{max-width:1080px; margin:0 auto; padding:44px 28px 80px;}
 
@@ -1420,7 +1426,9 @@ function renderTopTabsBar(){
     var label = raw.length>10 ? (raw.slice(0,10)+"…") : raw;
     var onClickCall = tab.type==="module" ? ("go('"+tab.id+"')") : ("switchToItemTab('"+tab.key+"')");
     var icon = tabIcon(tab);
-    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+(icon?icon+' ':'')+esc(label)+
+    return '<span class="toptab-dyn'+(active?" active":"")+'" onclick="'+onClickCall+'">'+
+      '<span class="toptab-lv-dot lv'+tabLevel(tab)+'" title="第'+tabLevel(tab)+'层"></span>'+
+      (icon?icon+' ':'')+esc(label)+
       '<span class="tclose" onclick="closeItemTab(event,\''+tab.key+'\')" title="关闭">✕</span></span>';
   }).join('');
   return html;
@@ -3533,6 +3541,15 @@ function tabIcon(tab){
   var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:"", bookCategory:"", suisuinianTopic:""};
   if(tab && (tab.type==="journal"||tab.type==="suisuinian"||tab.type==="bookCategory"||tab.type==="suisuinianTopic")) return "";
   return (tab && map[tab.type]) || "📄";
+}
+/* 标签属于哪一层：整个板块（点开某个模块）算第一层；分类/单条记录列表算第二层；
+   具体内容（日志一篇、碎碎念留言板）是最深的第三层 */
+function tabLevel(tab){
+  if(!tab) return 1;
+  if(tab.type==="module") return 1;
+  if(tab.type==="bookCategory") return 2;
+  if(tab.type==="journal"||tab.type==="suisuinianTopic") return 3;
+  return 2;
 }
 window.openItemTab = function(type, id, extra){
   var key = type+":"+id;
