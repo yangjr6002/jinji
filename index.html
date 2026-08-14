@@ -3290,6 +3290,40 @@ window.commitRenameTravelTag = function(id, value){
   save(); render();
   if(changed) geocodeAndSetTravelGeo(id, value);
 };
+/* 旅游标签分两层：先选国内/国际，再选省份/国家，最后才是具体地点的标签网格。
+   国内/国际、省份/国家都是从每条经历定位出来的 t.geo.countryCode/state/country 现算的，不是另存一份分类数据；
+   老数据（这次改动之前定位过的）没有这几个字段，会先落进"未定位"，双击改一下名字触发重新定位就能分类了。 */
+function travelRegionForEntry(t){
+  if(!t.geo || !t.geo.countryCode) return null;
+  var isDomestic = t.geo.countryCode==="cn";
+  return {isDomestic:isDomestic, region: isDomestic ? (t.geo.state||"其他省份") : (t.geo.country||"其他国家")};
+}
+var travelAdding = false;
+window.startAddTravelTag = function(){
+  travelAdding = true;
+  render();
+  var input = document.getElementById("travelAddInput");
+  if(input){ input.focus(); }
+};
+window.cancelAddTravelTag = function(){
+  travelAdding = false;
+  render();
+};
+window.commitAddTravelTag = function(value){
+  value = (value||"").trim();
+  travelAdding = false;
+  if(!value){ render(); return; }
+  var id = uid();
+  DATA.lifeTimeline.push({id:id, date:new Date().toISOString().slice(0,7), keyword:value, category:"travel", fields:[]});
+  save(); render();
+  geocodeAndSetTravelGeo(id, value);
+};
+function travelAddTileHtml(){
+  if(travelAdding){
+    return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" id="travelAddInput" placeholder="地点名称" onkeydown="if(event.key===\'Enter\')this.blur(); if(event.key===\'Escape\')cancelAddTravelTag();" onblur="commitAddTravelTag(this.value)"></div>';
+  }
+  return '<div class="travel-tag travel-tag-add" onclick="startAddTravelTag()">+ 添加地点</div>';
+}
 function renderTravelTagGrid(items){
   var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
   var tags = sorted.map(function(t){
@@ -3300,14 +3334,51 @@ function renderTravelTagGrid(items){
     }
     return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
-  var addTag = '<div class="travel-tag travel-tag-add" onclick="createTravelTagInline()">+ 添加地点</div>';
-  return '<div class="travel-tag-grid">'+tags+addTag+'</div>';
+  return '<div class="travel-tag-grid">'+tags+travelAddTileHtml()+'</div>';
 }
-window.createTravelTagInline = function(){
-  var id = uid();
-  DATA.lifeTimeline.push({id:id, date:new Date().toISOString().slice(0,7), keyword:"新地点", category:"travel", fields:[]});
-  save(); render();
-};
+window.enterTravelScope = function(scope){ moduleCatView.travel_scope = scope; moduleCatView.travel_region = null; travelAdding=false; render(); };
+window.exitTravelScope = function(){ moduleCatView.travel_scope = null; moduleCatView.travel_region = null; travelAdding=false; render(); };
+window.enterTravelRegion = function(region){ moduleCatView.travel_region = region; travelAdding=false; render(); };
+window.exitTravelRegion = function(){ moduleCatView.travel_region = null; travelAdding=false; render(); };
+function renderTravelSection(items){
+  var domesticItems=[], intlItems=[], unlocated=[];
+  items.forEach(function(t){
+    var r = travelRegionForEntry(t);
+    if(!r) unlocated.push(t);
+    else if(r.isDomestic) domesticItems.push(t);
+    else intlItems.push(t);
+  });
+  var scope = moduleCatView.travel_scope;
+  var region = moduleCatView.travel_region;
+
+  if(scope===null || scope===undefined){
+    var tiles = '<div class="travel-tag" onclick="enterTravelScope(\'domestic\')">国内<span class="book-meta muted">'+domesticItems.length+'</span></div>'+
+      '<div class="travel-tag" onclick="enterTravelScope(\'international\')">国际<span class="book-meta muted">'+intlItems.length+'</span></div>'+
+      (unlocated.length ? '<div class="travel-tag" onclick="enterTravelScope(\'unlocated\')">未定位<span class="book-meta muted">'+unlocated.length+'</span></div>' : '');
+    return '<div class="travel-tag-grid">'+tiles+'</div>';
+  }
+  if(scope==="unlocated"){
+    var backBar0 = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelScope()">‹ 返回</button><span class="cat-back-label">未定位</span></div>';
+    return backBar0 + renderTravelTagGrid(unlocated);
+  }
+  var pool = scope==="domestic" ? domesticItems : intlItems;
+  if(region===null || region===undefined){
+    var regions = {};
+    pool.forEach(function(t){
+      var r = travelRegionForEntry(t).region;
+      regions[r] = regions[r] || [];
+      regions[r].push(t);
+    });
+    var backBar1 = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelScope()">‹ 返回</button><span class="cat-back-label">'+(scope==="domestic"?"国内":"国际")+'</span></div>';
+    var regionTiles = Object.keys(regions).sort().map(function(r){
+      return '<div class="travel-tag" onclick="enterTravelRegion(\''+esc(r).replace(/'/g,"\\'")+'\')">'+esc(r)+'<span class="book-meta muted">'+regions[r].length+'</span></div>';
+    }).join('');
+    return backBar1 + '<div class="travel-tag-grid">'+regionTiles+travelAddTileHtml()+'</div>';
+  }
+  var leafItems = pool.filter(function(t){ return travelRegionForEntry(t).region===region; });
+  var backBar2 = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelRegion()">‹ 返回</button><span class="cat-back-label">'+esc(region)+'</span></div>';
+  return backBar2 + renderTravelTagGrid(leafItems);
+}
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
   value = (value||"").trim();
@@ -3461,7 +3532,7 @@ function renderTimelineSection(){
     axis = renderTimelineMatrix(items, granularity);
     hint = items.length ? '' : '<div class="hz-detail-hint">还没有记录，点击右上角「+」添加第一段经历</div>';
   } else if(timelineFilter==="travel"){
-    axis = renderTravelTagGrid(items);
+    axis = renderTravelSection(items);
     hint = "";
   } else {
     var usePeriods = (timelineFilter==="school" || timelineFilter==="work" || timelineFilter==="residence");
@@ -4140,13 +4211,28 @@ window.deleteTimelineEntry = function(id){
 /* ---- 世界版图：基于真实地理编码的全球地点搜索（OpenStreetMap Nominatim，免费无需 key） ---- */
 /* 地图本身用 Leaflet + OpenStreetMap 真实地图瓦片渲染，不再是手绘示意图 */
 var lastGeocodeError = "";
+var CN_MUNICIPALITY_BY_ISO = {"CN-BJ":"北京市","CN-SH":"上海市","CN-TJ":"天津市","CN-CQ":"重庆市","CN-HK":"香港特别行政区","CN-MO":"澳门特别行政区"};
 async function geocodeLocation(query){
   try{
     var url = "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&accept-language=zh-CN&q=" + encodeURIComponent(query);
     var res = await fetch(url);
     if(!res.ok){ lastGeocodeError = "HTTP "+res.status; return null; }
     var data = await res.json();
-    return data.map(function(r){ return {lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name}; });
+    /* addressdetails=1 会带一个结构化的 address 对象，国内取 state（省份），国外取 country（国家），
+       用来把旅游标签按"国内/国际 → 省/国"分类，不用自己拿 display_name 字符串瞎解析。
+       北京/上海/天津/重庆这几个直辖市和港澳，OSM 的 address 里没有 state 字段，只能靠 ISO3166-2-lvl4 code 认出来。 */
+    return data.map(function(r){
+      var addr = r.address||{};
+      var state = addr.state || addr.province || "";
+      if(!state && addr.country_code==="cn" && addr["ISO3166-2-lvl4"] && CN_MUNICIPALITY_BY_ISO[addr["ISO3166-2-lvl4"]]){
+        state = CN_MUNICIPALITY_BY_ISO[addr["ISO3166-2-lvl4"]];
+      }
+      return {
+        lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name,
+        country: addr.country||"", countryCode: (addr.country_code||"").toLowerCase(),
+        state: state
+      };
+    });
   }catch(e){
     lastGeocodeError = (e && e.message) ? e.message : String(e);
     return null;
