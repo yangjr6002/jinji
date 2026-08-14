@@ -3304,9 +3304,12 @@ function travelPathForEntry(t){
   var isDomestic = t.geo.countryCode==="cn";
   var path;
   if(isDomestic){
+    /* 省 → 市（地级市，从 display_name 里抠出来的）→ 区/县 → 镇/乡，每一段跟上一段重复就跳过
+       （比如直辖市没有单独的地级市这一层，区县直接跟在省后面） */
     path = [t.geo.state || "其他省份"];
-    if(t.geo.city) path.push(t.geo.city);
-    if(t.geo.town) path.push(t.geo.town);
+    if(t.geo.prefectureCity && t.geo.prefectureCity!==path[path.length-1]) path.push(t.geo.prefectureCity);
+    if(t.geo.city && t.geo.city!==path[path.length-1]) path.push(t.geo.city);
+    if(t.geo.town && t.geo.town!==path[path.length-1]) path.push(t.geo.town);
   } else {
     path = [t.geo.country || "其他国家"];
     if(t.geo.city) path.push(t.geo.city);
@@ -4251,6 +4254,19 @@ window.deleteTimelineEntry = function(id){
 /* 地图本身用 Leaflet + OpenStreetMap 真实地图瓦片渲染，不再是手绘示意图 */
 var lastGeocodeError = "";
 var CN_MUNICIPALITY_BY_ISO = {"CN-BJ":"北京市","CN-SH":"上海市","CN-TJ":"天津市","CN-CQ":"重庆市","CN-HK":"香港特别行政区","CN-MO":"澳门特别行政区"};
+/* OpenStreetMap 的结构化 address 字段里没有"地级市"这一层（比如查"杭州市西湖区"，address.city 给的是
+   "西湖区"，压根不会单独给"杭州市"）。但这个词其实是藏在 display_name 那一长串"区,市,省,国家"的
+   逗号分隔字符串里的——"西湖区, 杭州市, 浙江省, 中国"——地级市就是排在"省"前面那一段，
+   跟 address.city/town 各不相同的话就是它。靠这个位置关系把地级市摘出来，不是瞎猜字符串。 */
+function extractPrefectureCity(displayName, state, city, town){
+  if(!displayName || !state) return "";
+  var parts = displayName.split(",").map(function(s){ return s.trim(); });
+  var stateIdx = parts.indexOf(state);
+  if(stateIdx<=0) return "";
+  var candidate = parts[stateIdx-1];
+  if(!candidate || candidate===city || candidate===town || candidate===state) return "";
+  return candidate;
+}
 async function geocodeLocation(query){
   try{
     var url = "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&accept-language=zh-CN&q=" + encodeURIComponent(query);
@@ -4266,12 +4282,13 @@ async function geocodeLocation(query){
       if(!state && addr.country_code==="cn" && addr["ISO3166-2-lvl4"] && CN_MUNICIPALITY_BY_ISO[addr["ISO3166-2-lvl4"]]){
         state = CN_MUNICIPALITY_BY_ISO[addr["ISO3166-2-lvl4"]];
       }
+      var city = addr.city || addr.county || addr.municipality || addr.district || "";
+      var town = addr.town || addr.township || addr.village || "";
+      var prefectureCity = (addr.country_code==="cn") ? extractPrefectureCity(r.display_name, state, city, town) : "";
       return {
         lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name,
         country: addr.country||"", countryCode: (addr.country_code||"").toLowerCase(),
-        state: state,
-        city: addr.city || addr.county || addr.municipality || addr.district || "",
-        town: addr.town || addr.township || addr.village || ""
+        state: state, prefectureCity: prefectureCity, city: city, town: town
       };
     });
   }catch(e){
