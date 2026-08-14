@@ -3428,6 +3428,12 @@ window.updateTravelKeyword = function(id, value){
   t.keyword = value; save(); render();
   if(changed) geocodeAndSetTravelGeo(id, value);
 };
+/* 不用改名字也能手动触发一次重新定位：地名没变，但存量数据是老版本代码定位的，缺市/区县/镇这些字段，
+   补跑一次同样的定位逻辑就能把新字段（省市区镇）都补齐 */
+window.refreshTravelGeo = function(id){
+  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+  geocodeAndSetTravelGeo(id, t.keyword);
+};
 window.updateTravelDate = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
   t.date = (value||"").trim(); save(); render();
@@ -3504,6 +3510,7 @@ window.travelTagRenderEdit = function(id){
     '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
     '<div class="travel-tag-edit-actions">'+
       '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
+      '<button type="button" class="btn small ghost" onclick="refreshTravelGeo(\''+id+'\')" title="老数据可能定位信息不全（比如缺市/区县/镇这几级），点这个重新定位一次补全">🔄 重新定位</button>'+
       '<button type="button" class="btn small danger" onclick="deleteTravelEntry(\''+id+'\')">删除</button>'+
     '</div>'+
   '</div>';
