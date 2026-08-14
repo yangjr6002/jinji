@@ -627,6 +627,7 @@ table.data tr:hover{background:var(--surface-2)}
 .map-wrap{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; box-shadow:var(--shadow); position:relative;}
 .leaflet-map-el{width:100%; height:420px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); z-index:1;}
 .geo-pin-icon{background:transparent; border:none;}
+.geo-pin-emoji{font-size:20px; line-height:1; text-align:center; filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); cursor:pointer; transform:translateY(2px);}
 .map-fallback{padding:40px 20px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:10px;}
 .map-legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
 .map-chip{font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 10px; border-radius:20px; background:var(--accent-soft); color:var(--accent); cursor:pointer;}
@@ -4223,15 +4224,13 @@ function setupLeafletMap(){
     el.outerHTML = '<div class="map-fallback">地图库没能加载出来（可能是网络问题，或者当前环境限制了外部资源加载）。地点数据还在，换个环境或者刷新一下这一页可能就好了。</div>';
     return;
   }
+  /* 大头钉换成小小的 📍 emoji，标记多起来也不会显得又大又占地方 */
   var pinIcon = L.divIcon({
     className: "geo-pin-icon",
-    html: '<svg width="26" height="36" viewBox="0 0 22 32" xmlns="http://www.w3.org/2000/svg">'+
-      '<path d="M11 0C5 0 0 5 0 11c0 8 11 21 11 21s11-13 11-21C22 5 17 0 11 0z" fill="#B3483C" stroke="#fff" stroke-width="1"/>'+
-      '<circle cx="11" cy="11" r="4.5" fill="#fff"/>'+
-    '</svg>',
-    iconSize: [26,36],
-    iconAnchor: [13,36],
-    popupAnchor: [0,-32]
+    html: '<div class="geo-pin-emoji">📍</div>',
+    iconSize: [22,22],
+    iconAnchor: [10,20],
+    popupAnchor: [0,-18]
   });
   /* 初始固定为世界全览（最小缩放），只有手动缩放/双指才会放大，不自动对着标记点放大 */
   var map = L.map("leafletMap", {scrollWheelZoom:true, minZoom:2}).setView([20,10], 2);
