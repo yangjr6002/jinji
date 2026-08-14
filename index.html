@@ -3292,16 +3292,28 @@ window.commitRenameTravelTag = function(id, value){
   save(); render();
   if(changed) geocodeAndSetTravelGeo(id, value);
 };
-/* 旅游标签两层：第一层不是真的一层菜单，只是"国内/国际"两个标题分组，底下直接摆省份/国家的标签；
-   点一个省份/国家才进第二层，是具体地点的标签网格。国内/国际、省份/国家都是从每条经历定位出来的
-   t.geo.countryCode/state/country 现算的，不是另存一份分类数据；老数据没有这几个字段的会落进"未定位"，
-   双击改一下名字触发重新定位就能分类了。 */
-function travelRegionForEntry(t){
+/* 旅游标签：第一层是"国内/国际"两个标题分组（不是真的一层菜单），底下摆省份/国家的标签；
+   点进去按 OpenStreetMap 给的地址层级继续往下钻——国内最多能到 省 → 市/区县 → 镇/乡，国外是 国家 → 城市，
+   到底了（这一级下面没有更细的地址数据）就直接显示具体地点标签。国内的"市"这一级要说明一下：
+   OpenStreetMap 对国内地址的标注不总是能精确给到"地级市"，很多时候这一级实际给到的是区/县，
+   不是一个能强行拼出来的东西，就按 OpenStreetMap 实际给的地址层级来，尽量往下钻。
+   这些分类信息都是从每条经历定位时的 t.geo（state/city/town/country）现算的，不是另存一份分类数据；
+   老数据没定位过的现在不再单独显示出来，双击改一下名字触发重新定位就会自动出现在分类里了。 */
+function travelPathForEntry(t){
   if(!t.geo || !t.geo.countryCode) return null;
   var isDomestic = t.geo.countryCode==="cn";
-  return {isDomestic:isDomestic, region: isDomestic ? (t.geo.state||"其他省份") : (t.geo.country||"其他国家")};
+  var path;
+  if(isDomestic){
+    path = [t.geo.state || "其他省份"];
+    if(t.geo.city) path.push(t.geo.city);
+    if(t.geo.town) path.push(t.geo.town);
+  } else {
+    path = [t.geo.country || "其他国家"];
+    if(t.geo.city) path.push(t.geo.city);
+  }
+  return {isDomestic:isDomestic, path:path};
 }
-var travelAddingKind = null; /* "domestic" | "international" | "leaf" | null：记着是哪个分组里点的"+"，只在那一个分组里出现输入框 */
+var travelAddingKind = null; /* 记着是在哪个网格里点的"+"，只在那一个网格里出现输入框 */
 window.startAddTravelTag = function(kind){
   travelAddingKind = kind;
   render();
@@ -3327,60 +3339,84 @@ function travelAddTileHtml(kind){
   }
   return '<div class="travel-tag travel-tag-add" onclick="startAddTravelTag(\''+kind+'\')">+ 添加地点</div>';
 }
-function renderTravelTagGrid(items, addKind){
-  var sorted = items.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
-  var tags = sorted.map(function(t){
-    /* 双击直接就地改地名（标签本身变成输入框），跟这次会话里其他"双击改名"的地方同一个交互；
-       悬浮弹出的便签框负责看/改日期和备注字段，两者分工 */
+/* 一个网格里混着"文件夹"标签（点了往下钻一级）和"具体地点"标签（悬浮看备注、双击改名），
+   同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起 */
+function renderTravelMixedGrid(folderTiles, leafItems, addKind){
+  var sortedLeaf = leafItems.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
+  var leafTags = sortedLeaf.map(function(t){
     if(travelTagRenamingId===t.id){
       return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
     }
     return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
-  return '<div class="travel-tag-grid">'+tags+travelAddTileHtml(addKind||"leaf")+'</div>';
+  return '<div class="travel-tag-grid">'+folderTiles+leafTags+travelAddTileHtml(addKind||"leaf")+'</div>';
 }
-window.enterTravelRegion = function(region, kind){ moduleCatView.travel_region = region; moduleCatView.travel_region_kind = kind; travelAddingKind=null; render(); };
-window.exitTravelRegion = function(){ moduleCatView.travel_region = null; moduleCatView.travel_region_kind = null; travelAddingKind=null; render(); };
+window.enterTravelTopRegion = function(segment, kind){
+  moduleCatView.travel_path_kind = kind;
+  moduleCatView.travel_path = [segment];
+  travelAddingKind = null;
+  render();
+};
+window.enterTravelPathLevel = function(segment){
+  moduleCatView.travel_path = (moduleCatView.travel_path||[]).concat([segment]);
+  travelAddingKind = null;
+  render();
+};
+window.exitTravelPathLevel = function(){
+  var p = moduleCatView.travel_path || [];
+  if(p.length<=1){ moduleCatView.travel_path=null; moduleCatView.travel_path_kind=null; }
+  else { moduleCatView.travel_path = p.slice(0,-1); }
+  travelAddingKind = null;
+  render();
+};
 function renderTravelSection(items){
-  var domesticItems=[], intlItems=[], unlocated=[];
+  var domesticItems=[], intlItems=[];
   items.forEach(function(t){
-    var r = travelRegionForEntry(t);
-    if(!r) unlocated.push(t);
-    else if(r.isDomestic) domesticItems.push(t);
-    else intlItems.push(t);
+    var p = travelPathForEntry(t);
+    if(!p) return; /* 没定位过的经历这里不显示，双击改名触发重新定位后会自动出现在分类里 */
+    (p.isDomestic ? domesticItems : intlItems).push(t);
   });
-  var region = moduleCatView.travel_region;
-  var regionKind = moduleCatView.travel_region_kind;
+  var kind = moduleCatView.travel_path_kind;
+  var path = moduleCatView.travel_path;
 
-  if(region!==null && region!==undefined && regionKind){
-    var pool = regionKind==="domestic" ? domesticItems : regionKind==="international" ? intlItems : unlocated;
-    var leafItems = regionKind==="unlocated" ? pool : pool.filter(function(t){ return travelRegionForEntry(t).region===region; });
-    var label = regionKind==="unlocated" ? "未定位" : region;
-    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelRegion()">‹ 返回</button><span class="cat-back-label">'+esc(label)+'</span></div>';
-    return backBar + renderTravelTagGrid(leafItems, "leaf");
+  if(kind && path && path.length){
+    var pool = kind==="domestic" ? domesticItems : intlItems;
+    var scoped = pool.filter(function(t){
+      var p = travelPathForEntry(t).path;
+      for(var i=0;i<path.length;i++){ if(p[i]!==path[i]) return false; }
+      return true;
+    });
+    var leafHere = scoped.filter(function(t){ return travelPathForEntry(t).path.length===path.length; });
+    var deeper = scoped.filter(function(t){ return travelPathForEntry(t).path.length>path.length; });
+    var groups = {};
+    deeper.forEach(function(t){
+      var seg = travelPathForEntry(t).path[path.length];
+      groups[seg] = groups[seg] || [];
+      groups[seg].push(t);
+    });
+    var folderTiles = Object.keys(groups).sort().map(function(seg){
+      return '<div class="travel-tag" onclick="enterTravelPathLevel(\''+esc(seg).replace(/'/g,"\\'")+'\')">'+esc(seg)+'<span class="book-meta muted">'+groups[seg].length+'</span></div>';
+    }).join('');
+    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span></div>';
+    return backBar + renderTravelMixedGrid(folderTiles, leafHere, "leaf");
   }
 
-  function groupByRegion(pool){
+  function groupByFirstSegment(pool){
     var g = {};
-    pool.forEach(function(t){ var r=travelRegionForEntry(t).region; g[r]=g[r]||[]; g[r].push(t); });
+    pool.forEach(function(t){ var seg=travelPathForEntry(t).path[0]; g[seg]=g[seg]||[]; g[seg].push(t); });
     return g;
   }
-  function regionTilesHtml(groups, kind){
-    return Object.keys(groups).sort().map(function(r){
-      return '<div class="travel-tag" onclick="enterTravelRegion(\''+esc(r).replace(/'/g,"\\'")+'\',\''+kind+'\')">'+esc(r)+'<span class="book-meta muted">'+groups[r].length+'</span></div>';
+  function topTilesHtml(groups, k){
+    return Object.keys(groups).sort().map(function(seg){
+      return '<div class="travel-tag" onclick="enterTravelTopRegion(\''+esc(seg).replace(/'/g,"\\'")+'\',\''+k+'\')">'+esc(seg)+'<span class="book-meta muted">'+groups[seg].length+'</span></div>';
     }).join('');
   }
-  var domesticGroups = groupByRegion(domesticItems);
-  var intlGroups = groupByRegion(intlItems);
-  var html = '<div class="travel-section-heading">国内</div>'+
-    '<div class="travel-tag-grid">'+regionTilesHtml(domesticGroups,"domestic")+travelAddTileHtml("domestic")+'</div>'+
+  var domesticGroups = groupByFirstSegment(domesticItems);
+  var intlGroups = groupByFirstSegment(intlItems);
+  return '<div class="travel-section-heading">国内</div>'+
+    '<div class="travel-tag-grid">'+topTilesHtml(domesticGroups,"domestic")+travelAddTileHtml("domestic")+'</div>'+
     '<div class="travel-section-heading">国际</div>'+
-    '<div class="travel-tag-grid">'+regionTilesHtml(intlGroups,"international")+travelAddTileHtml("international")+'</div>';
-  if(unlocated.length){
-    html += '<div class="travel-section-heading">未定位</div>'+
-      '<div class="travel-tag-grid"><div class="travel-tag" onclick="enterTravelRegion(\'__unlocated__\',\'unlocated\')">还没定位成功<span class="book-meta muted">'+unlocated.length+'</span></div></div>';
-  }
-  return html;
+    '<div class="travel-tag-grid">'+topTilesHtml(intlGroups,"international")+travelAddTileHtml("international")+'</div>';
 }
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
@@ -4233,7 +4269,9 @@ async function geocodeLocation(query){
       return {
         lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name,
         country: addr.country||"", countryCode: (addr.country_code||"").toLowerCase(),
-        state: state
+        state: state,
+        city: addr.city || addr.county || addr.municipality || addr.district || "",
+        town: addr.town || addr.township || addr.village || ""
       };
     });
   }catch(e){
