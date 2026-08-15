@@ -3311,6 +3311,10 @@ window.commitRenameTravelTag = function(id, value){
    这些分类信息都是从每条经历定位时的 t.geo（state/city/town/country）现算的，不是另存一份分类数据；
    老数据没定位过的现在不再单独显示出来，双击改一下名字触发重新定位就会自动出现在分类里了。 */
 function travelPathForEntry(t){
+  /* 文件夹标签本身（比如"宿迁市"文件夹）如果底下没有一条用户自己打的记录对应它，就没法悬浮编辑——
+     所以每一级文件夹第一次被看到时会自动悄悄补一条"代表这一级本身"的记录，靠 folderPath 直接记住
+     自己的层级路径，不用再走一遍地理编码 */
+  if(t.folderPath) return {isDomestic: t.folderKind==="domestic", path: t.folderPath};
   if(!t.geo || !t.geo.countryCode) return null;
   var isDomestic = t.geo.countryCode==="cn";
   var path;
@@ -3376,11 +3380,31 @@ window.deleteTravelFolder = function(kind, segment, event){
     save(); render(); toast("已删除");
   });
 };
-function travelFolderTileHtml(segment, count, kind, navClick){
-  return '<div class="travel-tag travel-tag-folder">'+
+function travelFolderTileHtml(segment, count, kind, navClick, selfId){
+  return '<div class="travel-tag travel-tag-folder"'+(selfId?' data-travel-id="'+selfId+'"':'')+'>'+
     '<span class="travel-tag-folder-label" onclick="'+navClick+'">'+esc(segment)+'<span class="book-meta muted">'+count+'</span></span>'+
     '<button type="button" class="travel-tag-del" onclick="deleteTravelFolder(\''+kind+'\',\''+esc(segment).replace(/'/g,"\\'")+'\',event)" title="删除">✕</button>'+
   '</div>';
+}
+/* 文件夹标签第一次出现时，如果这条路径底下还没有一条记录正好就是"它本身"，就悄悄补一条——
+   不用重新走地理编码，直接把路径记下来，这样每一级文件夹标签也能悬浮看/编辑备注，不止最底下那层 */
+var travelFolderEntryCreated = false;
+function ensureFolderSelfEntry(kind, fullPath){
+  var found = DATA.lifeTimeline.filter(function(t){
+    if(t.category!=="travel") return false;
+    var p = travelPathForEntry(t);
+    if(!p || p.isDomestic!==(kind==="domestic") || p.path.length!==fullPath.length) return false;
+    for(var i=0;i<fullPath.length;i++){ if(p.path[i]!==fullPath[i]) return false; }
+    return true;
+  })[0];
+  if(found) return found.id;
+  var id = uid();
+  DATA.lifeTimeline.push({
+    id:id, date:new Date().toISOString().slice(0,7), keyword:fullPath[fullPath.length-1],
+    category:"travel", fields:[], folderPath:fullPath.slice(), folderKind:kind
+  });
+  travelFolderEntryCreated = true;
+  return id;
 }
 /* 一个网格里混着"文件夹"标签（点了往下钻一级）和"具体地点"标签（悬浮看备注、双击改名），
    同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起 */
@@ -3479,8 +3503,10 @@ function renderTravelSection(items){
       }
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
-      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')");
+      var selfId = ensureFolderSelfEntry(kind, path.concat([seg]));
+      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", selfId);
     }).join('');
+    if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
     var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
     return backBar + travelAddRowHtml("leaf") + renderTravelMixedGrid(folderTiles, leafHere);
   }
@@ -3499,18 +3525,21 @@ function renderTravelSection(items){
       if(g2.length===1 && travelPathForEntry(g2[0]).path.length===1){ leaf.push(g2[0]); delete groups[seg]; }
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
-      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')");
+      var selfId = ensureFolderSelfEntry(k, [seg]);
+      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", selfId);
     }).join('');
     return renderTravelMixedGrid(folderTiles, leaf);
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  return '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
+  var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
     travelAddRowHtml("domestic")+
     topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span>'+travelAddButtonHtml("international")+'</div>'+
     travelAddRowHtml("international")+
     topGridHtml(intlGroups,"international");
+  if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
+  return out;
 }
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
