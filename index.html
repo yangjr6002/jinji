@@ -1547,8 +1547,8 @@ function renderHome(){
     '</div>'+
   '</div>';
 
-  /* 在地图（旅游标签）板块里编辑的时候，下面碎碎念、日志两块先不显示，省得滚动一大截、也不用重复渲染 */
-  var hideBelowTimeline = (timelineFilter==="travel");
+  /* 时间轴筛选到具体某个类别（不是"全部"）时，相当于进了一个次级界面专心编辑，下面碎碎念、日志两块先不显示 */
+  var hideBelowTimeline = (timelineFilter!=="all");
   var sectionContent = {
     timeline: renderTimelineSection(),
     suisuinian: hideBelowTimeline ? "" : renderBookSection("suisuinian"),
