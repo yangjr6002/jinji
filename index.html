@@ -2100,28 +2100,35 @@ function renderFamRemarkOverlay(){
   var h = node.renderedOuterHeight();
   var containerW = graphEl.clientWidth, containerH = graphEl.clientHeight;
   var boxWidth = 190, halfW = boxWidth/2;
-  var left = pos.x;
-  if(left - halfW < 4) left = halfW + 4;
-  if(left + halfW > containerW - 4) left = containerW - 4 - halfW;
-  var estHeight = famRemarkEditing ? 90 : 56;
-  var top = pos.y - h/2 - 10 - estHeight;
-  if(top < 4){
-    top = pos.y + h/2 + 10;
-    if(top + estHeight > containerH - 4) top = Math.max(4, containerH - estHeight - 4);
-  }
   var div = document.createElement("div");
   div.id = "famRemarkOverlay";
   div.className = "ssn-remark-float";
   div.style.position = "absolute";
-  div.style.left = left+"px";
-  div.style.top = top+"px";
+  div.style.left = "0px";
+  div.style.top = "-9999px"; /* 先挂到画面外量出真实高度，猜的高度跟实际不一样会导致悬浮框离节点忽远忽近 */
   div.style.width = boxWidth+"px";
   ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
     div.addEventListener(evt, function(e){ e.stopPropagation(); });
   });
   if(famRemarkEditing){
     div.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="给TA加个备注…">'+esc(p.remark||"")+'</textarea>';
-    wrap.appendChild(div);
+  }else{
+    var hasRemark = !!(p.remark && p.remark.trim());
+    div.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(p.remark):"点击添加备注")+'</div>';
+  }
+  wrap.appendChild(div);
+  var boxHeight = div.offsetHeight;
+  var left = pos.x;
+  if(left - halfW < 4) left = halfW + 4;
+  if(left + halfW > containerW - 4) left = containerW - 4 - halfW;
+  var top = pos.y - h/2 - 10 - boxHeight;
+  if(top < 4){
+    top = pos.y + h/2 + 10;
+    if(top + boxHeight > containerH - 4) top = Math.max(4, containerH - boxHeight - 4);
+  }
+  div.style.left = left+"px";
+  div.style.top = top+"px";
+  if(famRemarkEditing){
     var ta = div.querySelector("textarea");
     ta.focus();
     ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
@@ -2132,9 +2139,6 @@ function renderFamRemarkOverlay(){
       renderFamRemarkOverlay();
     });
   }else{
-    var hasRemark = !!(p.remark && p.remark.trim());
-    div.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(p.remark):"点击添加备注")+'</div>';
-    wrap.appendChild(div);
     div.querySelector(".ssn-remark-view").onclick = function(){ famRemarkEditing = true; renderFamRemarkOverlay(); };
     div.addEventListener("mouseenter", famRemarkClearHide);
     div.addEventListener("mouseleave", famRemarkScheduleHide);
