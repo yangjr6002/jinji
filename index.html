@@ -1547,10 +1547,12 @@ function renderHome(){
     '</div>'+
   '</div>';
 
+  /* 在地图（旅游标签）板块里编辑的时候，下面碎碎念、日志两块先不显示，省得滚动一大截、也不用重复渲染 */
+  var hideBelowTimeline = (timelineFilter==="travel");
   var sectionContent = {
     timeline: renderTimelineSection(),
-    suisuinian: renderBookSection("suisuinian"),
-    journal: renderBookSection("journal")
+    suisuinian: hideBelowTimeline ? "" : renderBookSection("suisuinian"),
+    journal: hideBelowTimeline ? "" : renderBookSection("journal")
   };
   var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["timeline","suisuinian","journal"];
   order.forEach(function(key){
