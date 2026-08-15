@@ -406,6 +406,8 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:6px;}
 .travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin:0;}
 .travel-section-heading-row{display:flex; align-items:center; gap:8px; margin-top:20px; margin-bottom:2px;}
+.travel-add-inline{display:inline-flex; align-items:center; gap:6px;}
+.travel-add-inline input{width:160px; padding:4px 8px; font-size:12.5px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);}
 .travel-section-heading-row:first-child{margin-top:0;}
 .travel-tag{position:relative; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; transition:.12s; overflow:hidden;}
 .travel-tag:hover{border-color:var(--accent); box-shadow:var(--shadow);}
@@ -3351,17 +3353,16 @@ window.commitAddTravelTag = function(value){
   save(); render();
   geocodeAndSetTravelGeo(id, travelContextualQuery(value));
 };
-/* 加号按钮挪到标题（国内/国际、或返回条里当前这一级的名字）旁边，一个小圆按钮，不占标签格子；
-   点了在标题下面弹一行"输入框+取消"（跟碎碎念子主题那一排加法一个样式），不用的时候完全不占地方 */
+/* 加号按钮在标题（国内/国际、或返回条里当前这一级的名字）旁边，一个小圆按钮，不占标签格子；
+   点了直接在加号原地换成"输入框+取消"，跟标题同一行，不用换行 */
 function travelAddButtonHtml(kind){
+  if(travelAddingKind===kind){
+    return '<span class="travel-add-inline">'+
+      '<input type="text" id="travelAddInput" placeholder="地点名称，比如「杭州西湖」" onkeydown="if(event.key===\'Enter\'){this.blur();} if(event.key===\'Escape\'){cancelAddTravelTag();}" onblur="commitAddTravelTag(this.value)">'+
+      '<button type="button" class="btn small ghost" onclick="cancelAddTravelTag()">取消</button>'+
+    '</span>';
+  }
   return '<button type="button" class="gear-btn" onclick="startAddTravelTag(\''+kind+'\')" title="添加地点">+</button>';
-}
-function travelAddRowHtml(kind){
-  if(travelAddingKind!==kind) return "";
-  return '<div class="book-toc-add" style="margin-bottom:14px">'+
-    '<input type="text" id="travelAddInput" placeholder="地点名称，比如「杭州西湖」" onkeydown="if(event.key===\'Enter\'){this.blur();} if(event.key===\'Escape\'){cancelAddTravelTag();}" onblur="commitAddTravelTag(this.value)">'+
-    '<button type="button" class="btn small ghost" onclick="cancelAddTravelTag()">取消</button>'+
-  '</div>';
 }
 /* 文件夹标签（省/市/区县/镇，点了往下钻一级）右上角悬浮出现一个小叉，删掉这个文件夹连带里面所有地点 */
 window.deleteTravelFolder = function(kind, segment, event){
@@ -3513,7 +3514,7 @@ function renderTravelSection(items){
     }).join('');
     if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
     var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
-    return backBar + travelAddRowHtml("leaf") + renderTravelMixedGrid(folderTiles, leafHere);
+    return backBar + renderTravelMixedGrid(folderTiles, leafHere);
   }
 
   function groupByFirstSegment(pool){
@@ -3538,10 +3539,8 @@ function renderTravelSection(items){
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
   var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
-    travelAddRowHtml("domestic")+
     topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span>'+travelAddButtonHtml("international")+'</div>'+
-    travelAddRowHtml("international")+
     topGridHtml(intlGroups,"international");
   if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
   return out;
