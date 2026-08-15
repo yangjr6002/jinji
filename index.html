@@ -412,7 +412,7 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag .tl-tip-wrap{cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;}
 .travel-tag-folder-label{display:block; cursor:pointer;}
 .travel-tag-del{position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-dim); opacity:0; transition:.12s; cursor:pointer;}
-.travel-tag-folder:hover .travel-tag-del{opacity:1;}
+.travel-tag:hover .travel-tag-del{opacity:1;}
 .travel-tag-del:hover{background:var(--danger); color:#fff; border-color:var(--danger);}
 /* 地点标签悬浮框里的编辑表单：地名、日期、备注字段，都不用弹窗，直接在悬浮框里改 */
 .travel-tag-edit-form{display:flex; flex-direction:column; gap:6px; min-width:200px;}
@@ -3390,7 +3390,9 @@ function renderTravelMixedGrid(folderTiles, leafItems){
     if(travelTagRenamingId===t.id){
       return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
     }
-    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+'</div>';
+    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+
+      '<button type="button" class="travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
+    '</div>';
   }).join('');
   return '<div class="travel-tag-grid">'+folderTiles+leafTags+'</div>';
 }
