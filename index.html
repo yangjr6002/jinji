@@ -404,13 +404,16 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-map-cta{margin-top:12px;}
 /* 旅游地点标签：一行6个，鼠标悬浮看备注（关键词悬浮提示复用），点开原有编辑浮窗改内容 */
 .travel-tag-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:6px;}
-.travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-top:20px; margin-bottom:2px;}
-.travel-section-heading:first-child{margin-top:0;}
-.travel-tag{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; transition:.12s; overflow:hidden;}
+.travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin:0;}
+.travel-section-heading-row{display:flex; align-items:center; gap:8px; margin-top:20px; margin-bottom:2px;}
+.travel-section-heading-row:first-child{margin-top:0;}
+.travel-tag{position:relative; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 10px; font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; transition:.12s; overflow:hidden;}
 .travel-tag:hover{border-color:var(--accent); box-shadow:var(--shadow);}
 .travel-tag .tl-tip-wrap{cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;}
-.travel-tag-add{color:var(--text-dim); border-style:dashed; font-weight:500;}
-.travel-tag-add:hover{color:var(--text); border-color:var(--text-faint); box-shadow:none;}
+.travel-tag-folder-label{display:block; cursor:pointer;}
+.travel-tag-del{position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-dim); opacity:0; transition:.12s; cursor:pointer;}
+.travel-tag-folder:hover .travel-tag-del{opacity:1;}
+.travel-tag-del:hover{background:var(--danger); color:#fff; border-color:var(--danger);}
 /* 地点标签悬浮框里的编辑表单：地名、日期、备注字段，都不用弹窗，直接在悬浮框里改 */
 .travel-tag-edit-form{display:flex; flex-direction:column; gap:6px; min-width:200px;}
 .travel-tag-edit-form input{width:100%; box-sizing:border-box;}
@@ -3336,15 +3339,44 @@ window.commitAddTravelTag = function(value){
   save(); render();
   geocodeAndSetTravelGeo(id, value);
 };
-function travelAddTileHtml(kind){
-  if(travelAddingKind===kind){
-    return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" id="travelAddInput" placeholder="地点名称" onkeydown="if(event.key===\'Enter\')this.blur(); if(event.key===\'Escape\')cancelAddTravelTag();" onblur="commitAddTravelTag(this.value)"></div>';
+/* 加号按钮挪到标题（国内/国际、或返回条里当前这一级的名字）旁边，一个小圆按钮，不占标签格子；
+   点了在标题下面弹一行"输入框+取消"（跟碎碎念子主题那一排加法一个样式），不用的时候完全不占地方 */
+function travelAddButtonHtml(kind){
+  return '<button type="button" class="gear-btn" onclick="startAddTravelTag(\''+kind+'\')" title="添加地点">+</button>';
+}
+function travelAddRowHtml(kind){
+  if(travelAddingKind!==kind) return "";
+  return '<div class="book-toc-add" style="margin-bottom:14px">'+
+    '<input type="text" id="travelAddInput" placeholder="地点名称，比如「杭州西湖」" onkeydown="if(event.key===\'Enter\'){this.blur();} if(event.key===\'Escape\'){cancelAddTravelTag();}" onblur="commitAddTravelTag(this.value)">'+
+    '<button type="button" class="btn small ghost" onclick="cancelAddTravelTag()">取消</button>'+
+  '</div>';
+}
+/* 文件夹标签（省/市/区县/镇，点了往下钻一级）右上角悬浮出现一个小叉，删掉这个文件夹连带里面所有地点 */
+window.deleteTravelFolder = function(kind, segment, event){
+  if(event) event.stopPropagation();
+  var basePath = (moduleCatView.travel_path_kind===kind) ? (moduleCatView.travel_path||[]) : [];
+  var fullPath = basePath.concat([segment]);
+  function matches(t){
+    var p = travelPathForEntry(t);
+    if(!p || p.isDomestic!==(kind==="domestic")) return false;
+    for(var i=0;i<fullPath.length;i++){ if(p.path[i]!==fullPath[i]) return false; }
+    return true;
   }
-  return '<div class="travel-tag travel-tag-add" onclick="startAddTravelTag(\''+kind+'\')">+ 添加地点</div>';
+  var count = DATA.lifeTimeline.filter(matches).length;
+  confirmDelete("确定删除「"+segment+"」吗？里面的 "+count+" 个地点会一起永久删除，不能撤销。", function(){
+    DATA.lifeTimeline = DATA.lifeTimeline.filter(function(t){ return !matches(t); });
+    save(); render(); toast("已删除");
+  });
+};
+function travelFolderTileHtml(segment, count, kind, navClick){
+  return '<div class="travel-tag travel-tag-folder">'+
+    '<span class="travel-tag-folder-label" onclick="'+navClick+'">'+esc(segment)+'<span class="book-meta muted">'+count+'</span></span>'+
+    '<button type="button" class="travel-tag-del" onclick="deleteTravelFolder(\''+kind+'\',\''+esc(segment).replace(/'/g,"\\'")+'\',event)" title="删除">✕</button>'+
+  '</div>';
 }
 /* 一个网格里混着"文件夹"标签（点了往下钻一级）和"具体地点"标签（悬浮看备注、双击改名），
    同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起 */
-function renderTravelMixedGrid(folderTiles, leafItems, addKind){
+function renderTravelMixedGrid(folderTiles, leafItems){
   var sortedLeaf = leafItems.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
   var leafTags = sortedLeaf.map(function(t){
     if(travelTagRenamingId===t.id){
@@ -3352,7 +3384,7 @@ function renderTravelMixedGrid(folderTiles, leafItems, addKind){
     }
     return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+'</div>';
   }).join('');
-  return '<div class="travel-tag-grid">'+folderTiles+leafTags+travelAddTileHtml(addKind||"leaf")+'</div>';
+  return '<div class="travel-tag-grid">'+folderTiles+leafTags+'</div>';
 }
 window.enterTravelTopRegion = function(segment, kind){
   moduleCatView.travel_path_kind = kind;
@@ -3398,10 +3430,10 @@ function renderTravelSection(items){
       groups[seg].push(t);
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
-      return '<div class="travel-tag" onclick="enterTravelPathLevel(\''+esc(seg).replace(/'/g,"\\'")+'\')">'+esc(seg)+'<span class="book-meta muted">'+groups[seg].length+'</span></div>';
+      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')");
     }).join('');
-    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span></div>';
-    return backBar + renderTravelMixedGrid(folderTiles, leafHere, "leaf");
+    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
+    return backBar + travelAddRowHtml("leaf") + renderTravelMixedGrid(folderTiles, leafHere);
   }
 
   function groupByFirstSegment(pool){
@@ -3411,15 +3443,17 @@ function renderTravelSection(items){
   }
   function topTilesHtml(groups, k){
     return Object.keys(groups).sort().map(function(seg){
-      return '<div class="travel-tag" onclick="enterTravelTopRegion(\''+esc(seg).replace(/'/g,"\\'")+'\',\''+k+'\')">'+esc(seg)+'<span class="book-meta muted">'+groups[seg].length+'</span></div>';
+      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')");
     }).join('');
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  return '<div class="travel-section-heading">国内</div>'+
-    '<div class="travel-tag-grid">'+topTilesHtml(domesticGroups,"domestic")+travelAddTileHtml("domestic")+'</div>'+
-    '<div class="travel-section-heading">国际</div>'+
-    '<div class="travel-tag-grid">'+topTilesHtml(intlGroups,"international")+travelAddTileHtml("international")+'</div>';
+  return '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
+    travelAddRowHtml("domestic")+
+    '<div class="travel-tag-grid">'+topTilesHtml(domesticGroups,"domestic")+'</div>'+
+    '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span>'+travelAddButtonHtml("international")+'</div>'+
+    travelAddRowHtml("international")+
+    '<div class="travel-tag-grid">'+topTilesHtml(intlGroups,"international")+'</div>';
 }
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
