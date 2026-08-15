@@ -2077,25 +2077,21 @@ window.toggleFamilyMainBranch = function(id){
 };
 /* 方框上悬浮的备注便签：不用点开整张卡片，鼠标放在方框上就能看/改备注（跟碎碎念子主题那个悬浮便签同一个样式）。
    位置跟卡片一样挂在 fam-graph-wrap 上，跟着 Cytoscape 节点的屏幕坐标走。 */
-var famRemarkFor = null;
-var famRemarkEditing = false;
-var famRemarkHideTimer = null;
-function famRemarkClearHide(){ clearTimeout(famRemarkHideTimer); }
-function famRemarkScheduleHide(){
-  if(famRemarkEditing) return;
-  clearTimeout(famRemarkHideTimer);
-  famRemarkHideTimer = setTimeout(function(){ famRemarkFor = null; renderFamRemarkOverlay(); }, 200);
-}
+/* 人多的时候悬浮框可以编辑会让画面一直在跳，改成纯只读展示——没有备注就干脆不弹框，
+   要编辑备注就点节点，在下面那张卡片（fam-card）里的备注框改 */
 function renderFamRemarkOverlay(){
-  var graphEl = document.getElementById("familyGraph");
-  var wrap = document.getElementById("familyGraphWrap");
   var old = document.getElementById("famRemarkOverlay");
   if(old) old.remove();
-  if(!famRemarkFor || !wrap || !graphEl || !familyGraph) return;
-  var node = familyGraph.getElementById(famRemarkFor);
+}
+window.famRemarkHover = function(id){
+  renderFamRemarkOverlay();
+  var graphEl = document.getElementById("familyGraph");
+  var wrap = document.getElementById("familyGraphWrap");
+  if(!wrap || !graphEl || !familyGraph) return;
+  var node = familyGraph.getElementById(id);
   if(!node || !node.length) return;
-  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===famRemarkFor;})[0];
-  if(!p) return;
+  var p = (DATA.familyMembers||[]).filter(function(x){return x.id===id;})[0];
+  if(!p || !p.remark || !p.remark.trim()) return;
   var pos = node.renderedPosition();
   var h = node.renderedOuterHeight();
   var containerW = graphEl.clientWidth, containerH = graphEl.clientHeight;
@@ -2107,15 +2103,8 @@ function renderFamRemarkOverlay(){
   div.style.left = "0px";
   div.style.top = "-9999px"; /* 先挂到画面外量出真实高度，猜的高度跟实际不一样会导致悬浮框离节点忽远忽近 */
   div.style.width = boxWidth+"px";
-  ["pointerdown","mousedown","touchstart","click"].forEach(function(evt){
-    div.addEventListener(evt, function(e){ e.stopPropagation(); });
-  });
-  if(famRemarkEditing){
-    div.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="给TA加个备注…">'+esc(p.remark||"")+'</textarea>';
-  }else{
-    var hasRemark = !!(p.remark && p.remark.trim());
-    div.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(p.remark):"点击添加备注")+'</div>';
-  }
+  div.style.pointerEvents = "none";
+  div.innerHTML = '<div class="ssn-remark-view">'+esc(p.remark)+'</div>';
   wrap.appendChild(div);
   var boxHeight = div.offsetHeight;
   var left = pos.x;
@@ -2128,29 +2117,9 @@ function renderFamRemarkOverlay(){
   }
   div.style.left = left+"px";
   div.style.top = top+"px";
-  if(famRemarkEditing){
-    var ta = div.querySelector("textarea");
-    ta.focus();
-    ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
-    ta.addEventListener("blur", function(){
-      var v = (ta.value||"").trim();
-      if(p.remark!==v){ p.remark = v; save(); }
-      famRemarkEditing = false; famRemarkFor = null;
-      renderFamRemarkOverlay();
-    });
-  }else{
-    div.querySelector(".ssn-remark-view").onclick = function(){ famRemarkEditing = true; renderFamRemarkOverlay(); };
-    div.addEventListener("mouseenter", famRemarkClearHide);
-    div.addEventListener("mouseleave", famRemarkScheduleHide);
-  }
-}
-window.famRemarkHover = function(id){
-  famRemarkClearHide();
-  famRemarkFor = id;
-  renderFamRemarkOverlay();
 };
 window.famRemarkLeave = function(){
-  famRemarkScheduleHide();
+  renderFamRemarkOverlay();
 };
 /* 点连线（配偶虚线/亲子箭头）弹一个小输入框在那条线中点附近，可以直接打字标注/改这条关系的文字，
    回车或点别处失焦就保存；配偶存到 familySpouseLabels，亲子存到 familyEdgeLabels（按边自身的 id 存）。 */
