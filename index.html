@@ -1532,23 +1532,25 @@ function setupHzDrag(){
 function renderHome(){
   var p=DATA.profile;
   var html = '';
-  var avSize = DATA.settings.avatarSize;
-  var avStyle = avSize ? (' style="width:'+avSize.w+'px;height:'+avSize.h+'px"') : '';
-  html += '<div class="dossier-head">'+
-    '<div class="home-avatar" id="homeAvatar"'+avStyle+' onclick="previewAvatar()" title="点击查看/更换头像，右下角可以拖拽调整大小">'+
-      (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
-    '</div>'+
-    '<div class="id-block">'+
-      '<div class="name-row">'+
-        '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
-        '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
-      '</div>'+
-      renderQuickAccess()+
-    '</div>'+
-  '</div>';
-
-  /* 时间轴筛选到具体某个类别（不是"全部"）时，相当于进了一个次级界面专心编辑，下面碎碎念、日志两块先不显示 */
+  /* 时间轴筛选到具体某个类别（不是"全部"）时，相当于进了一个次级界面专心编辑，顶部头像/快捷入口
+     和下面碎碎念、日志两块先不显示 */
   var hideBelowTimeline = (timelineFilter!=="all");
+  if(!hideBelowTimeline){
+    var avSize = DATA.settings.avatarSize;
+    var avStyle = avSize ? (' style="width:'+avSize.w+'px;height:'+avSize.h+'px"') : '';
+    html += '<div class="dossier-head">'+
+      '<div class="home-avatar" id="homeAvatar"'+avStyle+' onclick="previewAvatar()" title="点击查看/更换头像，右下角可以拖拽调整大小">'+
+        (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
+      '</div>'+
+      '<div class="id-block">'+
+        '<div class="name-row">'+
+          '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
+          '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
+        '</div>'+
+        renderQuickAccess()+
+      '</div>'+
+    '</div>';
+  }
   var sectionContent = {
     timeline: renderTimelineSection(),
     suisuinian: hideBelowTimeline ? "" : renderBookSection("suisuinian"),
