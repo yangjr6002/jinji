@@ -406,6 +406,7 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:6px;}
 .travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin:0;}
 .travel-section-heading-row{display:flex; align-items:center; gap:8px; margin-top:20px; margin-bottom:2px;}
+.travel-section-summary{font-size:11px; color:var(--text-dim); font-weight:400;}
 .travel-add-inline{display:inline-flex; align-items:center; gap:6px;}
 .travel-add-inline input{width:160px; padding:4px 8px; font-size:12.5px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);}
 .travel-section-heading-row:first-child{margin-top:0;}
@@ -3486,7 +3487,7 @@ function renderTravelSection(items){
       return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", selfId);
     }).join('');
     if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
-    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
+    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button>'+travelAddButtonHtml("leaf")+'<span class="cat-back-label">'+esc(path[path.length-1])+'</span></div>';
     return backBar + renderTravelMixedGrid(folderTiles, leafHere);
   }
 
@@ -3509,11 +3510,21 @@ function renderTravelSection(items){
     }).join('');
     return renderTravelMixedGrid(folderTiles, leaf);
   }
+  /* 国内数省份/市，国际数国家/城市：按第一段（省/国）、第二段（市/城市）去重数出有多少个不重复的 */
+  function travelSummaryText(pool, l1, l2){
+    var s1={}, s2={};
+    pool.forEach(function(t){
+      var p = travelPathForEntry(t).path;
+      s1[p[0]]=1;
+      if(p.length>1) s2[p[0]+"|"+p[1]]=1;
+    });
+    return Object.keys(s1).length+l1+"·"+Object.keys(s2).length+l2;
+  }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
+  var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
     topGridHtml(domesticGroups,"domestic")+
-    '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span>'+travelAddButtonHtml("international")+'</div>'+
+    '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","城市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
     topGridHtml(intlGroups,"international");
   if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
   return out;
