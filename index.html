@@ -3412,7 +3412,35 @@ window.exitTravelPathLevel = function(){
   travelAddingKind = null;
   render();
 };
+/* 老标签是旧版本代码定位的，geo 里压根没有 prefectureCity 这个字段（这个字段是后来才加的），
+   靠这个判断"缺不缺市这一层"，不用等用户一个个手动点「重新定位」——打开旅游板块自动在后台悄悄补全，
+   一次一个（照顾 Nominatim 一秒一次的用量限制），补完自动刷新画面，用户全程不用管。 */
+var travelGeoMigrationRunning = false;
+var travelGeoMigrationFailedIds = {}; /* 定位失败过的这次会话里不再重试，免得每次进旅游板块都重打一遍 API */
+function isStaleTravelGeo(t){
+  return t.geo && t.geo.countryCode==="cn" && !("prefectureCity" in t.geo) && !travelGeoMigrationFailedIds[t.id];
+}
+async function migrateStaleTravelGeoOnce(){
+  if(travelGeoMigrationRunning) return;
+  var stale = DATA.lifeTimeline.filter(function(t){ return t.category==="travel" && isStaleTravelGeo(t); });
+  if(!stale.length) return;
+  travelGeoMigrationRunning = true;
+  for(var i=0;i<stale.length;i++){
+    var t = stale[i];
+    var results = await geocodeLocation(t.keyword);
+    if(results && results.length){
+      t.geo = results[0];
+      save();
+      if(VIEW==="itemDetail" && timelineFilter==="travel") render();
+    } else {
+      travelGeoMigrationFailedIds[t.id] = true;
+    }
+    await new Promise(function(r){ setTimeout(r, 1100); });
+  }
+  travelGeoMigrationRunning = false;
+}
 function renderTravelSection(items){
+  migrateStaleTravelGeoOnce();
   var domesticItems=[], intlItems=[];
   items.forEach(function(t){
     var p = travelPathForEntry(t);
@@ -4325,7 +4353,7 @@ async function geocodeLocation(query){
     /* addressdetails=1 会带一个结构化的 address 对象，国内取 state（省份），国外取 country（国家），
        用来把旅游标签按"国内/国际 → 省/国"分类，不用自己拿 display_name 字符串瞎解析。
        北京/上海/天津/重庆这几个直辖市和港澳，OSM 的 address 里没有 state 字段，只能靠 ISO3166-2-lvl4 code 认出来。 */
-    return data.map(function(r){
+    var mapped = data.map(function(r){
       var addr = r.address||{};
       var state = addr.state || addr.province || "";
       if(!state && addr.country_code==="cn" && addr["ISO3166-2-lvl4"] && CN_MUNICIPALITY_BY_ISO[addr["ISO3166-2-lvl4"]]){
@@ -4340,6 +4368,17 @@ async function geocodeLocation(query){
         state: state, prefectureCity: prefectureCity, city: city, town: town
       };
     });
+    /* 同一个地名（比如"泗洪县"）OSM 常常给两条重复数据——一条是完整的行政边界（带着"宿迁市"这层），
+       一条是简化的地点节点（直接跳到省，缺中间那层）。两条都留着会导致同名地点在分类里出现两次、
+       其中一条挂不到正确的上级文件夹下。这里按地名去重，同名只留链路最完整（display_name 逗号段最多）的那条。 */
+    var byName = {}, order = [];
+    mapped.forEach(function(r){
+      var key = (r.name||"").split(",")[0].trim();
+      if(!key) return;
+      if(!(key in byName)){ byName[key]=r; order.push(key); }
+      else if((r.name||"").split(",").length > (byName[key].name||"").split(",").length){ byName[key]=r; }
+    });
+    return order.map(function(k){ return byName[k]; });
   }catch(e){
     lastGeocodeError = (e && e.message) ? e.message : String(e);
     return null;
