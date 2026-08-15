@@ -3467,6 +3467,17 @@ function renderTravelSection(items){
       groups[seg] = groups[seg] || [];
       groups[seg].push(t);
     });
+    /* 一个文件夹底下如果只有一条记录、而且这条记录自己已经到底了（没有比它更深的层级），
+       就不用再套一层同名文件夹逼人多点一次——比如"双沟镇"下面只有"双沟镇"自己这一条，
+       直接把它摆成叶子标签就好，点开"双沟镇"文件夹又看到一个"双沟镇"标签这种事不要发生。
+       国内最深到镇级，这条规则天然让镇级不会再往下多一层。 */
+    Object.keys(groups).forEach(function(seg){
+      var g = groups[seg];
+      if(g.length===1 && travelPathForEntry(g[0]).path.length===path.length+1){
+        leafHere.push(g[0]);
+        delete groups[seg];
+      }
+    });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
       return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')");
     }).join('');
@@ -3479,19 +3490,27 @@ function renderTravelSection(items){
     pool.forEach(function(t){ var seg=travelPathForEntry(t).path[0]; g[seg]=g[seg]||[]; g[seg].push(t); });
     return g;
   }
-  function topTilesHtml(groups, k){
-    return Object.keys(groups).sort().map(function(seg){
+  function topGridHtml(groups, k){
+    var leaf = [];
+    /* 跟深层文件夹一个规则：省/国家底下如果只有一条记录、而且这条记录自己就是省/国家这一级（没有市/城市），
+       就直接摆成叶子标签，不用套一层同名文件夹 */
+    Object.keys(groups).forEach(function(seg){
+      var g2 = groups[seg];
+      if(g2.length===1 && travelPathForEntry(g2[0]).path.length===1){ leaf.push(g2[0]); delete groups[seg]; }
+    });
+    var folderTiles = Object.keys(groups).sort().map(function(seg){
       return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')");
     }).join('');
+    return renderTravelMixedGrid(folderTiles, leaf);
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
   return '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span>'+travelAddButtonHtml("domestic")+'</div>'+
     travelAddRowHtml("domestic")+
-    '<div class="travel-tag-grid">'+topTilesHtml(domesticGroups,"domestic")+'</div>'+
+    topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span>'+travelAddButtonHtml("international")+'</div>'+
     travelAddRowHtml("international")+
-    '<div class="travel-tag-grid">'+topTilesHtml(intlGroups,"international")+'</div>';
+    topGridHtml(intlGroups,"international");
 }
 window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
