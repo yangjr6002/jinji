@@ -402,6 +402,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-filter-chip:hover{border-color:var(--text-faint); color:var(--text);}
 .tl-filter-chip.active{background:var(--chip-color, var(--text)); border-color:var(--chip-color, var(--text)); color:#fff;}
 .tl-map-cta{margin-top:12px;}
+.travel-map-preview-float{position:fixed; z-index:80; display:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-lg); padding:6px;}
 /* 旅游地点标签：一行6个，鼠标悬浮看备注（关键词悬浮提示复用），点开原有编辑浮窗改内容 */
 .travel-tag-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:6px;}
 .travel-sort-row{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
@@ -1430,10 +1431,7 @@ function render(){
   var __savedWinY = __sameView ? window.scrollY : null;
   __lastRenderedView = VIEW;
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
-  if(VIEW==="home"){
-    app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize();
-    if(timelineFilter==="travel" && !(moduleCatView.travel_path && moduleCatView.travel_path.length)) setupLeafletMap("travelInlineMap");
-  }
+  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize(); }
   else if(VIEW==="itemDetail"){
     app.innerHTML = renderItemDetailPage();
     var __tab = findTab(activeTabKey);
@@ -3564,8 +3562,7 @@ function renderTravelSection(items){
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  var out = '<div class="tl-map-cta"><button class="btn small ghost" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>'+
-    '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
+  var out = '<div class="tl-map-cta"><button class="btn small ghost" onmouseenter="travelMapPreviewShow(this)" onmouseleave="travelMapPreviewHide()" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>'+
     travelSortControlHtml()+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
     topGridHtml(domesticGroups,"domestic")+
@@ -4579,6 +4576,37 @@ window.focusMapGroup = function(gk, elId){
   map.setView(marker.getLatLng(), 10);
   marker.openPopup();
 };
+/* 旅游标签顶上"查看世界版图"按钮，鼠标悬浮的时候飘一个小地图缩略预览出来，不用一直占着一块地方 */
+var __travelMapPreviewHideTimer = null;
+window.travelMapPreviewShow = function(anchorEl){
+  clearTimeout(__travelMapPreviewHideTimer);
+  var box = document.getElementById("travelMapPreviewFloat");
+  if(!box){
+    box = document.createElement("div");
+    box.id = "travelMapPreviewFloat";
+    box.className = "travel-map-preview-float";
+    document.body.appendChild(box);
+    box.addEventListener("mouseenter", function(){ clearTimeout(__travelMapPreviewHideTimer); });
+    box.addEventListener("mouseleave", travelMapPreviewScheduleHide);
+  }
+  box.innerHTML = '<div id="travelInlineMap" class="leaflet-map-el" style="width:280px; height:200px"></div>';
+  box.style.display = "block";
+  var r = anchorEl.getBoundingClientRect();
+  var left = r.left, top = r.bottom+6;
+  if(left+292 > window.innerWidth-6) left = window.innerWidth-298;
+  if(left<6) left = 6;
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+  setupLeafletMap("travelInlineMap");
+};
+function travelMapPreviewScheduleHide(){
+  clearTimeout(__travelMapPreviewHideTimer);
+  __travelMapPreviewHideTimer = setTimeout(function(){
+    var box = document.getElementById("travelMapPreviewFloat");
+    if(box) box.style.display = "none";
+  }, 200);
+}
+window.travelMapPreviewHide = travelMapPreviewScheduleHide;
 
 /* ---- 纪念事件 ---- */
 function daysInfo(dateStr, repeatYearly){
