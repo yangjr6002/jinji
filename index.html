@@ -3376,8 +3376,8 @@ window.deleteTravelFolder = function(kind, segment, event){
     save(); render(); toast("已删除");
   });
 };
-function travelFolderTileHtml(segment, count, kind, navClick){
-  return '<div class="travel-tag travel-tag-folder">'+
+function travelFolderTileHtml(segment, count, kind, navClick, selfId){
+  return '<div class="travel-tag travel-tag-folder"'+(selfId?' data-travel-id="'+selfId+'"':'')+'>'+
     '<span class="travel-tag-folder-label" onclick="'+navClick+'">'+esc(segment)+'<span class="book-meta muted">'+count+'</span></span>'+
     '<button type="button" class="travel-tag-del" onclick="deleteTravelFolder(\''+kind+'\',\''+esc(segment).replace(/'/g,"\\'")+'\',event)" title="删除">✕</button>'+
   '</div>';
@@ -3461,6 +3461,14 @@ function renderTravelSection(items){
     });
     var leafHere = scoped.filter(function(t){ return travelPathForEntry(t).path.length===path.length; });
     var deeper = scoped.filter(function(t){ return travelPathForEntry(t).path.length>path.length; });
+    /* 进到这一层文件夹里，如果有条记录名字正好跟这层文件夹同名（比如"泗洪县"文件夹里那条也叫"泗洪县"），
+       它就是这个文件夹本身，不当成跟"双沟镇"平级的独立标签再摆一遍——挂到返回条的名字上去，
+       悬浮照样能看/能编辑 */
+    var backSelfEntry = null;
+    leafHere = leafHere.filter(function(t){
+      if(!backSelfEntry && t.keyword===path[path.length-1]){ backSelfEntry = t; return false; }
+      return true;
+    });
     var groups = {};
     deeper.forEach(function(t){
       var seg = travelPathForEntry(t).path[path.length];
@@ -3478,10 +3486,20 @@ function renderTravelSection(items){
         delete groups[seg];
       }
     });
+    /* 剩下这些还需要点进去的文件夹里，如果里面正好有一条记录就是这个文件夹本身（比如"泗洪县"文件夹
+       里，正好有一条记录本身就是"泗洪县"），把这条记录的悬浮编辑框直接挂在文件夹标签上，不要再让它
+       在文件夹里面又出现一次、跟"双沟镇"这种更深一级的地方并排显示 */
+    var folderSelfId = {};
+    Object.keys(groups).forEach(function(seg){
+      var g = groups[seg];
+      for(var i=0;i<g.length;i++){
+        if(travelPathForEntry(g[i]).path.length===path.length+1){ folderSelfId[seg]=g[i].id; break; }
+      }
+    });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
-      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')");
+      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", folderSelfId[seg]);
     }).join('');
-    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
+    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button><span class="cat-back-label"'+(backSelfEntry?' data-travel-id="'+backSelfEntry.id+'"':'')+'>'+esc(path[path.length-1])+'</span>'+travelAddButtonHtml("leaf")+'</div>';
     return backBar + travelAddRowHtml("leaf") + renderTravelMixedGrid(folderTiles, leafHere);
   }
 
@@ -3498,8 +3516,15 @@ function renderTravelSection(items){
       var g2 = groups[seg];
       if(g2.length===1 && travelPathForEntry(g2[0]).path.length===1){ leaf.push(g2[0]); delete groups[seg]; }
     });
+    var folderSelfId = {};
+    Object.keys(groups).forEach(function(seg){
+      var g2 = groups[seg];
+      for(var i=0;i<g2.length;i++){
+        if(travelPathForEntry(g2[i]).path.length===1){ folderSelfId[seg]=g2[i].id; break; }
+      }
+    });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
-      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')");
+      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", folderSelfId[seg]);
     }).join('');
     return renderTravelMixedGrid(folderTiles, leaf);
   }
@@ -3622,11 +3647,11 @@ window.travelTagShow = function(id, anchorEl){
   box.querySelector(".ssn-remark-view").onclick = function(){ travelTagRenderEdit(id); };
 };
 document.addEventListener("mouseover", function(e){
-  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  var el = e.target.closest ? e.target.closest("[data-travel-id]") : null;
   if(el) travelTagShow(el.getAttribute("data-travel-id"), el);
 });
 document.addEventListener("mouseout", function(e){
-  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  var el = e.target.closest ? e.target.closest("[data-travel-id]") : null;
   if(el) travelTagScheduleHide();
 });
 (function(){
