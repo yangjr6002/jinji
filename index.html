@@ -3485,6 +3485,11 @@ function renderTravelSection(items){
     });
     var leafHere = scoped.filter(function(t){ return travelPathForEntry(t).path.length===path.length; });
     var deeper = scoped.filter(function(t){ return travelPathForEntry(t).path.length>path.length; });
+    /* 进到这一层文件夹里，如果有条记录名字正好跟这层文件夹同名（不管是自动补的，还是本来就有一条
+       真实记录叫这个名字），说明它就是这个文件夹本身，已经在上一层的文件夹标签上能悬浮编辑了，
+       这里就不要再当成跟"双沟镇"这种下级平级的独立标签摆一遍——不然删了它，下次打开又会被自动补回来，
+       看起来像删不掉 */
+    leafHere = leafHere.filter(function(t){ return t.keyword!==path[path.length-1]; });
     var groups = {};
     deeper.forEach(function(t){
       var seg = travelPathForEntry(t).path[path.length];
