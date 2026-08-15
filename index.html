@@ -3395,7 +3395,8 @@ function travelSortControlHtml(){
     ["count_desc","去过最多在前"], ["count_asc","去过最少在前"],
     ["order_desc","最近添加在前"], ["order_asc","最早添加在前"]
   ];
-  return '<div class="travel-sort-row"><span class="sub">排序：</span><select onchange="setTravelSortMode(this.value)">'+
+  return '<div class="sub" style="margin-bottom:8px">一个标签就是一个去过的地方，鼠标悬浮看备注信息，点标签编辑；新加的地点会自动去「世界版图」上定位点亮。</div>'+
+  '<div class="travel-sort-row"><select onchange="setTravelSortMode(this.value)">'+
     opts.map(function(o){ return '<option value="'+o[0]+'"'+(travelSortMode===o[0]?" selected":"")+'>'+o[1]+'</option>'; }).join('')+
   '</select></div>';
 }
@@ -3557,9 +3558,9 @@ function renderTravelSection(items){
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  var out = travelSortControlHtml()+
+  var out = '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
+    travelSortControlHtml()+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
-    '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
     topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
     topGridHtml(intlGroups,"international");
@@ -3703,7 +3704,7 @@ function renderTimelineSection(){
     '<div class="sub">'+(isAll
       ? '"全部"是一张坐标图：横轴是时间和你的年纪，纵轴是各个类别，一眼看到某个年纪各方面都发生了什么。点某个类别单独看，会变成可以展开的树状轴。'
       : timelineFilter==="travel"
-        ? '一个标签就是一个去过的地方，鼠标悬浮看备注信息，点标签编辑；新加的地点会自动去「世界版图」上定位点亮。'
+        ? ''
         : ('按'+(granularity==="month"?"年月":"年份")+'排列，同一'+(granularity==="month"?"月":"年")+'有多条经历会像树状图一样展开分支；日期写法不用统一（97/6/10、2024年3月都行），会自动按真实时间排序。点叶子直接弹出编辑浮窗；各个类别筛选的横向/竖向、年/月设置互不影响。'))+
     '</div></div>'+
     '<div style="display:flex; gap:6px;">'+
