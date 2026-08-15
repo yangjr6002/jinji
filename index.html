@@ -3395,8 +3395,7 @@ function travelSortControlHtml(){
     ["count_desc","去过最多在前"], ["count_asc","去过最少在前"],
     ["order_desc","最近添加在前"], ["order_asc","最早添加在前"]
   ];
-  return '<div class="sub" style="margin-bottom:8px">一个标签就是一个去过的地方，鼠标悬浮看备注信息，点标签编辑；新加的地点会自动去「世界版图」上定位点亮。</div>'+
-  '<div class="travel-sort-row"><select onchange="setTravelSortMode(this.value)">'+
+  return '<div class="travel-sort-row"><select onchange="setTravelSortMode(this.value)">'+
     opts.map(function(o){ return '<option value="'+o[0]+'"'+(travelSortMode===o[0]?" selected":"")+'>'+o[1]+'</option>'; }).join('')+
   '</select></div>';
 }
@@ -3558,7 +3557,8 @@ function renderTravelSection(items){
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  var out = '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
+  var out = '<div class="tl-map-cta"><button class="btn small ghost" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>'+
+    '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
     travelSortControlHtml()+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
     topGridHtml(domesticGroups,"domestic")+
@@ -3740,12 +3740,7 @@ function renderTimelineSection(){
       : '<div class="hz-detail-hint">还没有记录，点击'+(orientation==="vertical"?'下方':'时间轴上')+'的「+」添加第一段经历</div>';
   }
 
-  var mapCta = "";
-  if(timelineFilter==="travel"){
-    mapCta = '<div class="tl-map-cta"><button class="btn small ghost" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>';
-  }
-
-  return head + filterRow + axis + hint + mapCta;
+  return head + filterRow + axis + hint;
 }
 /* ---- "全部"视图：横轴是时间(年份+对应年纪)，纵轴是各个类别，格子里是那一年那个类别发生的事 ---- */
 function familyBirthYear(){
