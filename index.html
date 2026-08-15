@@ -403,7 +403,9 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-filter-chip.active{background:var(--chip-color, var(--text)); border-color:var(--chip-color, var(--text)); color:#fff;}
 .tl-map-cta{margin-top:12px;}
 /* 旅游地点标签：一行6个，鼠标悬浮看备注（关键词悬浮提示复用），点开原有编辑浮窗改内容 */
-.travel-tag-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px; margin-top:6px;}
+.travel-tag-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:6px;}
+.travel-sort-row{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
+.travel-sort-row select{font-size:12px; padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);}
 .travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin:0;}
 .travel-section-heading-row{display:flex; align-items:center; gap:8px; margin-top:20px; margin-bottom:2px;}
 .travel-section-summary{font-size:11px; color:var(--text-dim); font-weight:400;}
@@ -1428,7 +1430,10 @@ function render(){
   var __savedWinY = __sameView ? window.scrollY : null;
   __lastRenderedView = VIEW;
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
-  if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize(); }
+  if(VIEW==="home"){
+    app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize();
+    if(timelineFilter==="travel" && !(moduleCatView.travel_path && moduleCatView.travel_path.length)) setupLeafletMap("travelInlineMap");
+  }
   else if(VIEW==="itemDetail"){
     app.innerHTML = renderItemDetailPage();
     var __tab = findTab(activeTabKey);
@@ -3381,19 +3386,45 @@ function ensureFolderSelfEntry(kind, fullPath){
   travelFolderEntryCreated = true;
   return id;
 }
+/* 排序方式：按"去过最多个"（文件夹里有几个地点、单个地点算1个）或按"编辑顺序"（在数据里的先后顺序，
+   约等于添加/最近改动的先后），各自还能正序/倒序切换 */
+var travelSortMode = "count_desc";
+window.setTravelSortMode = function(v){ travelSortMode = v; render(); };
+function travelSortControlHtml(){
+  var opts = [
+    ["count_desc","去过最多在前"], ["count_asc","去过最少在前"],
+    ["order_desc","最近添加在前"], ["order_asc","最早添加在前"]
+  ];
+  return '<div class="travel-sort-row"><span class="sub">排序：</span><select onchange="setTravelSortMode(this.value)">'+
+    opts.map(function(o){ return '<option value="'+o[0]+'"'+(travelSortMode===o[0]?" selected":"")+'>'+o[1]+'</option>'; }).join('')+
+  '</select></div>';
+}
+function travelEntryOrderIndex(t){ return DATA.lifeTimeline.indexOf(t); }
+function sortTravelTiles(tiles){
+  var mode = travelSortMode;
+  var byCount = mode.indexOf("count")===0;
+  var desc = (mode==="count_desc" || mode==="order_desc");
+  return tiles.slice().sort(function(a,b){
+    var av = byCount ? a.count : a.orderKey, bv = byCount ? b.count : b.orderKey;
+    return desc ? (bv-av) : (av-bv);
+  });
+}
 /* 一个网格里混着"文件夹"标签（点了往下钻一级）和"具体地点"标签（悬浮看备注、双击改名），
-   同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起 */
+   同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起，一起参与排序 */
 function renderTravelMixedGrid(folderTiles, leafItems){
-  var sortedLeaf = leafItems.slice().sort(function(a,b){ return dateSortKey(b.date).localeCompare(dateSortKey(a.date)); });
-  var leafTags = sortedLeaf.map(function(t){
+  var leafTiles = leafItems.map(function(t){
+    var html;
     if(travelTagRenamingId===t.id){
-      return '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
+      html = '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
+    } else {
+      html = '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+
+        '<button type="button" class="travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
+      '</div>';
     }
-    return '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+
-      '<button type="button" class="travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
-    '</div>';
-  }).join('');
-  return '<div class="travel-tag-grid">'+folderTiles+leafTags+'</div>';
+    return {html:html, count:1, orderKey:travelEntryOrderIndex(t)};
+  });
+  var tiles = sortTravelTiles(folderTiles.concat(leafTiles));
+  return '<div class="travel-tag-grid">'+tiles.map(function(x){return x.html;}).join('')+'</div>';
 }
 window.enterTravelTopRegion = function(segment, kind){
   moduleCatView.travel_path_kind = kind;
@@ -3484,8 +3515,10 @@ function renderTravelSection(items){
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
       var selfId = ensureFolderSelfEntry(kind, path.concat([seg]));
-      return travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", selfId);
-    }).join('');
+      var html = travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", selfId);
+      var orderKey = Math.max.apply(null, groups[seg].map(travelEntryOrderIndex));
+      return {html:html, count:groups[seg].length, orderKey:orderKey};
+    });
     if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
     var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button>'+travelAddButtonHtml("leaf")+'<span class="cat-back-label">'+esc(path[path.length-1])+'</span></div>';
     return backBar + renderTravelMixedGrid(folderTiles, leafHere);
@@ -3506,8 +3539,10 @@ function renderTravelSection(items){
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
       var selfId = ensureFolderSelfEntry(k, [seg]);
-      return travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", selfId);
-    }).join('');
+      var html = travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", selfId);
+      var orderKey = Math.max.apply(null, groups[seg].map(travelEntryOrderIndex));
+      return {html:html, count:groups[seg].length, orderKey:orderKey};
+    });
     return renderTravelMixedGrid(folderTiles, leaf);
   }
   /* 国内数省份/市，国际数国家/城市：按第一段（省/国）、第二段（市/城市）去重数出有多少个不重复的 */
@@ -3522,7 +3557,9 @@ function renderTravelSection(items){
   }
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
-  var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
+  var out = travelSortControlHtml()+
+    '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
+    '<div id="travelInlineMap" class="leaflet-map-el" style="height:200px; margin-bottom:14px"></div>'+
     topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
     topGridHtml(intlGroups,"international");
@@ -4481,14 +4518,16 @@ function renderWorldMapPage(){
   return moduleShell("worldmap","🗺️","worldmap","只读取「时间经历」里「旅游」类别下的经历——保存时会自动用 OpenStreetMap 全球搜索地点（需要联网），遇到同名地点会让你手动选择；点击地图上的标记可以进入这条经历的详情页。","",
     body);
 }
-var __leafletMapInstance = null;
-var __leafletMarkerLayers = {};
-function setupLeafletMap(){
-  var el = document.getElementById("leafletMap");
+/* 按容器 id 记地图实例/标记，这样"世界版图"整页那个地图跟旅游标签顶上嵌的小地图可以各管各的，互不冲突 */
+var __leafletMapInstances = {};
+var __leafletMarkerLayersByEl = {};
+function setupLeafletMap(elId){
+  elId = elId || "leafletMap";
+  var el = document.getElementById(elId);
   if(!el) return;
-  if(__leafletMapInstance){
-    try{ __leafletMapInstance.remove(); }catch(e){}
-    __leafletMapInstance = null;
+  if(__leafletMapInstances[elId]){
+    try{ __leafletMapInstances[elId].remove(); }catch(e){}
+    delete __leafletMapInstances[elId];
   }
   if(typeof L === "undefined"){
     el.outerHTML = '<div class="map-fallback">地图库没能加载出来（可能是网络问题，或者当前环境限制了外部资源加载）。地点数据还在，换个环境或者刷新一下这一页可能就好了。</div>';
@@ -4503,13 +4542,13 @@ function setupLeafletMap(){
     popupAnchor: [0,-18]
   });
   /* 初始固定为世界全览（最小缩放），只有手动缩放/双指才会放大，不自动对着标记点放大 */
-  var map = L.map("leafletMap", {scrollWheelZoom:true, minZoom:2}).setView([20,10], 2);
+  var map = L.map(elId, {scrollWheelZoom:true, minZoom:2}).setView([20,10], 2);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
   }).addTo(map);
-  __leafletMapInstance = map;
-  __leafletMarkerLayers = {};
+  __leafletMapInstances[elId] = map;
+  __leafletMarkerLayersByEl[elId] = {};
 
   var d = buildMapData();
   Object.keys(d.groups).forEach(function(gk){
@@ -4526,13 +4565,15 @@ function setupLeafletMap(){
       }).join('')+
     '</div>';
     marker.bindPopup(popupHtml);
-    __leafletMarkerLayers[gk] = marker;
+    __leafletMarkerLayersByEl[elId][gk] = marker;
   });
 }
-window.focusMapGroup = function(gk){
-  var marker = __leafletMarkerLayers[gk];
-  if(!marker || !__leafletMapInstance) return;
-  __leafletMapInstance.setView(marker.getLatLng(), 10);
+window.focusMapGroup = function(gk, elId){
+  elId = elId || "leafletMap";
+  var marker = __leafletMarkerLayersByEl[elId] && __leafletMarkerLayersByEl[elId][gk];
+  var map = __leafletMapInstances[elId];
+  if(!marker || !map) return;
+  map.setView(marker.getLatLng(), 10);
   marker.openPopup();
 };
 
