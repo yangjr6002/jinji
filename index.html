@@ -405,7 +405,7 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-map-preview-float{position:fixed; z-index:80; display:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-lg); padding:6px;}
 /* 旅游地点标签：一行6个，鼠标悬浮看备注（关键词悬浮提示复用），点开原有编辑浮窗改内容 */
 .travel-tag-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-top:6px;}
-.travel-sort-row{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
+.travel-sort-row{display:inline-flex; align-items:center; gap:6px; margin-left:auto;}
 .travel-sort-row select{font-size:12px; padding:3px 6px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text);}
 .travel-section-heading{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin:0;}
 .travel-section-heading-row{display:flex; align-items:center; gap:8px; margin-top:20px; margin-bottom:2px;}
@@ -3563,8 +3563,7 @@ function renderTravelSection(items){
   var domesticGroups = groupByFirstSegment(domesticItems);
   var intlGroups = groupByFirstSegment(intlItems);
   var out = '<div class="tl-map-cta"><button class="btn small ghost" onmouseenter="travelMapPreviewShow(this)" onmouseleave="travelMapPreviewHide()" onclick="openWorldMapTab()">🗺️ 查看'+esc(labelFor("worldmap"))+'上点亮的地点</button></div>'+
-    travelSortControlHtml()+
-    '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
+    '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+travelSortControlHtml()+'</div>'+
     topGridHtml(domesticGroups,"domestic")+
     '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
     topGridHtml(intlGroups,"international");
@@ -4521,7 +4520,7 @@ function renderWorldMapPage(){
 /* 按容器 id 记地图实例/标记，这样"世界版图"整页那个地图跟旅游标签顶上嵌的小地图可以各管各的，互不冲突 */
 var __leafletMapInstances = {};
 var __leafletMarkerLayersByEl = {};
-function setupLeafletMap(elId){
+function setupLeafletMap(elId, autoFit){
   elId = elId || "leafletMap";
   var el = document.getElementById(elId);
   if(!el) return;
@@ -4567,6 +4566,12 @@ function setupLeafletMap(elId){
     marker.bindPopup(popupHtml);
     __leafletMarkerLayersByEl[elId][gk] = marker;
   });
+  /* 悬浮小预览图直接对着标记点聚过去，不然一屏地图缩得那么小还要自己拖半天找 */
+  if(autoFit){
+    var pts = Object.keys(d.groups).map(function(gk){ return d.groups[gk].coords; });
+    if(pts.length===1) map.setView(pts[0], 9);
+    else if(pts.length>1) map.fitBounds(pts, {padding:[16,16], maxZoom:9});
+  }
 }
 window.focusMapGroup = function(gk, elId){
   elId = elId || "leafletMap";
@@ -4597,7 +4602,7 @@ window.travelMapPreviewShow = function(anchorEl){
   if(left<6) left = 6;
   box.style.left = left+"px";
   box.style.top = top+"px";
-  setupLeafletMap("travelInlineMap");
+  setupLeafletMap("travelInlineMap", true);
 };
 function travelMapPreviewScheduleHide(){
   clearTimeout(__travelMapPreviewHideTimer);
