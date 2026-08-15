@@ -3259,6 +3259,14 @@ window.startRenameTravelTag = function(id){
   var input = document.querySelector(".travel-tag-rename-input");
   if(input){ input.focus(); input.select(); }
 };
+/* 在某个省/市/区县/镇文件夹里面加新地点或者改名字时，不用把"浙江省杭州市西湖区"这些已经在这一层
+   知道的信息重新打一遍——自动把当前钻到的路径拼到定位查询前面，用户只用打具体地名（比如"灵隐寺"）。
+   标签上显示的还是用户实际打的短名字，只是定位查询用的是拼出来的完整地址，定位更准也不用重复输入。 */
+function travelContextualQuery(value){
+  var path = moduleCatView.travel_path;
+  if(path && path.length) return path.join("") + value;
+  return value;
+}
 /* 标签改名/新建后要跟旧的编辑浮窗一样，真的去 OpenStreetMap 定位一次，把坐标存进 t.geo，
    不然地图那边找不到坐标（世界版图只认 t.geo，不会现读关键词临时定位）。geocodeLocation/pickGeoFromList
    是世界版图那一节已有的函数，这里直接复用，不用重新实现一套。 */
@@ -3293,7 +3301,7 @@ window.commitRenameTravelTag = function(id, value){
   if(t && value) t.keyword = value;
   travelTagRenamingId = null;
   save(); render();
-  if(changed) geocodeAndSetTravelGeo(id, value);
+  if(changed) geocodeAndSetTravelGeo(id, travelContextualQuery(value));
 };
 /* 旅游标签：第一层是"国内/国际"两个标题分组（不是真的一层菜单），底下摆省份/国家的标签；
    点进去按 OpenStreetMap 给的地址层级继续往下钻——国内最多能到 省 → 市/区县 → 镇/乡，国外是 国家 → 城市，
@@ -3337,7 +3345,7 @@ window.commitAddTravelTag = function(value){
   var id = uid();
   DATA.lifeTimeline.push({id:id, date:new Date().toISOString().slice(0,7), keyword:value, category:"travel", fields:[]});
   save(); render();
-  geocodeAndSetTravelGeo(id, value);
+  geocodeAndSetTravelGeo(id, travelContextualQuery(value));
 };
 /* 加号按钮挪到标题（国内/国际、或返回条里当前这一级的名字）旁边，一个小圆按钮，不占标签格子；
    点了在标题下面弹一行"输入框+取消"（跟碎碎念子主题那一排加法一个样式），不用的时候完全不占地方 */
@@ -3460,7 +3468,7 @@ window.updateTravelKeyword = function(id, value){
   value = (value||"").trim();
   var changed = !!(value && t.keyword!==value);
   t.keyword = value; save(); render();
-  if(changed) geocodeAndSetTravelGeo(id, value);
+  if(changed) geocodeAndSetTravelGeo(id, travelContextualQuery(value));
 };
 /* 不用改名字也能手动触发一次重新定位：地名没变，但存量数据是老版本代码定位的，缺市/区县/镇这些字段，
    补跑一次同样的定位逻辑就能把新字段（省市区镇）都补齐 */
