@@ -3539,9 +3539,16 @@ function renderTravelSection(items){
     });
     var folderTiles = Object.keys(groups).sort().map(function(seg){
       var selfId = ensureFolderSelfEntry(k, [seg]);
-      var html = travelFolderTileHtml(seg, groups[seg].length, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", selfId);
+      /* 省/国家这一层的计数只数省内的市/国内的城市有几个不重复的，不把市底下区县镇这些更深的条目也算进去 */
+      var cityKeys = {};
+      groups[seg].forEach(function(t){
+        var p = travelPathForEntry(t).path;
+        if(p.length>1) cityKeys[p[1]]=1;
+      });
+      var displayCount = Object.keys(cityKeys).length;
+      var html = travelFolderTileHtml(seg, displayCount, k, "enterTravelTopRegion('"+esc(seg).replace(/'/g,"\\'")+"','"+k+"')", selfId);
       var orderKey = Math.max.apply(null, groups[seg].map(travelEntryOrderIndex));
-      return {html:html, count:groups[seg].length, orderKey:orderKey};
+      return {html:html, count:displayCount, orderKey:orderKey};
     });
     return renderTravelMixedGrid(folderTiles, leaf);
   }
