@@ -3524,7 +3524,7 @@ function renderTravelSection(items){
   var intlGroups = groupByFirstSegment(intlItems);
   var out = '<div class="travel-section-heading-row"><span class="travel-section-heading">国内</span><span class="travel-section-summary">'+travelSummaryText(domesticItems,"省","市")+'</span>'+travelAddButtonHtml("domestic")+'</div>'+
     topGridHtml(domesticGroups,"domestic")+
-    '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","城市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
+    '<div class="travel-section-heading-row"><span class="travel-section-heading">国际</span><span class="travel-section-summary">'+travelSummaryText(intlItems,"国","市")+'</span>'+travelAddButtonHtml("international")+'</div>'+
     topGridHtml(intlGroups,"international");
   if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
   return out;
