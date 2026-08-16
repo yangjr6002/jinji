@@ -76,6 +76,7 @@ button{font-family:inherit;cursor:pointer}
 .auth-actions{display:flex; gap:8px; margin-top:4px;}
 .auth-actions .btn{flex:1;}
 .auth-err{color:var(--danger); font-size:12.5px; min-height:16px;}
+.auth-forgot{text-align:center; font-size:12.5px; color:var(--text-dim); cursor:pointer; text-decoration:underline; margin-top:2px;}
 .toptabs{
   position:sticky; top:53px; z-index:49;
   display:flex; gap:6px; padding:9px 28px;
@@ -816,6 +817,7 @@ table.data tr:hover{background:var(--surface-2)}
       <button type="button" class="btn solid" onclick="authSubmit('signin')">登录</button>
       <button type="button" class="btn ghost" onclick="authSubmit('signup')">注册</button>
     </div>
+    <div class="auth-forgot" onclick="authForgotPassword()">忘记密码？</div>
     <div id="authErr" class="auth-err"></div>
   </div>
 </div>
@@ -6529,6 +6531,49 @@ window.authSignOut = function(){
     location.reload();
   });
 };
+/* 忘记密码：邮箱里填好邮箱后点"忘记密码"，Supabase 发一封带重置链接的邮件，点开链接会带着一个
+   临时登录态跳回这个页面，onAuthStateChange 会收到 PASSWORD_RECOVERY 事件，届时把登录框换成
+   "设置新密码"的表单 */
+window.authForgotPassword = async function(){
+  var errEl = document.getElementById("authErr");
+  var email = (document.getElementById("authEmail").value||"").trim();
+  if(!sbClient){ errEl.textContent = "登录库没加载出来，检查一下网络"; return; }
+  if(!email){ errEl.textContent = "先在上面填邮箱，再点忘记密码"; return; }
+  errEl.textContent = "发送中…";
+  var redirectTo = window.location.origin + window.location.pathname;
+  var res = await sbClient.auth.resetPasswordForEmail(email, {redirectTo: redirectTo});
+  if(res.error){ errEl.textContent = res.error.message; return; }
+  errEl.textContent = "重置邮件已发送，去邮箱点链接设置新密码";
+};
+function showPasswordRecoveryForm(){
+  var gate = document.getElementById("authGate");
+  gate.innerHTML = '<div class="auth-box">'+
+    '<h2>设置新密码</h2>'+
+    '<div class="sub" style="margin-bottom:16px">验证通过了，输入一个新密码。</div>'+
+    '<input type="password" id="authNewPw" placeholder="新密码（至少6位）" autocomplete="new-password">'+
+    '<div class="auth-actions"><button type="button" class="btn solid" onclick="authSetNewPassword()">保存新密码</button></div>'+
+    '<div id="authErr" class="auth-err"></div>'+
+  '</div>';
+  gate.style.display = "flex";
+}
+window.authSetNewPassword = async function(){
+  var errEl = document.getElementById("authErr");
+  var pw = document.getElementById("authNewPw").value||"";
+  if(pw.length<6){ errEl.textContent = "密码至少6位"; return; }
+  errEl.textContent = "保存中…";
+  var res = await sbClient.auth.updateUser({password: pw});
+  if(res.error){ errEl.textContent = res.error.message; return; }
+  var sessRes = await sbClient.auth.getSession();
+  sbSession = sessRes.data && sessRes.data.session;
+  document.getElementById("authGate").style.display = "none";
+  toast("新密码已设置");
+  bootAfterAuth();
+};
+if(sbClient){
+  sbClient.auth.onAuthStateChange(function(event, session){
+    if(event==="PASSWORD_RECOVERY") showPasswordRecoveryForm();
+  });
+}
 async function boot(){
   if(!sbClient){
     /* Supabase 库没加载出来（比如离线打开），退回纯本地模式，不然直接卡死在登录页 */
