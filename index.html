@@ -831,6 +831,7 @@ table.data tr:hover{background:var(--surface-2)}
     <button class="gear-btn" onclick="redoAction()" title="重做（Ctrl/Cmd+Shift+Z）">↪️</button>
     <button class="bg-settings-btn" onclick="openBgSettings()" title="自定义背景图">🖼️</button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复">💾</button>
+    <button class="gear-btn" id="logoutTopBtn" onclick="confirmSignOut()" title="退出登录" style="display:none">🚪</button>
   </div>
 </div>
 <div class="toptabs" id="topTabs"></div>
@@ -6494,6 +6495,8 @@ function fieldSelect(name,label,options,value){
 }
 
 async function bootAfterAuth(){
+  var logoutBtn = document.getElementById("logoutTopBtn");
+  if(logoutBtn) logoutBtn.style.display = sbSession ? "" : "none";
   var loaded = await loadDataAsync();
   if(loaded){
     DATA = loaded;
@@ -6530,6 +6533,9 @@ window.authSignOut = function(){
   sbClient.auth.signOut().then(function(){
     location.reload();
   });
+};
+window.confirmSignOut = function(){
+  confirmDelete("退出后要重新登录才能进来，本机缓存的数据还在，不会丢。", authSignOut, "退出登录", "确定退出");
 };
 /* 忘记密码：邮箱里填好邮箱后点"忘记密码"，Supabase 发一封带重置链接的邮件，点开链接会带着一个
    临时登录态跳回这个页面，onAuthStateChange 会收到 PASSWORD_RECOVERY 事件，届时把登录框换成
