@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --bg:#FFFFFF;
@@ -68,6 +69,13 @@ button{font-family:inherit;cursor:pointer}
   font-size:11.5px; padding:7px 28px; display:flex; gap:8px; align-items:center;
 }
 .warn-banner b{color:var(--text)}
+.auth-gate{position:fixed; inset:0; z-index:500; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;}
+.auth-box{width:100%; max-width:320px; display:flex; flex-direction:column; gap:10px;}
+.auth-box h2{margin:0 0 4px;}
+.auth-box input{width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:14px;}
+.auth-actions{display:flex; gap:8px; margin-top:4px;}
+.auth-actions .btn{flex:1;}
+.auth-err{color:var(--danger); font-size:12.5px; min-height:16px;}
 .toptabs{
   position:sticky; top:53px; z-index:49;
   display:flex; gap:6px; padding:9px 28px;
@@ -798,8 +806,21 @@ table.data tr:hover{background:var(--surface-2)}
 </style>
 </head>
 <body>
+<div id="authGate" class="auth-gate" style="display:none;">
+  <div class="auth-box">
+    <h2>Private Space</h2>
+    <div class="sub" style="margin-bottom:16px">数据存在云端，登录后才能读写。第一次用先点"注册"。</div>
+    <input type="email" id="authEmail" placeholder="邮箱" autocomplete="username">
+    <input type="password" id="authPw" placeholder="密码（至少6位）" autocomplete="current-password">
+    <div class="auth-actions">
+      <button type="button" class="btn solid" onclick="authSubmit('signin')">登录</button>
+      <button type="button" class="btn ghost" onclick="authSubmit('signup')">注册</button>
+    </div>
+    <div id="authErr" class="auth-err"></div>
+  </div>
+</div>
 <div id="bgImageLayer" class="bg-image-layer"></div>
-<div class="warn-banner">⚠️ <b>演示说明：</b>这是纯前端 Demo，所有数据只存在你本机浏览器的 localStorage 里（未加密），仅用于查看排版和交互效果。请不要输入真实密码、卡号或证件照。</div>
+<div class="warn-banner" id="warnBanner">⚠️ <b>说明：</b>数据存在 Supabase 云端数据库（未加密存储），登录后自动同步；请自行评估风险，谨慎存放真实密码、卡号、证件照等高敏感信息。</div>
 <div class="topbar">
   <div class="brand"><span class="mark">P</span>Private Space</div>
   <div style="display:flex; align-items:center; gap:14px;">
@@ -1106,6 +1127,16 @@ function migrateAssetItem(a){
   };
 }
 var DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
+
+/* ---- Supabase：云端为主，IndexedDB 只当离线缓存 ----
+   anon key 是设计上可以公开暴露给前端的（真正的权限控制靠 Supabase 那边的 Row Level Security），
+   不是密码，放在代码里没问题。真正挡住别人的是登录（下面的 authGate）+ RLS 规则（只有 auth.uid() 等于
+   这一行的 user_id 才能读写这一行）。 */
+var SUPABASE_URL = "https://jedsynixifrhwokbiueh.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_FvMIyguwtXRakFppcrLF0w_GP-mcoGB";
+var sbClient = (typeof supabase!=="undefined") ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+var sbSession = null; /* 登录成功后的 session，云端读写都靠它拿 user id */
+
 function warnStorageOnce(payloadForSize){
   if(!storageAvailable) return;
   storageAvailable = false;
@@ -1152,6 +1183,21 @@ function idbSet(key, value){
     });
   });
 }
+/* 云端那张表就一行/人：user_id 是主键，data 是整个 DATA 对象塞进去的 jsonb。
+   查得到就说明云端已经有数据了（云端为准）；查到 null 说明这个人是第一次登录，云端还没建行，
+   要把本地（或默认）数据推上去当种子；查询本身失败（离线/网络问题）就退回本地缓存，不报错打断使用。 */
+async function sbFetchCloudData(){
+  if(!sbClient || !sbSession) return {ok:false, data:null};
+  try{
+    var res = await sbClient.from("app_data").select("data").eq("user_id", sbSession.user.id).maybeSingle();
+    if(res.error) return {ok:false, data:null};
+    return {ok:true, data: res.data ? res.data.data : null};
+  }catch(e){ return {ok:false, data:null}; }
+}
+function sbPushData(dataObj){
+  if(!sbClient || !sbSession) return;
+  sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}).then(function(){}).catch(function(){});
+}
 async function loadDataAsync(){
   var raw = null;
   if(hasArtifactStorage){
@@ -1168,8 +1214,23 @@ async function loadDataAsync(){
       }catch(e){}
     }
   }
-  if(!raw){ return null; }
-  try{ return normalizeData(JSON.parse(raw)); }catch(e){ return null; }
+  var localData = null;
+  if(raw){ try{ localData = normalizeData(JSON.parse(raw)); }catch(e){ localData = null; } }
+  if(sbClient && sbSession){
+    var cloudRes = await sbFetchCloudData();
+    if(cloudRes.ok){
+      if(cloudRes.data){
+        var normalized = normalizeData(cloudRes.data);
+        idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
+        return normalized;
+      } else {
+        sbPushData(localData || DATA);
+        return localData;
+      }
+    }
+    /* 云端查询失败（比如离线），退回本地缓存，不打断使用 */
+  }
+  return localData;
 }
 /* 撤销/重做：每次 save() 都跟上一次保存的快照比一下，不一样就把"上一次"的快照推进撤销栈，
    当前这份变成新的"上一次"；撤销/重做本身移动这两个栈，但不再往栈里重复推入新记录 */
@@ -1186,6 +1247,10 @@ function persistToStorage(payload){
       /* IndexedDB 也存不下的极端情况，退回 localStorage 试一次，聊胜于无 */
       try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(payload); }
     });
+  }
+  /* 云端为主：本地写完之后同时把整份数据推上云端，登录状态下每次 save() 都会同步一次 */
+  if(sbClient && sbSession){
+    try{ sbPushData(JSON.parse(payload)); }catch(e){}
   }
 }
 function save(){
@@ -1337,14 +1402,18 @@ function storageUsageHtml(){
 }
 window.openBackupModal = function(){
   var root=document.getElementById("modalRoot");
+  var cloudNote = sbSession
+    ? '<div class="sub" style="margin-bottom:16px">数据存在云端（Supabase），当前登录：'+esc(sbSession.user.email||"")+'。本机浏览器只留一份缓存，换设备登录同一账号就能看到全部数据。建议还是不定期导出一份 JSON 存别处，多一层保险。</div>'
+    : '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>';
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>备份与恢复</h3>'+
-    '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>'+
+    cloudNote+
     storageUsageHtml()+
     '<button type="button" class="btn solid" style="width:100%;margin-bottom:10px" onclick="exportBackup()">⬇ 导出备份（下载 JSON 文件）</button>'+
-    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer">⬆ 导入备份（选择之前导出的 JSON 文件）'+
+    '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer;margin-bottom:10px">⬆ 导入备份（选择之前导出的 JSON 文件）'+
       '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
     '</label>'+
+    (sbSession ? '<button type="button" class="btn ghost" style="width:100%;margin-bottom:10px" onclick="authSignOut()">退出登录</button>' : '')+
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
@@ -6422,7 +6491,7 @@ function fieldSelect(name,label,options,value){
   }).join('')+'</select></div>';
 }
 
-async function boot(){
+async function bootAfterAuth(){
   var loaded = await loadDataAsync();
   if(loaded){
     DATA = loaded;
@@ -6432,6 +6501,47 @@ async function boot(){
   __lastSnapshot = JSON.stringify(DATA);
   render();
   applyBackgroundImage();
+}
+window.authSubmit = async function(mode){
+  var errEl = document.getElementById("authErr");
+  var email = (document.getElementById("authEmail").value||"").trim();
+  var pw = document.getElementById("authPw").value||"";
+  errEl.textContent = "";
+  if(!sbClient){ errEl.textContent = "登录库没加载出来，检查一下网络"; return; }
+  if(!email || !pw){ errEl.textContent = "请填写邮箱和密码"; return; }
+  if(pw.length<6){ errEl.textContent = "密码至少6位"; return; }
+  errEl.textContent = "处理中…";
+  var res = mode==="signup"
+    ? await sbClient.auth.signUp({email:email, password:pw})
+    : await sbClient.auth.signInWithPassword({email:email, password:pw});
+  if(res.error){ errEl.textContent = res.error.message; return; }
+  if(mode==="signup" && !res.data.session){
+    errEl.textContent = "注册成功，去邮箱点确认链接后回来登录（或去 Supabase 后台 Authentication 设置里关掉邮箱确认，就能直接登录）";
+    return;
+  }
+  sbSession = res.data.session;
+  document.getElementById("authGate").style.display = "none";
+  bootAfterAuth();
+};
+window.authSignOut = function(){
+  if(!sbClient) return;
+  sbClient.auth.signOut().then(function(){
+    location.reload();
+  });
+};
+async function boot(){
+  if(!sbClient){
+    /* Supabase 库没加载出来（比如离线打开），退回纯本地模式，不然直接卡死在登录页 */
+    await bootAfterAuth();
+    return;
+  }
+  var sessRes = await sbClient.auth.getSession();
+  sbSession = sessRes.data && sessRes.data.session;
+  if(!sbSession){
+    document.getElementById("authGate").style.display = "flex";
+    return;
+  }
+  await bootAfterAuth();
 }
 boot();
 </script>
