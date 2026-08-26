@@ -1456,12 +1456,19 @@ function renderMemoModal(){
       '<div class="memo-resize-handle" id="memoResizeHandle" title="拖动调整两栏宽度"></div>'+
       '<div class="memo-content">'+contentHtml+'</div>'+
     '</div>'+
-    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeMemoModal()">关闭</button></div>'+
     '</div></div>';
-  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeMemoModal(); });
   setupMemoResize();
   setupMemoModalResize();
 }
+/* 关闭的瞬间兜底再存一次当前尺寸——万一拖完手一松就立刻点关闭，ResizeObserver 里那个防抖的
+   setTimeout 可能还没来得及触发，这里直接读一次当前实际宽高，保证关的时候尺寸一定被记下来 */
+window.closeMemoModal = function(){
+  var el = document.getElementById("memoModalBox");
+  if(el){ DATA.settings.memoModalSize = {w: Math.round(el.offsetWidth), h: Math.round(el.offsetHeight)}; save(); }
+  closeModal();
+};
 /* 整个备忘录弹窗本身也能拖右下角自由调大小（浏览器原生 resize），跟头像调整大小一个做法，
    松手记住宽高，下次打开还是这个尺寸 */
 function setupMemoModalResize(){
