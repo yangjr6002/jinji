@@ -159,6 +159,7 @@ button{font-family:inherit;cursor:pointer}
 }
 tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .bi-row:hover .drag-handle-sm, .cat-manage-row:hover .drag-handle-sm{opacity:1;}
+.book-row:hover .drag-handle-sm, .book-toc-item:hover .drag-handle-sm{opacity:1;}
 .drag-handle-sm:hover{color:var(--text-dim);}
 .drag-handle-sm:active{cursor:grabbing;}
 .quick-link[draggable="true"], .folder[draggable="true"]{cursor:grab;}
@@ -690,15 +691,18 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
 .book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:160px; font-family:inherit; overflow:hidden;}
 .memo-modal{max-width:640px; width:92vw;}
-.memo-split{display:flex; gap:14px; height:min(60vh,480px);}
-.memo-sidebar{flex:0 0 170px; display:flex; flex-direction:column; border-right:1px solid var(--border-soft); padding-right:12px;}
+.memo-split{display:flex; height:min(60vh,480px);}
+.memo-sidebar{flex:0 0 auto; display:flex; flex-direction:column; padding-right:12px;}
+.memo-resize-handle{flex:0 0 5px; cursor:col-resize; position:relative;}
+.memo-resize-handle::after{content:""; position:absolute; top:0; bottom:0; left:2px; width:1px; background:var(--border-soft);}
+.memo-resize-handle:hover::after, .memo-resize-handle:active::after{background:var(--accent); width:2px; left:1.5px;}
 .memo-list{flex:1; overflow-y:auto;}
 .memo-list-item{padding:8px 8px; border-radius:7px; cursor:pointer; margin-bottom:2px;}
 .memo-list-item:hover{background:var(--surface-2);}
 .memo-list-item.active{background:var(--accent-soft, var(--surface-2)); border:1px solid var(--accent);}
 .memo-list-title{font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .memo-list-date{font-size:11px; color:var(--text-dim); margin-top:2px;}
-.memo-content{flex:1; min-width:0; display:flex; flex-direction:column;}
+.memo-content{flex:1; min-width:0; display:flex; flex-direction:column; padding-left:12px;}
 .memo-empty{flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:13px;}
 .memo-edit-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
 .memo-edit-area{flex:1; width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; padding:10px 12px; resize:none; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:var(--surface); overflow-y:auto;}
@@ -1057,6 +1061,7 @@ function normalizeData(d){
   d.settings.passwordColumnWidths = d.settings.passwordColumnWidths || {};
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
   d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "名称";
+  d.settings.memoSidebarWidth = d.settings.memoSidebarWidth || 170;
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -1438,18 +1443,45 @@ function renderMemoModal(){
     ? ('<div class="memo-edit-head"><span class="sub">'+esc(memoDateLabel(m.updatedAt))+'</span><button type="button" class="btn small danger" onclick="deleteMemo(\''+m.id+'\')" title="删除">✕</button></div>'+
        '<textarea class="memo-edit-area" id="memoEditArea" placeholder="写点什么…" onkeydown="enterSubmitKeydown(event,this)" onblur="updateMemoContent(\''+m.id+'\', this.value)">'+esc(m.content||"")+'</textarea>')
     : '<div class="memo-empty">选一条备忘录看看，或者新建一条</div>';
+  var sidebarWidth = DATA.settings.memoSidebarWidth || 170;
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal memo-modal">'+
     '<h3>备忘录</h3>'+
     '<div class="memo-split">'+
-      '<div class="memo-sidebar">'+
+      '<div class="memo-sidebar" id="memoSidebar" style="flex-basis:'+sidebarWidth+'px">'+
         '<button type="button" class="btn small solid" style="width:100%;margin-bottom:8px" onclick="createMemo()">+ 新建</button>'+
         '<div class="memo-list">'+sidebarRows+'</div>'+
       '</div>'+
+      '<div class="memo-resize-handle" id="memoResizeHandle" title="拖动调整两栏宽度"></div>'+
       '<div class="memo-content">'+contentHtml+'</div>'+
     '</div>'+
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+  setupMemoResize();
+}
+/* 备忘录左右两栏中间拖一条分界线调宽窄，跟表格拖列宽一个手感，松手记住宽度，下次打开还是这个宽度 */
+function setupMemoResize(){
+  var handle = document.getElementById("memoResizeHandle");
+  var sidebar = document.getElementById("memoSidebar");
+  if(!handle || !sidebar) return;
+  var startX = 0, startWidth = 0, dragging = false;
+  handle.addEventListener("pointerdown", function(e){
+    dragging = true; startX = e.clientX; startWidth = sidebar.getBoundingClientRect().width;
+    handle.setPointerCapture(e.pointerId);
+  });
+  handle.addEventListener("pointermove", function(e){
+    if(!dragging) return;
+    var w = Math.max(110, Math.min(320, startWidth + (e.clientX - startX)));
+    sidebar.style.flexBasis = w+"px";
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    DATA.settings.memoSidebarWidth = Math.round(sidebar.getBoundingClientRect().width);
+    save();
+  }
+  handle.addEventListener("pointerup", endDrag);
+  handle.addEventListener("pointercancel", endDrag);
 }
 window.createMemo = function(){
   var id = uid();
@@ -2851,6 +2883,24 @@ window.modCatDrop = function(e, moduleId, targetKey, titleOverride){
   DATA.moduleCategories[moduleId] = reorderById(getModuleCategories(moduleId), __modCatDrag.key, targetKey);
   __modCatDrag = null;
   save(); render(); manageModuleCategories(moduleId, titleOverride);
+};
+/* 板块/分类/子主题这些直接摆在页面上的（不进管理弹窗）也能直接拖动排序，scope 区分是哪种列表：
+   "modCat:"+moduleId 是碎碎念/日志的分类板块，"suisuinianTopics" 是某个分类里的子主题列表 */
+var __genericDrag = null;
+window.genericDragStart = function(e, scope, id){ __genericDrag = {scope:scope, id:id}; e.dataTransfer.effectAllowed="move"; };
+window.genericDragOver = function(e){ e.preventDefault(); e.dataTransfer.dropEffect="move"; };
+window.genericDragEnd = function(){ __genericDrag = null; };
+window.genericDrop = function(e, scope, targetId){
+  e.preventDefault();
+  if(!__genericDrag || __genericDrag.scope!==scope || __genericDrag.id===targetId) return;
+  if(scope.indexOf("modCat:")===0){
+    var moduleId = scope.slice(7);
+    DATA.moduleCategories[moduleId] = reorderById(getModuleCategories(moduleId), __genericDrag.id, targetId);
+  } else if(scope==="suisuinianTopics"){
+    DATA.suisuinianTopics = reorderById(DATA.suisuinianTopics, __genericDrag.id, targetId);
+  }
+  __genericDrag = null;
+  save(); render();
 };
 window.addModuleCategory = function(moduleId, titleOverride){
   var input = document.getElementById("newModCatName");
@@ -4872,7 +4922,8 @@ function renderBookCategoryList(moduleId){
     var titleHtml = bookRenamingKey[moduleId]===c.key
       ? '<input type="text" class="book-toc-title" value="'+esc(c.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+c.key+'\', this.value)">'
       : '<span class="book-toc-title book-toc-title-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+c.key+'\')" ondblclick="startRenameBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="单击进入，双击改名">'+esc(c.label)+'</span>';
-    return '<div class="book-toc-item">'+
+    return '<div class="book-toc-item" ondragover="genericDragOver(event)" ondrop="genericDrop(event,\'modCat:'+moduleId+'\',\''+c.key+'\')">'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="genericDragStart(event,\'modCat:'+moduleId+'\',\''+c.key+'\')" ondragend="genericDragEnd()" title="拖动排序">⠿</span>'+
       titleHtml+
       '<span class="book-toc-enter" onclick="openBookCategoryTab(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' '+unit+' ›</span>'+
       '<button type="button" class="book-toc-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
@@ -5021,7 +5072,8 @@ function renderSuisuinianCategoryBoard(){
     var previewItems = topics.slice(0,3).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
     var moreHint = topics.length>3 ? '<div class="book-board-col-preview-more">还有 '+(topics.length-3)+' 个…</div>' : '';
     var preview = topics.length ? (previewItems+moreHint) : '<div class="book-board-col-preview-empty">还没有子主题</div>';
-    return '<div class="book-board-col book-board-col-click" onclick="bookTitleSingleClick(\''+moduleId+'\',\''+key+'\')">'+
+    var dragAttrs = isFixed ? '' : ' draggable="true" ondragstart="genericDragStart(event,\'modCat:'+moduleId+'\',\''+key+'\')" ondragover="genericDragOver(event)" ondrop="event.stopPropagation();genericDrop(event,\'modCat:'+moduleId+'\',\''+key+'\')" ondragend="genericDragEnd()"';
+    return '<div class="book-board-col book-board-col-click"'+dragAttrs+' onclick="bookTitleSingleClick(\''+moduleId+'\',\''+key+'\')">'+
       '<div class="book-board-col-head">'+titleHtml+delBtn+'</div>'+
       '<div class="book-board-col-preview">'+preview+'</div>'+
     '</div>';
@@ -5049,7 +5101,8 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
     var hasRemark = !!(t.remark && t.remark.trim());
     /* 备忘录：只有真的写了才会在悬浮时弹出只读便签框，没写就不弹；编辑靠旁边的「备忘录」按钮 */
     var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-kind="suisuinianTopic" data-remark-id="'+t.id+'">'+titleHtml+'</span>';
-    return '<div class="book-row">'+
+    return '<div class="book-row" ondragover="genericDragOver(event)" ondrop="genericDrop(event,\'suisuinianTopics\',\''+t.id+'\')">'+
+      '<span class="drag-handle-sm" draggable="true" ondragstart="genericDragStart(event,\'suisuinianTopics\',\''+t.id+'\')" ondragend="genericDragEnd()" title="拖动排序">⠿</span>'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
           titleWrapHtml+
