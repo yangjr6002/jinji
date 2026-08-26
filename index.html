@@ -1502,7 +1502,6 @@ function hideAllFloats(){
     var el = document.getElementById(id);
     if(el) el.remove();
   });
-  if(typeof ssnRemarkOpenTopic!=="undefined") ssnRemarkOpenTopic = null;
   if(typeof travelTagAnchorEl!=="undefined") travelTagAnchorEl = null;
   if(typeof famCardFor!=="undefined" && famCardFor!==null){ famCardFor = null; famCardLinkOpen = false; if(typeof renderFamilyCardOverlay==="function") renderFamilyCardOverlay(); }
 }
@@ -4874,15 +4873,17 @@ function renderBookCategoryEntries(compoundId){
   var rows = scoped.map(function(j){
     var latestChapter = (j.chapters||[]).slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     var excerpt = latestChapter ? bookExcerpt(latestChapter.content) : bookExcerpt(j.content);
+    var hasRemark = !!(j.remark && j.remark.trim());
+    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-kind="'+moduleId+'" data-remark-id="'+j.id+'"><span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span></span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
-          '<span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span>'+
+          titleWrapHtml+
           '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')">备忘录</button><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
   var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
@@ -4957,8 +4958,8 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
       ? '<input type="text" class="book-toc-title" style="flex:none; width:140px;" value="'+esc(t.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+t.id+'\', this.value)">'
       : '<span class="row-open-link book-title" onclick="suisuinianTopicSingleClick(\''+t.id+'\')" ondblclick="event.stopPropagation();startRenameSuisuinianTopic(\''+t.id+'\')" title="单击进入，双击改名">'+esc(t.label)+'</span>';
     var hasRemark = !!(t.remark && t.remark.trim());
-    /* 备注：悬浮在标题上时，在最上层（body 级悬浮框，不受表格裁剪）弹出一个便签框，位置随可视空间灵活摆放；点便签框本身进入编辑 */
-    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-topic="'+t.id+'">'+titleHtml+'</span>';
+    /* 备忘录：只有真的写了才会在悬浮时弹出只读便签框，没写就不弹；编辑靠旁边的「备忘录」按钮 */
+    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-kind="suisuinianTopic" data-remark-id="'+t.id+'">'+titleHtml+'</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
@@ -4967,7 +4968,7 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost" onclick="openBookMemoEditor(\'suisuinianTopic\',\''+t.id+'\')">备忘录</button><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
     '</div>';
   }).join('');
   var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","点右上角「+」添加一个");
@@ -5021,18 +5022,21 @@ window.commitRenameSuisuinianTopic = function(id, value){
   suisuinianRenamingTopic = null;
   render();
 };
-/* 子主题备注：body 级悬浮便签框，不受表格/卡片裁剪限制，位置根据可视空间灵活上下左右摆放。
-   悬浮展示、离开延迟收起；点便签框本身切到编辑态，失焦即保存并收起。 */
+/* 子主题/日志备忘录：人多、条目多的时候悬浮框可以编辑会让画面一直跳，改成纯只读展示——没有备忘录
+   就干脆不弹框，要编辑就点旁边的「备忘录」按钮，弹一个正经的小表单改，跟家庭树备注那次改法一致。
+   body 级悬浮便签框，不受表格/卡片裁剪限制，位置根据可视空间灵活上下左右摆放。 */
+function bookMemoObj(kind, id){
+  if(kind==="suisuinianTopic") return (DATA.suisuinianTopics||[]).filter(function(x){return x.id===id;})[0];
+  if(BOOK_MODULES[kind]) return bookEntries(kind).filter(function(x){return x.id===id;})[0]; /* kind 直接就是 moduleId，比如 "journal" */
+  return null;
+}
 var ssnRemarkHideTimer = null;
-var ssnRemarkOpenTopic = null;
 function ssnRemarkClearHide(){ clearTimeout(ssnRemarkHideTimer); }
 function ssnRemarkScheduleHide(){
-  var box = document.getElementById("ssnRemarkFloat");
-  if(box && box.querySelector(".ssn-remark-edit-pop")) return; /* 编辑中交给 textarea 失焦处理，不在这里收起 */
   clearTimeout(ssnRemarkHideTimer);
   ssnRemarkHideTimer = setTimeout(function(){
-    box.style.display = "none";
-    ssnRemarkOpenTopic = null;
+    var box = document.getElementById("ssnRemarkFloat");
+    if(box) box.style.display = "none";
   }, 200);
 }
 function ssnRemarkPositionNear(box, anchorEl){
@@ -5050,38 +5054,23 @@ function ssnRemarkPositionNear(box, anchorEl){
   box.style.left = left+"px";
   box.style.top = top+"px";
 }
-window.ssnRemarkShow = function(topicId, anchorEl){
+window.ssnRemarkShow = function(kind, id, anchorEl){
   ssnRemarkClearHide();
   var box = document.getElementById("ssnRemarkFloat");
-  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===topicId;})[0];
-  if(!box || !t) return;
-  ssnRemarkOpenTopic = topicId;
-  var hasRemark = !!(t.remark && t.remark.trim());
-  box.innerHTML = '<div class="ssn-remark-view'+(hasRemark?'':' placeholder')+'">'+(hasRemark?esc(t.remark):"点击添加备注")+'</div>';
+  var obj = bookMemoObj(kind, id);
+  if(!box || !obj) return;
+  var hasRemark = !!(obj.remark && obj.remark.trim());
+  if(!hasRemark) return; /* 没有备忘录就不弹框 */
+  box.innerHTML = '<div class="ssn-remark-view">'+esc(obj.remark)+'</div>';
   box.style.display = "block";
   ssnRemarkPositionNear(box, anchorEl);
-  box.querySelector(".ssn-remark-view").onclick = function(){ ssnRemarkEdit(topicId, anchorEl); };
 };
-window.ssnRemarkEdit = function(topicId, anchorEl){
-  ssnRemarkClearHide();
-  var box = document.getElementById("ssnRemarkFloat");
-  var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===topicId;})[0];
-  if(!box || !t) return;
-  box.innerHTML = '<textarea class="ssn-remark-edit-pop" placeholder="给这个子主题加个备注…"></textarea>';
-  var ta = box.querySelector("textarea");
-  ta.value = t.remark||"";
-  box.style.display = "block";
-  ssnRemarkPositionNear(box, anchorEl);
-  ta.focus();
-  ta.addEventListener("keydown", function(e){
-    if(e.key==="Escape") ta.blur();
-    else if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ta.blur(); }
-  });
-  ta.addEventListener("blur", function(){
-    var v = (ta.value||"").trim();
-    if(t.remark!==v){ t.remark = v; save(); render(); }
-    box.style.display = "none";
-    ssnRemarkOpenTopic = null;
+window.openBookMemoEditor = function(kind, id){
+  var obj = bookMemoObj(kind, id);
+  if(!obj) return;
+  openModal("编辑备忘录", '<div class="field"><label>备忘录</label><textarea name="remark" placeholder="写点提醒自己的话…">'+esc(obj.remark||"")+'</textarea></div>', function(data){
+    obj.remark = (data.remark||"").trim();
+    save(); render();
   });
 };
 /* 日志/碎碎念正文这两个编辑框不设死高度，写多少长多少：聚焦（刚打开已有内容）和输入的时候都
@@ -5102,7 +5091,7 @@ document.addEventListener("focus", function(e){
 }, true);
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".ssn-remark-wrap") : null;
-  if(el) ssnRemarkShow(el.getAttribute("data-remark-topic"), el);
+  if(el) ssnRemarkShow(el.getAttribute("data-remark-kind"), el.getAttribute("data-remark-id"), el);
 });
 document.addEventListener("mouseout", function(e){
   var el = e.target.closest ? e.target.closest(".ssn-remark-wrap") : null;
