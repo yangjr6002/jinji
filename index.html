@@ -690,8 +690,8 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
 .book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:160px; font-family:inherit; overflow:hidden;}
-.modal.memo-modal{max-width:1900px; width:97vw; max-height:96vh;}
-.memo-split{display:flex; height:min(90vh,1400px);}
+.modal.memo-modal{max-width:96vw; max-height:96vh; resize:both; overflow:auto; min-width:420px; min-height:320px; display:flex; flex-direction:column;}
+.memo-split{display:flex; flex:1; min-height:0;}
 .memo-sidebar{flex:0 0 auto; display:flex; flex-direction:column; padding-right:12px;}
 .memo-resize-handle{flex:0 0 5px; cursor:col-resize; position:relative;}
 .memo-resize-handle::after{content:""; position:absolute; top:0; bottom:0; left:2px; width:1px; background:var(--border-soft);}
@@ -1062,6 +1062,7 @@ function normalizeData(d){
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
   d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "名称";
   d.settings.memoSidebarWidth = d.settings.memoSidebarWidth || 260;
+  d.settings.memoModalSize = d.settings.memoModalSize || {w:1300, h:760};
   if(!d.settings.quickAccessIds){
     var hidden = d.settings.hiddenModules || [];
     d.settings.quickAccessIds = MODULES.filter(function(m){ return hidden.indexOf(m.id)===-1; }).map(function(m){ return m.id; });
@@ -1444,7 +1445,8 @@ function renderMemoModal(){
        '<textarea class="memo-edit-area" id="memoEditArea" placeholder="写点什么…" onkeydown="enterSubmitKeydown(event,this)" onblur="updateMemoContent(\''+m.id+'\', this.value)">'+esc(m.content||"")+'</textarea>')
     : '<div class="memo-empty">选一条备忘录看看，或者新建一条</div>';
   var sidebarWidth = DATA.settings.memoSidebarWidth || 260;
-  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal memo-modal">'+
+  var modalSize = DATA.settings.memoModalSize || {w:1300,h:760};
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal memo-modal" id="memoModalBox" style="width:'+modalSize.w+'px; height:'+modalSize.h+'px;">'+
     '<h3>备忘录</h3>'+
     '<div class="memo-split">'+
       '<div class="memo-sidebar" id="memoSidebar" style="flex-basis:'+sidebarWidth+'px">'+
@@ -1458,6 +1460,23 @@ function renderMemoModal(){
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
   setupMemoResize();
+  setupMemoModalResize();
+}
+/* 整个备忘录弹窗本身也能拖右下角自由调大小（浏览器原生 resize），跟头像调整大小一个做法，
+   松手记住宽高，下次打开还是这个尺寸 */
+function setupMemoModalResize(){
+  var el = document.getElementById("memoModalBox");
+  if(!el || typeof ResizeObserver==="undefined") return;
+  var saveTimer = null;
+  var ro = new ResizeObserver(function(entries){
+    var box = entries[0].contentRect;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function(){
+      DATA.settings.memoModalSize = {w: Math.round(el.offsetWidth), h: Math.round(el.offsetHeight)};
+      save();
+    }, 300);
+  });
+  ro.observe(el);
 }
 /* 备忘录左右两栏中间拖一条分界线调宽窄，跟表格拖列宽一个手感，松手记住宽度，下次打开还是这个宽度 */
 function setupMemoResize(){
