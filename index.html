@@ -689,6 +689,9 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
 .book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:160px; font-family:inherit; overflow:hidden;}
+.memo-edit-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
+.memo-edit-area{width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; padding:10px 12px; resize:vertical; min-height:220px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:var(--surface); overflow:hidden;}
+.memo-edit-area:focus{outline:none; border-color:var(--accent);}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
 .book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:80px;}
@@ -831,6 +834,7 @@ table.data tr:hover{background:var(--surface-2)}
     <button class="gear-btn" onclick="undoAction()" title="撤销（Ctrl/Cmd+Z）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>
     <button class="gear-btn" onclick="redoAction()" title="重做（Ctrl/Cmd+Shift+Z）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg></button>
     <button class="bg-settings-btn" onclick="openBgSettings()" title="自定义背景图"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></button>
+    <button class="gear-btn" onclick="openMemoModal()" title="备忘录"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
     <button class="gear-btn" id="logoutTopBtn" onclick="confirmSignOut()" title="退出登录" style="display:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
   </div>
@@ -948,6 +952,7 @@ var DEFAULT_DATA = {
     {id:"d2", name:"和前同事的旧矛盾", status:"进行中", note:""}
   ],
   customBoards:[],
+  quickMemos:[],
   journalEntries:[],
   suisuinianEntries:[],
   suisuinianTopics:[],
@@ -1056,6 +1061,7 @@ function normalizeData(d){
   d.memorialEvents = d.memorialEvents || [];
   d.declutterItems = d.declutterItems || [];
   d.customBoards = d.customBoards || [];
+  d.quickMemos = d.quickMemos || [];
   d.journalEntries = d.journalEntries || [];
   /* 日志一篇内部改成"一个个板块"（chapters）之后，老数据的单一大文本框内容要自动搬进第一个板块，不能丢 */
   d.journalEntries.forEach(function(j){
@@ -1389,6 +1395,85 @@ function toast(msg, duration){
   clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
 }
 
+/* ---- 备忘录：首页右上角快速记点小事，跟 iOS 备忘录一样是个独立的小笔记本，
+   不挂在任何一条具体记录下面。列表页看标题（取内容第一行）+ 预览 + 最后编辑时间，点进去是单条编辑页。 */
+var memoEditingId = null;
+function memoTitle(m){
+  var firstLine = (m.content||"").split("\n")[0].trim();
+  return firstLine || "新备忘录";
+}
+function memoDateLabel(iso){
+  if(!iso) return "";
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) return "";
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+window.openMemoModal = function(){
+  memoEditingId = null;
+  renderMemoModal();
+};
+function renderMemoModal(){
+  var root = document.getElementById("modalRoot");
+  var list = (DATA.quickMemos||[]).slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); });
+  var m = memoEditingId ? list.filter(function(x){return x.id===memoEditingId;})[0] : null;
+  var body;
+  if(m){
+    body = '<div class="memo-edit-head"><button type="button" class="btn ghost small" onclick="memoBackToList()">‹ 返回</button><span class="sub">'+esc(memoDateLabel(m.updatedAt))+'</span><button type="button" class="btn small danger" onclick="deleteMemo(\''+m.id+'\')" title="删除">✕</button></div>'+
+      '<textarea class="memo-edit-area" id="memoEditArea" placeholder="写点什么…" oninput="autoGrowBookTextarea(this)" onblur="updateMemoContent(\''+m.id+'\', this.value)">'+esc(m.content||"")+'</textarea>';
+  } else {
+    var rows = list.map(function(x){
+      return '<div class="book-row" onclick="openMemoEdit(\''+x.id+'\')">'+
+        '<div style="flex:1; min-width:0;">'+
+          '<div class="book-row-line1"><span class="book-title">'+esc(memoTitle(x))+'</span><span class="book-meta muted">'+esc(memoDateLabel(x.updatedAt))+'</span></div>'+
+          '<div class="book-excerpt muted">'+esc(bookExcerpt((x.content||"").split("\n").slice(1).join(" ")))+'</div>'+
+        '</div>'+
+        '<div class="row-actions"><button type="button" class="btn small danger" onclick="event.stopPropagation();deleteMemo(\''+x.id+'\')" title="删除">✕</button></div>'+
+      '</div>';
+    }).join('');
+    body = '<button type="button" class="btn solid" style="width:100%;margin-bottom:12px" onclick="createMemo()">+ 新建备忘录</button>'+
+      (rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","还没有备忘录","点上面的按钮新建一条"));
+  }
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:420px">'+
+    '<h3>备忘录</h3>'+
+    body+
+    (m ? '' : '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>')+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+  if(m){
+    var ta = document.getElementById("memoEditArea");
+    if(ta) autoGrowBookTextarea(ta);
+  }
+}
+window.createMemo = function(){
+  var id = uid();
+  DATA.quickMemos = DATA.quickMemos || [];
+  DATA.quickMemos.push({id:id, content:"", updatedAt:new Date().toISOString()});
+  save();
+  memoEditingId = id;
+  renderMemoModal();
+};
+window.openMemoEdit = function(id){
+  memoEditingId = id;
+  renderMemoModal();
+};
+window.memoBackToList = function(){
+  memoEditingId = null;
+  renderMemoModal();
+};
+window.updateMemoContent = function(id, value){
+  var m = (DATA.quickMemos||[]).filter(function(x){return x.id===id;})[0];
+  if(!m) return;
+  if(m.content!==value){ m.content = value; m.updatedAt = new Date().toISOString(); save(); }
+};
+window.deleteMemo = function(id){
+  confirmDelete("确定删除这条备忘录吗？", function(){
+    DATA.quickMemos = (DATA.quickMemos||[]).filter(function(x){return x.id!==id;});
+    save();
+    if(memoEditingId===id) memoEditingId = null;
+    renderMemoModal();
+    toast("已删除");
+  });
+};
 /* ---- 备份与恢复：导出/导入 JSON 文件，避免只依赖浏览器 localStorage 导致数据丢失 ---- */
 /* 存储空间用量：localStorage 一般只有 5～10MB（视浏览器而定），照片存多了很容易顶到上限，
    顶到之后新内容会"保存不了"但界面上看不出快满了，所以在备份面板里直接显示一下当前用了多少 */
