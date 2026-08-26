@@ -1489,11 +1489,30 @@ function destinationById(id){
   return null;
 }
 
+/* 悬浮框（碎碎念备注、旅游标签、地图预览、家庭卡片/备注……）都是靠鼠标移出（mouseleave/mouseout）才收起的，
+   但如果鼠标还悬浮在上面的时候页面本身就切走了（换标签页、回首页），元素被整个换掉，浏览器不会补发
+   mouseleave，收起的计时器也就永远不会触发——悬浮框会一直飘在空中出不去。所以只要检测到"真的换了地方"
+   （VIEW 或当前标签页变了，不是原地刷新），就强制把所有悬浮框都收起来一次，兜底修掉这个问题。 */
+function hideAllFloats(){
+  ["ssnRemarkFloat","travelTagFloat","bookPhotoFloat","tlTooltip"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.style.display = "none";
+  });
+  ["famRemarkOverlay","travelMapPreviewFloat"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.remove();
+  });
+  if(typeof ssnRemarkOpenTopic!=="undefined") ssnRemarkOpenTopic = null;
+  if(typeof travelTagAnchorEl!=="undefined") travelTagAnchorEl = null;
+  if(typeof famCardFor!=="undefined" && famCardFor!==null){ famCardFor = null; famCardLinkOpen = false; if(typeof renderFamilyCardOverlay==="function") renderFamilyCardOverlay(); }
+}
 var __lastRenderedView = null;
+var __lastRenderedTabKey = null;
 function render(){
   var app=document.getElementById("app");
   /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
   var __sameView = (__lastRenderedView === VIEW);
+  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey) hideAllFloats();
   var __scrollState = [];
   if(__sameView){
     ["hzTimeline","tlMatrixScroll","assetTableScroll"].forEach(function(id){
@@ -1503,6 +1522,7 @@ function render(){
   }
   var __savedWinY = __sameView ? window.scrollY : null;
   __lastRenderedView = VIEW;
+  __lastRenderedTabKey = activeTabKey;
   document.getElementById("topTabs").innerHTML = renderTopTabsBar();
   if(VIEW==="home"){ app.innerHTML = renderHome(); setupHzDrag(); setupDragScroll("tlMatrixScroll"); setupAvatarResize(); }
   else if(VIEW==="itemDetail"){
