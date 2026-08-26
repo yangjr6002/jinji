@@ -2159,7 +2159,7 @@ function renderFamilyCardOverlay(){
     '<div class="fam-card-actions">'+
       '<button type="button" class="btn small ghost" onclick="toggleFamilyCardLink()">🔗 关联已有成员</button>'+
       '<button type="button" class="btn small '+(p.isMainBranch?"":"ghost")+'" title="TA的父母如果有好几个孩子，联姻点会对齐到TA这一支，而不是几个孩子的正中间" onclick="toggleFamilyMainBranch(\''+p.id+'\')">'+(p.isMainBranch?"★ 取消主分支":"☆ 设为主分支")+'</button>'+
-      '<button type="button" class="btn small danger" onclick="deleteFamilyMember(\''+p.id+'\')">删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteFamilyMember(\''+p.id+'\')" title="删除">✕</button>'+
     '</div>'+
     (famCardLinkOpen ? '<div class="fam-card-link-panel">'+renderFamilyLinkPanel(p.id)+'</div>' : '');
   wrap.appendChild(div);
@@ -2565,7 +2565,7 @@ window.openViewSettings = function(){
     return '<div class="cat-manage-row">'+
       '<span class="mod-icon">'+m.icon+'</span>'+
       '<input type="text" class="cat-name-input" value="'+esc(labelFor(m.id))+'" onchange="renameModuleInline(\''+m.id+'\', this.value)">'+
-      '<button type="button" class="btn small danger" onclick="removeQuickAccess(\''+m.id+'\')">删除</button>'+
+      '<button type="button" class="btn small danger" onclick="removeQuickAccess(\''+m.id+'\')" title="删除">✕</button>'+
     '</div>';
   }).join('') || '<div class="sub">还没有内容</div>';
   var addRow = available.length ? (
@@ -2724,7 +2724,7 @@ window.manageModuleCategories = function(moduleId, titleOverride){
       '<span class="drag-handle-sm" draggable="true" ondragstart="modCatDragStart(event,\''+moduleId+'\',\''+c.key+'\')" ondragend="modCatDragEnd(event)" title="拖动排序">⠿</span>'+
       '<span class="mod-icon">📁</span>'+
       '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameModuleCategory(\''+moduleId+'\',\''+c.key+'\', this.value, \''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
-      '<button type="button" class="btn small danger" onclick="deleteModuleCategory(\''+moduleId+'\',\''+c.key+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteModuleCategory(\''+moduleId+'\',\''+c.key+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')" title="删除">✕</button>'+
     '</div>';
   }).join('');
   var noneRow = '<div class="cat-manage-row">'+
@@ -2938,7 +2938,7 @@ window.openCategoryManager = function(){
       (DATA.timelineCategories.length>1 ? ('<select class="cat-merge-select" onchange="if(this.value){mergeCategory(\''+c.key+'\', this.value);} this.selectedIndex=0;">'+
         '<option value="">合并到…</option>'+mergeOptions+
       '</select>') : '')+
-      '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+'>删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteCategory(\''+c.key+'\')" '+(DATA.timelineCategories.length<=1?"disabled":"")+' title="删除">✕</button>'+
     '</div>'+
     (pickerOpen ? colorSwatchGrid(c.color, "updateCategoryColor('"+c.key+"','{c}')") : '');
   }).join('');
@@ -3758,7 +3758,7 @@ window.travelTagRenderEdit = function(id){
     '<div class="travel-tag-edit-actions">'+
       '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
       '<button type="button" class="btn small ghost" onclick="refreshTravelGeo(\''+id+'\')" title="老数据可能定位信息不全（比如缺市/区县/镇这几级），点这个重新定位一次补全">🔄 重新定位</button>'+
-      '<button type="button" class="btn small danger" onclick="deleteTravelEntry(\''+id+'\')">删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteTravelEntry(\''+id+'\')" title="删除">✕</button>'+
     '</div>'+
   '</div>';
   box.style.display = "block";
@@ -4203,7 +4203,7 @@ function renderTimelineDetailPage(id){
     '<div class="sub">'+esc(sel.date||"—")+(sel.dateEnd?(' ~ '+esc(sel.dateEnd)):'')+' · <span style="color:'+cat.color+'">'+esc(cat.label)+'</span></div>'+
     '</div><div class="row-actions">'+
     '<button class="btn ghost" onclick="editTimelineEntry(\''+sel.id+'\')">编辑</button>'+
-    '<button class="btn danger" onclick="deleteTimelineEntry(\''+sel.id+'\')">删除</button>'+
+    '<button class="btn danger" onclick="deleteTimelineEntry(\''+sel.id+'\')" title="删除">✕</button>'+
     '</div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>时间</th><td>'+esc(sel.date||"—")+'</td></tr>'+
@@ -4300,7 +4300,7 @@ function renderTimelineEditModal(){
     '<button type="button" class="btn small ghost" onclick="addDraftField()" style="margin-top:6px">+ 添加字段</button>'+
     '</div>'+
     '<div class="modal-actions">'+
-      (d.id ? '<button type="button" class="btn danger" onclick="deleteTimelineEntry(\''+d.id+'\')" style="margin-right:auto">删除</button>' : '')+
+      (d.id ? '<button type="button" class="btn danger" onclick="deleteTimelineEntry(\''+d.id+'\')" style="margin-right:auto" title="删除">✕</button>' : '')+
       '<button type="button" class="btn ghost" onclick="closeModal()">取消</button><button type="button" class="btn solid" onclick="saveTimelineDraft()">保存</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
@@ -4329,7 +4329,7 @@ window.openWorkTagManager = function(){
     return '<div class="cat-manage-row">'+
       '<span class="cat-color-input" style="background:'+w.color+'" onclick="toggleWorkTagColorPicker(\''+w.key+'\')" title="改这个标签的颜色"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(w.label)+'" onchange="renameWorkTag(\''+w.key+'\', this.value)">'+
-      '<button type="button" class="btn small danger" onclick="deleteWorkTag(\''+w.key+'\')" '+((DATA.workTags||[]).length<=1?"disabled":"")+'>删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteWorkTag(\''+w.key+'\')" '+((DATA.workTags||[]).length<=1?"disabled":"")+' title="删除">✕</button>'+
     '</div>'+
     (pickerOpen ? colorSwatchGrid(w.color, "updateWorkTagColor('"+w.key+"','{c}')") : '');
   }).join('');
@@ -4384,7 +4384,7 @@ window.openResidenceTagManager = function(){
     return '<div class="cat-manage-row">'+
       '<span class="cat-dot" style="background:'+w.color+'"></span>'+
       '<input type="text" class="cat-name-input" value="'+esc(w.label)+'" onchange="renameResidenceTag(\''+w.key+'\', this.value)">'+
-      '<button type="button" class="btn small danger" onclick="deleteResidenceTag(\''+w.key+'\')" '+((DATA.residenceTags||[]).length<=1?"disabled":"")+'>删除</button>'+
+      '<button type="button" class="btn small danger" onclick="deleteResidenceTag(\''+w.key+'\')" '+((DATA.residenceTags||[]).length<=1?"disabled":"")+' title="删除">✕</button>'+
     '</div>';
   }).join('');
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
@@ -4884,7 +4884,7 @@ function renderBookCategoryEntries(compoundId){
         '</div>'+
         '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger icon-only" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="删除">'+iconTrash()+'</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="删除">✕</button></div>'+
     '</div>';
   }).join('');
   var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
@@ -4969,7 +4969,7 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\'suisuinianTopic\',\''+t.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger icon-only" onclick="deleteSuisuinianTopic(\''+t.id+'\')" title="删除">'+iconTrash()+'</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\'suisuinianTopic\',\''+t.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')" title="删除">✕</button></div>'+
     '</div>';
   }).join('');
   var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","点右上角「+」添加一个");
@@ -5067,7 +5067,6 @@ window.ssnRemarkShow = function(kind, id, anchorEl){
   ssnRemarkPositionNear(box, anchorEl);
 };
 function iconMemo(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>'; }
-function iconTrash(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>'; }
 window.openBookMemoEditor = function(kind, id){
   var obj = bookMemoObj(kind, id);
   if(!obj) return;
@@ -5364,7 +5363,7 @@ function renderBookDetailPage(moduleId, id){
       catSelect+
     '</div>'+
     '</div><div class="row-actions">'+
-    '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')">删除</button>'+
+    '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')" title="删除">✕</button>'+
     '</div></div>'+
     (moduleId==="journal" ? renderJournalChapters(sel.id) :
       '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>');
@@ -5589,7 +5588,7 @@ function renderPasswords(){
         ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
         : '<span class="pw-mask">••••••••••</span>')+'</td>'+
       '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="'+esc(colLabelsForRows.note)+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
-      '<td class="row-actions"><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')">删除</button></td></tr>';
+      '<td class="row-actions"><button class="btn small danger" onclick="deletePassword(\''+r.id+'\')" title="删除">✕</button></td></tr>';
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
     '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
@@ -5665,7 +5664,7 @@ function renderPasswordDetailPage(id){
   var show = revealed[r.id];
   var colLabels = DATA.settings.passwordColumnLabels;
   return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码，直接改，失焦自动保存。</div></div>'+
-    '<div class="row-actions"><button class="btn danger" onclick="deletePassword(\''+r.id+'\')">删除</button></div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deletePassword(\''+r.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>网站/应用</th><td><input type="text" class="pw-inline-input" value="'+esc(r.site)+'" onchange="updatePasswordField(\''+r.id+'\',\'site\',this.value)"></td></tr>'+
       '<tr><th>'+esc(colLabels.username)+'</th><td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td></tr>'+
@@ -5871,7 +5870,7 @@ function renderAssetDetailPage(id){
     return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
   }).join('');
   return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
-    '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
@@ -5968,7 +5967,7 @@ function renderIdBranchList(){
       '<div style="flex:1; min-width:0;"><div class="book-row-line1">'+titleHtml+
         '<span class="book-meta muted">'+(b.kind==="official"?"带证件分类":"简单列表")+'</span>'+
       '</div></div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteIdBranch(\''+b.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small danger" onclick="deleteIdBranch(\''+b.id+'\')" title="删除">✕</button></div>'+
     '</div>';
   }).join('');
   var addRow = '<div class="book-toc-add" style="flex-direction:column; align-items:stretch; gap:8px;">'+
@@ -6032,7 +6031,7 @@ function renderIdPeopleList(){
       : '<span class="row-open-link book-title" onclick="idPersonSingleClick(\''+p.id+'\')" ondblclick="event.stopPropagation();startRenameIdPerson(\''+p.id+'\')" title="单击进入，双击改名">'+esc(p.name)+'</span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;"><div class="book-row-line1">'+titleHtml+'</div></div>'+
-      '<div class="row-actions"><button class="btn small danger" onclick="deleteIdPerson(\''+p.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small danger" onclick="deleteIdPerson(\''+p.id+'\')" title="删除">✕</button></div>'+
     '</div>';
   }).join('');
   var addRow = '<div class="book-toc-add">'+
@@ -6169,7 +6168,7 @@ function renderIdOfficialDocDetail(docId){
     '</div>';
   }
   return '<div class="module-head"><div><h2>🪪 '+esc(catLabel)+' · '+esc(d.year||"未填年份")+'</h2><div class="sub">正反面全景图，点「下载原图」拿到没有压缩过的原始文件。</div></div>'+
-    '<div class="row-actions"><button class="btn danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')">删除</button></div></div>'+
+    '<div class="row-actions"><button class="btn danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')" title="删除">✕</button></div></div>'+
     backBar+
     '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
     '<div class="idph-detail-grid">'+sideBlock("frontDataUrl","正面")+sideBlock("backDataUrl","反面")+'</div>'+
@@ -6236,8 +6235,8 @@ function renderIdRegularPhotoDetail(photoId){
     return '<div class="idph-variant-card">'+
       (v.dataUrl ? '<img class="idph-detail-img" src="'+v.dataUrl+'">' : '<div class="thumb placeholder">📸</div>')+
       '<input type="text" class="idph-year-input" value="'+esc(v.label||"")+'" placeholder="尺寸，比如「1寸」" onchange="updateIdRegularVariantLabel(\''+p.id+'\',\''+v.id+'\',this.value)">'+
-      (v.dataUrl ? ('<div class="idph-detail-actions"><a class="btn small ghost" style="text-decoration:none;display:inline-block" href="'+v.dataUrl+'" download="'+esc((person?person.name:"")+"_"+(v.label||"证件照"))+'">⬇ 下载原图</a><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')">删除</button></div>')
-        : ('<div class="idph-detail-actions"><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')">删除</button></div>'))+
+      (v.dataUrl ? ('<div class="idph-detail-actions"><a class="btn small ghost" style="text-decoration:none;display:inline-block" href="'+v.dataUrl+'" download="'+esc((person?person.name:"")+"_"+(v.label||"证件照"))+'">⬇ 下载原图</a><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')" title="删除">✕</button></div>')
+        : ('<div class="idph-detail-actions"><button class="btn small danger" onclick="deleteIdRegularVariant(\''+p.id+'\',\''+v.id+'\')" title="删除">✕</button></div>'))+
     '</div>';
   }).join('');
   var uploadTile = '<div class="idph-variant-card"><label class="upload-tile" style="height:140px">📤 上传新尺寸<input type="file" accept="image/*" onchange="uploadIdRegularVariant(this,\''+p.id+'\')"></label></div>';
@@ -6436,7 +6435,7 @@ function renderCustomItemDetailPage(boardId, itemId){
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   return '<div class="module-head"><div><h2>📌 '+esc(it.title)+'</h2><div class="sub">'+esc(labelFor(boardId))+'</div></div>'+
-    '<div class="row-actions"><button class="btn ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">编辑</button><button class="btn danger" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">删除</button></div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">编辑</button><button class="btn danger" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>内容</th><td>'+esc(it.note||"—")+'</td></tr>'+
     '</table></div>';
@@ -6495,7 +6494,7 @@ function renderContactDetailPage(id){
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   return '<div class="module-head"><div><h2>👥 '+esc(c.name)+'</h2><div class="sub">'+esc(c.relation||"未分类")+'</div></div>'+
-    '<div class="row-actions"><button class="btn ghost" onclick="editContact(\''+c.id+'\')">编辑</button><button class="btn danger" onclick="deleteContact(\''+c.id+'\')">删除</button></div></div>'+
+    '<div class="row-actions"><button class="btn ghost" onclick="editContact(\''+c.id+'\')">编辑</button><button class="btn danger" onclick="deleteContact(\''+c.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>关系</th><td>'+esc(c.relation||"—")+'</td></tr>'+
       '<tr><th>电话</th><td>'+esc(c.phone||"—")+'</td></tr>'+
