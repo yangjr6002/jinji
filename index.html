@@ -399,7 +399,7 @@ table.data tr:hover{background:var(--surface-2)}
 .tl-field-row{display:flex; flex-direction:column; gap:8px; padding:12px; border:1px solid var(--border-soft); border-radius:10px; background:var(--surface-2);}
 .tl-field-top{display:flex; gap:8px; align-items:center;}
 .tl-field-label{flex:1; padding:8px 9px; border:1px solid var(--border); border-radius:6px; font-size:13px; font-weight:600; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);}
-.tl-field-value{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text); min-height:120px; resize:vertical; line-height:1.6; box-sizing:border-box;}
+.tl-field-value{width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text); min-height:200px; resize:vertical; line-height:1.6; box-sizing:border-box;}
 .tl-field-label:focus, .tl-field-value:focus{outline:none; border-color:var(--accent);}
 .geo-pick-list{display:flex; flex-direction:column; gap:6px; max-height:320px; overflow-y:auto; margin-bottom:6px;}
 .geo-pick-row{text-align:left; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font-size:13px; line-height:1.5; cursor:pointer; transition:.15s;}
@@ -687,13 +687,13 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
-.book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:320px; font-family:inherit;}
+.book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:420px; font-family:inherit;}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
 .book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:80px;}
 .book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
-.book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:120px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent;}
+.book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:280px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent;}
 .book-chapter-content:focus{outline:none; background:var(--surface-2); border-radius:6px;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
@@ -796,7 +796,7 @@ table.data tr:hover{background:var(--surface-2)}
   font-family:'IBM Plex Sans',sans-serif; background:#fff; color:var(--text);
 }
 .field input:focus, .field textarea:focus, .field select:focus{outline:none; border-color:var(--accent);}
-.field textarea{resize:vertical; min-height:64px;}
+.field textarea{resize:vertical; min-height:200px;}
 .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
 
 /* toast */
