@@ -689,8 +689,19 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
 .book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:160px; font-family:inherit; overflow:hidden;}
+.memo-modal{max-width:640px; width:92vw;}
+.memo-split{display:flex; gap:14px; height:min(60vh,480px);}
+.memo-sidebar{flex:0 0 170px; display:flex; flex-direction:column; border-right:1px solid var(--border-soft); padding-right:12px;}
+.memo-list{flex:1; overflow-y:auto;}
+.memo-list-item{padding:8px 8px; border-radius:7px; cursor:pointer; margin-bottom:2px;}
+.memo-list-item:hover{background:var(--surface-2);}
+.memo-list-item.active{background:var(--accent-soft, var(--surface-2)); border:1px solid var(--accent);}
+.memo-list-title{font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.memo-list-date{font-size:11px; color:var(--text-dim); margin-top:2px;}
+.memo-content{flex:1; min-width:0; display:flex; flex-direction:column;}
+.memo-empty{flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:13px;}
 .memo-edit-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
-.memo-edit-area{width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; padding:10px 12px; resize:vertical; min-height:220px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:var(--surface); overflow:hidden;}
+.memo-edit-area{flex:1; width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; padding:10px 12px; resize:none; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:var(--surface); overflow-y:auto;}
 .memo-edit-area:focus{outline:none; border-color:var(--accent);}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
@@ -1409,40 +1420,36 @@ function memoDateLabel(iso){
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
 }
 window.openMemoModal = function(){
-  memoEditingId = null;
+  var list = (DATA.quickMemos||[]).slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); });
+  memoEditingId = list.length ? list[0].id : null; /* 跟 iOS 备忘录一样，打开默认选中最近编辑的那条 */
   renderMemoModal();
 };
 function renderMemoModal(){
   var root = document.getElementById("modalRoot");
   var list = (DATA.quickMemos||[]).slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); });
   var m = memoEditingId ? list.filter(function(x){return x.id===memoEditingId;})[0] : null;
-  var body;
-  if(m){
-    body = '<div class="memo-edit-head"><button type="button" class="btn ghost small" onclick="memoBackToList()">‹ 返回</button><span class="sub">'+esc(memoDateLabel(m.updatedAt))+'</span><button type="button" class="btn small danger" onclick="deleteMemo(\''+m.id+'\')" title="删除">✕</button></div>'+
-      '<textarea class="memo-edit-area" id="memoEditArea" placeholder="写点什么…" oninput="autoGrowBookTextarea(this)" onblur="updateMemoContent(\''+m.id+'\', this.value)">'+esc(m.content||"")+'</textarea>';
-  } else {
-    var rows = list.map(function(x){
-      return '<div class="book-row" onclick="openMemoEdit(\''+x.id+'\')">'+
-        '<div style="flex:1; min-width:0;">'+
-          '<div class="book-row-line1"><span class="book-title">'+esc(memoTitle(x))+'</span><span class="book-meta muted">'+esc(memoDateLabel(x.updatedAt))+'</span></div>'+
-          '<div class="book-excerpt muted">'+esc(bookExcerpt((x.content||"").split("\n").slice(1).join(" ")))+'</div>'+
-        '</div>'+
-        '<div class="row-actions"><button type="button" class="btn small danger" onclick="event.stopPropagation();deleteMemo(\''+x.id+'\')" title="删除">✕</button></div>'+
-      '</div>';
-    }).join('');
-    body = '<button type="button" class="btn solid" style="width:100%;margin-bottom:12px" onclick="createMemo()">+ 新建备忘录</button>'+
-      (rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","还没有备忘录","点上面的按钮新建一条"));
-  }
-  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:420px">'+
+  var sidebarRows = list.map(function(x){
+    return '<div class="memo-list-item'+(m&&m.id===x.id?' active':'')+'" onclick="openMemoEdit(\''+x.id+'\')">'+
+      '<div class="memo-list-title">'+esc(memoTitle(x))+'</div>'+
+      '<div class="memo-list-date">'+esc(memoDateLabel(x.updatedAt))+'</div>'+
+    '</div>';
+  }).join('') || '<div class="sub" style="padding:10px">还没有备忘录</div>';
+  var contentHtml = m
+    ? ('<div class="memo-edit-head"><span class="sub">'+esc(memoDateLabel(m.updatedAt))+'</span><button type="button" class="btn small danger" onclick="deleteMemo(\''+m.id+'\')" title="删除">✕</button></div>'+
+       '<textarea class="memo-edit-area" id="memoEditArea" placeholder="写点什么…" onkeydown="enterSubmitKeydown(event,this)" onblur="updateMemoContent(\''+m.id+'\', this.value)">'+esc(m.content||"")+'</textarea>')
+    : '<div class="memo-empty">选一条备忘录看看，或者新建一条</div>';
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal memo-modal">'+
     '<h3>备忘录</h3>'+
-    body+
-    (m ? '' : '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>')+
+    '<div class="memo-split">'+
+      '<div class="memo-sidebar">'+
+        '<button type="button" class="btn small solid" style="width:100%;margin-bottom:8px" onclick="createMemo()">+ 新建</button>'+
+        '<div class="memo-list">'+sidebarRows+'</div>'+
+      '</div>'+
+      '<div class="memo-content">'+contentHtml+'</div>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
-  if(m){
-    var ta = document.getElementById("memoEditArea");
-    if(ta) autoGrowBookTextarea(ta);
-  }
 }
 window.createMemo = function(){
   var id = uid();
@@ -1454,10 +1461,6 @@ window.createMemo = function(){
 };
 window.openMemoEdit = function(id){
   memoEditingId = id;
-  renderMemoModal();
-};
-window.memoBackToList = function(){
-  memoEditingId = null;
   renderMemoModal();
 };
 window.updateMemoContent = function(id, value){
@@ -4338,7 +4341,7 @@ function renderTimelineEditModal(){
         '<input type="text" class="tl-field-label" placeholder="小标题，如：心情" value="'+esc(f.label)+'" onchange="updateDraftField(\''+f.id+'\',\'label\',this.value)">'+
         '<button type="button" class="btn small danger" onclick="removeDraftField(\''+f.id+'\')" title="删除这个字段">✕</button>'+
       '</div>'+
-      '<textarea class="tl-field-value" placeholder="内容" onchange="updateDraftField(\''+f.id+'\',\'value\',this.value)">'+esc(f.value)+'</textarea>'+
+      '<textarea class="tl-field-value" placeholder="内容" onkeydown="enterSubmitKeydown(event,this)" onchange="updateDraftField(\''+f.id+'\',\'value\',this.value)">'+esc(f.value)+'</textarea>'+
     '</div>';
   }).join('');
   var travelFieldsHtml = "";
@@ -5155,11 +5158,15 @@ function iconMemo(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fil
 window.openBookMemoEditor = function(kind, id){
   var obj = bookMemoObj(kind, id);
   if(!obj) return;
-  openModal("编辑备忘录", '<div class="field"><label>备忘录</label><textarea name="remark" placeholder="写点提醒自己的话…">'+esc(obj.remark||"")+'</textarea></div>', function(data){
+  openModal("编辑备忘录", '<div class="field"><label>备忘录</label><textarea name="remark" placeholder="写点提醒自己的话…" onkeydown="enterSubmitKeydown(event,this)">'+esc(obj.remark||"")+'</textarea></div>', function(data){
     obj.remark = (data.remark||"").trim();
     save(); render();
   });
 };
+/* 全局约定：文本框回车直接提交/失焦保存，shift+回车才换行——不用再点别处才生效 */
+function enterSubmitKeydown(e, el){
+  if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); el.blur(); }
+}
 /* 日志/碎碎念正文这两个编辑框不设死高度，写多少长多少：聚焦（刚打开已有内容）和输入的时候都
    按内容实际高度撑开，短文章就矮、长文章就一直往下长，不会平白留一大截空白，也不会显得挤 */
 function autoGrowBookTextarea(el){
@@ -5451,7 +5458,7 @@ function renderBookDetailPage(moduleId, id){
     '<button class="btn danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')" title="删除">✕</button>'+
     '</div></div>'+
     (moduleId==="journal" ? renderJournalChapters(sel.id) :
-      '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>');
+      '<textarea class="card-panel book-content book-content-edit" placeholder="写点什么…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'content\',this.value)">'+esc(sel.content||"")+'</textarea>');
 }
 /* 日志一篇内部：不是一个大文本框，是一个个"板块"（长篇内容），按时间排列，跟碎碎念留言板一个思路——
    只是把"泡泡"换成大段文字块，板块可以单独加照片、可以筛选只看带图的、右下角悬浮按钮加新板块。 */
@@ -5500,7 +5507,7 @@ function renderJournalChapters(entryId){
           '<button type="button" class="ssn-bubble-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
         '</span>'+
       '</div>'+
-      '<textarea class="book-chapter-content" placeholder="写这一段…" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+      '<textarea class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点右下角「+」加第一个板块</div>';
   var filterBtn = '<button class="btn small '+(bookFilterHasImage[sortKey]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+sortKey+'\')">'+(bookFilterHasImage[sortKey]?"✓ 只看有图":"筛选：只看有图")+'</button>';
@@ -6600,7 +6607,7 @@ function emptyState(icon,title,sub){
 }
 function field(name,label,type,value,required){
   if(type==="textarea"){
-    return '<div class="field"><label>'+esc(label)+'</label><textarea name="'+name+'">'+esc(value||"")+'</textarea></div>';
+    return '<div class="field"><label>'+esc(label)+'</label><textarea name="'+name+'" onkeydown="enterSubmitKeydown(event,this)">'+esc(value||"")+'</textarea></div>';
   }
   return '<div class="field"><label>'+esc(label)+'</label><input name="'+name+'" type="text" value="'+esc(value||"")+'" '+(required?"required":"")+'></div>';
 }
