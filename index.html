@@ -247,6 +247,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .btn.danger{border-color:var(--danger); color:var(--danger);}
 .btn.danger:hover{background:var(--danger); color:#fff;}
 .btn.small{padding:5px 10px; font-size:11.5px; border-radius:6px;}
+.btn.icon-only{padding:5px 7px; display:inline-flex; align-items:center; justify-content:center;}
 .tl-orient-btn{width:30px; height:30px; padding:0; font-size:15px; display:flex; align-items:center; justify-content:center; flex:none; border-radius:8px;}
 
 /* password table */
@@ -4883,7 +4884,7 @@ function renderBookCategoryEntries(compoundId){
         '</div>'+
         '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small ghost" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')">备忘录</button><button class="btn small danger" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger icon-only" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="删除">'+iconTrash()+'</button></div>'+
     '</div>';
   }).join('');
   var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
@@ -4968,7 +4969,7 @@ function renderSuisuinianTopicList(moduleId, catKey, compoundId){
         '</div>'+
         '<div class="book-excerpt muted">'+esc(latest?bookExcerpt(latest.content):"还没有留言")+'</div>'+
       '</div>'+
-      '<div class="row-actions"><button class="btn small ghost" onclick="openBookMemoEditor(\'suisuinianTopic\',\''+t.id+'\')">备忘录</button><button class="btn small danger" onclick="deleteSuisuinianTopic(\''+t.id+'\')">删除</button></div>'+
+      '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\'suisuinianTopic\',\''+t.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="btn small danger icon-only" onclick="deleteSuisuinianTopic(\''+t.id+'\')" title="删除">'+iconTrash()+'</button></div>'+
     '</div>';
   }).join('');
   var listHtml = rows ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有子主题","点右上角「+」添加一个");
@@ -5065,6 +5066,8 @@ window.ssnRemarkShow = function(kind, id, anchorEl){
   box.style.display = "block";
   ssnRemarkPositionNear(box, anchorEl);
 };
+function iconMemo(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>'; }
+function iconTrash(){ return '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>'; }
 window.openBookMemoEditor = function(kind, id){
   var obj = bookMemoObj(kind, id);
   if(!obj) return;
