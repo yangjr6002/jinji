@@ -3718,8 +3718,8 @@ function travelTagPositionNear(box, anchorEl){
 function travelTagFieldsFormHtml(t, id){
   return (t.fields||[]).map(function(f){
     return '<div class="travel-tag-field-row">'+
-      '<input type="text" class="asset-inline-input" value="'+esc(f.label)+'" placeholder="字段名" onchange="updateTravelFieldLabel(\''+id+'\',\''+f.id+'\',this.value)">'+
-      '<input type="text" class="asset-inline-input" value="'+esc(f.value)+'" placeholder="内容" onchange="updateTravelFieldValue(\''+id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input" value="'+esc(f.label)+'" placeholder="字段名" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelFieldLabel(\''+id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input" value="'+esc(f.value)+'" placeholder="内容" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelFieldValue(\''+id+'\',\''+f.id+'\',this.value)">'+
       '<button type="button" class="btn small danger" onclick="deleteTravelField(\''+id+'\',\''+f.id+'\');travelTagRenderEdit(\''+id+'\')">✕</button>'+
     '</div>';
   }).join('');
@@ -3730,8 +3730,8 @@ window.travelTagRenderEdit = function(id){
   if(!box || !t) return;
   travelTagClearHide();
   box.innerHTML = '<div class="travel-tag-edit-form">'+
-    '<input type="text" class="asset-inline-input" value="'+esc(t.keyword||"")+'" placeholder="地名" onchange="updateTravelKeyword(\''+id+'\',this.value)">'+
-    '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onchange="updateTravelDate(\''+id+'\',this.value)">'+
+    '<input type="text" class="asset-inline-input" value="'+esc(t.keyword||"")+'" placeholder="地名" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelKeyword(\''+id+'\',this.value)">'+
+    '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelDate(\''+id+'\',this.value)">'+
     '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
     '<div class="travel-tag-edit-actions">'+
       '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
@@ -5049,7 +5049,10 @@ window.ssnRemarkEdit = function(topicId, anchorEl){
   box.style.display = "block";
   ssnRemarkPositionNear(box, anchorEl);
   ta.focus();
-  ta.addEventListener("keydown", function(e){ if(e.key==="Escape") ta.blur(); });
+  ta.addEventListener("keydown", function(e){
+    if(e.key==="Escape") ta.blur();
+    else if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); ta.blur(); }
+  });
   ta.addEventListener("blur", function(){
     var v = (ta.value||"").trim();
     if(t.remark!==v){ t.remark = v; save(); render(); }
@@ -5157,7 +5160,7 @@ function renderSuisuinianTopicBoard(topicId){
   if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
   var bubbles = msgs.map(function(m){
     var contentHtml = suisuinianEditingMessage===m.id
-      ? '<textarea class="ssn-bubble-edit" autofocus onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+      ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content)+'</div>';
     return '<div class="ssn-bubble">'+
       contentHtml+
@@ -5746,9 +5749,9 @@ function renderAssets(){
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
-    var cells = '<td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" placeholder="名称" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td>'+
+    var cells = '<td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" placeholder="名称" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td>'+
       columns.map(function(c){
-        return '<td><input type="text" class="asset-inline-input" value="'+esc(fieldMap[c]!==undefined?fieldMap[c]:"")+'" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(c)+'\',this.value)"></td>';
+        return '<td><input type="text" class="asset-inline-input" value="'+esc(fieldMap[c]!==undefined?fieldMap[c]:"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(c)+'\',this.value)"></td>';
       }).join('')+
       '<td class="row-actions"><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
     return '<tr>'+cells+'</tr>';
@@ -5833,12 +5836,12 @@ function renderAssetDetailPage(id){
   var locLabel = a.location ? ((getModuleCategories("assets_location").filter(function(c){return c.key===a.location;})[0]||{}).label||uncategorizedLabel("assets_location")) : uncategorizedLabel("assets_location");
   var typeLabel = a.assetType ? ((getModuleCategories("assets_type").filter(function(c){return c.key===a.assetType;})[0]||{}).label||uncategorizedLabel("assets_type")) : uncategorizedLabel("assets_type");
   var fieldRows = (a.fields||[]).map(function(f){
-    return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
+    return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
   }).join('');
   return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')">删除</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
-      '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
+      '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
       '<tr><th>类型</th><td>'+esc(typeLabel)+'</td></tr>'+
       fieldRows+
@@ -6136,7 +6139,7 @@ function renderIdOfficialDocDetail(docId){
   return '<div class="module-head"><div><h2>🪪 '+esc(catLabel)+' · '+esc(d.year||"未填年份")+'</h2><div class="sub">正反面全景图，点「下载原图」拿到没有压缩过的原始文件。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deleteIdOfficialDoc(\''+d.id+'\')">删除</button></div></div>'+
     backBar+
-    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
+    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
     '<div class="idph-detail-grid">'+sideBlock("frontDataUrl","正面")+sideBlock("backDataUrl","反面")+'</div>'+
     renderIdFieldsEditor("official", d);
 }
@@ -6209,7 +6212,7 @@ function renderIdRegularPhotoDetail(photoId){
   return '<div class="module-head"><div><h2>📸 '+esc(person?person.name:"")+' · '+esc(p.year||"未填年份")+'</h2><div class="sub">同一张证件照的不同尺寸文件，各自下载原图（不压缩、不改变实际尺寸）。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deleteIdRegularPhoto(\''+p.id+'\')">删除整条记录</button></div></div>'+
     backBar+
-    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(p.year||"")+'" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)"></div>'+
+    '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(p.year||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)"></div>'+
     '<div class="idph-variant-grid">'+cards+uploadTile+'</div>'+
     renderIdFieldsEditor("regular", p);
 }
@@ -6249,8 +6252,8 @@ function idDocTipHtml(rec){
 function renderIdFieldsEditor(kind, rec){
   var rows = (rec.fields||[]).map(function(f){
     return '<div class="idph-field-row">'+
-      '<input type="text" class="asset-inline-input idph-field-label" value="'+esc(f.label)+'" placeholder="字段名，比如「有效期」" onchange="updateIdFieldLabel(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
-      '<input type="text" class="asset-inline-input idph-field-value" value="'+esc(f.value)+'" placeholder="内容，比如「证件号码」" onchange="updateIdFieldValue(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input idph-field-label" value="'+esc(f.label)+'" placeholder="字段名，比如「有效期」" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdFieldLabel(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
+      '<input type="text" class="asset-inline-input idph-field-value" value="'+esc(f.value)+'" placeholder="内容，比如「证件号码」" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdFieldValue(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\',this.value)">'+
       '<button class="btn small danger" onclick="deleteIdField(\''+kind+'\',\''+rec.id+'\',\''+f.id+'\')">✕</button>'+
     '</div>';
   }).join('');
