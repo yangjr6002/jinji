@@ -687,13 +687,13 @@ table.data tr:hover{background:var(--surface-2)}
 .book-detail-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .book-detail-meta{display:flex; align-items:center; gap:10px; margin-top:6px;}
 .book-detail-date, .book-detail-cat{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:12.5px; padding:4px 8px; border-radius:6px;}
-.book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:420px; font-family:inherit;}
+.book-content-edit{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:160px; font-family:inherit; overflow:hidden;}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
 .book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:80px;}
 .book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
-.book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:280px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent;}
+.book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:140px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent; overflow:hidden;}
 .book-chapter-content:focus{outline:none; background:var(--surface-2); border-radius:6px;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
@@ -1508,6 +1508,7 @@ function render(){
     app.innerHTML = renderItemDetailPage();
     var __tab = findTab(activeTabKey);
     if(__tab && __tab.type==="worldmap") setupLeafletMap();
+    app.querySelectorAll(".book-content-edit, .book-chapter-content").forEach(autoGrowBookTextarea);
   }
   else if(VIEW==="basicinfo"){ app.innerHTML = renderBasicInfoPage(); setupFamilyGraph(); }
   else if(VIEW==="passwords") app.innerHTML = renderPasswords();
@@ -5060,6 +5061,22 @@ window.ssnRemarkEdit = function(topicId, anchorEl){
     ssnRemarkOpenTopic = null;
   });
 };
+/* 日志/碎碎念正文这两个编辑框不设死高度，写多少长多少：聚焦（刚打开已有内容）和输入的时候都
+   按内容实际高度撑开，短文章就矮、长文章就一直往下长，不会平白留一大截空白，也不会显得挤 */
+function autoGrowBookTextarea(el){
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+document.addEventListener("input", function(e){
+  if(e.target.classList && (e.target.classList.contains("book-content-edit") || e.target.classList.contains("book-chapter-content"))){
+    autoGrowBookTextarea(e.target);
+  }
+});
+document.addEventListener("focus", function(e){
+  if(e.target.classList && (e.target.classList.contains("book-content-edit") || e.target.classList.contains("book-chapter-content"))){
+    autoGrowBookTextarea(e.target);
+  }
+}, true);
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".ssn-remark-wrap") : null;
   if(el) ssnRemarkShow(el.getAttribute("data-remark-topic"), el);
