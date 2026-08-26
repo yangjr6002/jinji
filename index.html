@@ -1456,6 +1456,7 @@ window.go = function(view){
   if(VIEW==="home" && view!=="home") homeScrollY = window.scrollY;
   VIEW = view;
   if(view==="home"){
+    timelineFilter = "all"; /* 具体类别现在是独立标签页，首页时间轴板块只保留"全部"总览 */
     document.getElementById("crumb").textContent = "首页";
     document.getElementById("crumb").onclick = null;
     document.getElementById("crumb").style.cursor = "default";
@@ -1605,29 +1606,25 @@ function setupHzDrag(){
 function renderHome(){
   var p=DATA.profile;
   var html = '';
-  /* 时间轴筛选到具体某个类别（不是"全部"）时，相当于进了一个次级界面专心编辑，顶部头像/快捷入口
-     和下面碎碎念、日志两块先不显示 */
-  var hideBelowTimeline = (timelineFilter!=="all");
-  if(!hideBelowTimeline){
-    var avSize = DATA.settings.avatarSize;
-    var avStyle = avSize ? (' style="width:'+avSize.w+'px;height:'+avSize.h+'px"') : '';
-    html += '<div class="dossier-head">'+
-      '<div class="home-avatar" id="homeAvatar"'+avStyle+' onclick="previewAvatar()" title="点击查看/更换头像，右下角可以拖拽调整大小">'+
-        (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
+  var avSize = DATA.settings.avatarSize;
+  var avStyle = avSize ? (' style="width:'+avSize.w+'px;height:'+avSize.h+'px"') : '';
+  html += '<div class="dossier-head">'+
+    '<div class="home-avatar" id="homeAvatar"'+avStyle+' onclick="previewAvatar()" title="点击查看/更换头像，右下角可以拖拽调整大小">'+
+      (p.avatarUrl ? '<img src="'+p.avatarUrl+'">' : '<span class="avatar-placeholder-sm">'+esc((p.name||"?").slice(0,1))+'</span>')+
+    '</div>'+
+    '<div class="id-block">'+
+      '<div class="name-row">'+
+        '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
+        '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
       '</div>'+
-      '<div class="id-block">'+
-        '<div class="name-row">'+
-          '<h1 onclick="previewAvatar()" title="点击查看头像">'+esc(p.name)+'</h1>'+
-          '<button class="name-edit-btn" onclick="editName()" title="编辑姓名">✎</button>'+
-        '</div>'+
-        renderQuickAccess()+
-      '</div>'+
-    '</div>';
-  }
+      renderQuickAccess()+
+    '</div>'+
+  '</div>';
+  /* 时间轴筛选到具体类别现在会单独开一个标签页（相当于第二层界面），首页这里只保留"全部"总览 */
   var sectionContent = {
     timeline: renderTimelineSection(),
-    suisuinian: hideBelowTimeline ? "" : renderBookSection("suisuinian"),
-    journal: hideBelowTimeline ? "" : renderBookSection("journal")
+    suisuinian: renderBookSection("suisuinian"),
+    journal: renderBookSection("journal")
   };
   var order = (DATA.settings.homeOrder && DATA.settings.homeOrder.length) ? DATA.settings.homeOrder : ["timeline","suisuinian","journal"];
   order.forEach(function(key){
@@ -2895,7 +2892,11 @@ document.addEventListener("mouseout", function(e){
   }
 })();
 window.setTimelineFilter = function(key){
-  timelineFilter = key; render();
+  /* 选中"全部"以外的具体类别，就跟点开密码/资产详情一样开一个可关闭的标签页，相当于进了第二层界面；
+     首页只保留"全部"总览 */
+  if(key==="all"){ go("home"); return; }
+  timelineFilter = key;
+  openItemTab("timelineCategory", key);
 };
 var __catColorOpenKey = null;
 window.toggleCatColorPicker = function(key){
@@ -4077,6 +4078,7 @@ function tabTitle(tab){
   if(!tab) return "详情";
   if(tab.type==="module") return labelFor(tab.id);
   if(tab.type==="worldmap") return labelFor("worldmap");
+  if(tab.type==="timelineCategory"){ var tc=DATA.timelineCategories.filter(function(x){return x.key===tab.id;})[0]; return tc?tc.label:labelFor("timeline"); }
   if(tab.type==="timeline"){ var t=DATA.lifeTimeline.filter(function(x){return x.id===tab.id;})[0]; return t?(t.keyword||t.date||"经历"):"经历"; }
   if(tab.type==="password"){ var p=DATA.passwords.filter(function(x){return x.id===tab.id;})[0]; return p?p.site:"密码"; }
   if(tab.type==="asset"){ var a=DATA.assets.filter(function(x){return x.id===tab.id;})[0]; return a?a.title:"资产"; }
@@ -4100,7 +4102,7 @@ function tabIcon(tab){
     var dest = destinationById(tab.id);
     return dest ? dest.icon : "📄";
   }
-  var map = {worldmap:"🗺️", timeline:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:"", bookCategory:"", suisuinianTopic:""};
+  var map = {worldmap:"🗺️", timeline:"🕰️", timelineCategory:"🕰️", password:"🔐", asset:"💳", contact:"👥", customitem:"📌", journal:"", suisuinian:"", bookCategory:"", suisuinianTopic:""};
   if(tab && (tab.type==="journal"||tab.type==="suisuinian"||tab.type==="bookCategory"||tab.type==="suisuinianTopic")) return "";
   return (tab && map[tab.type]) || "📄";
 }
@@ -4155,6 +4157,7 @@ function renderItemDetailPage(){
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
   if(tab.type==="worldmap") return renderWorldMapPage();
+  if(tab.type==="timelineCategory"){ timelineFilter = tab.id; return renderTimelineSection(); }
   if(tab.type==="timeline") return renderTimelineDetailPage(tab.id);
   if(tab.type==="password") return renderPasswordDetailPage(tab.id);
   if(tab.type==="asset") return renderAssetDetailPage(tab.id);
