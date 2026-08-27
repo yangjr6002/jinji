@@ -258,7 +258,10 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   box-shadow:var(--shadow); background:var(--surface); cursor:grab;
 }
 .asset-table-wrap.grabbing{cursor:grabbing;}
-.asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px;}
+/* table-layout:fixed 的表格默认还是会被硬挤成跟外层容器一样宽，调宽一列就得从别的列里"偷"空间。
+   加 width:max-content 让表格按各列实际设的宽度总和来撑开自己的宽度，调宽了就整体变宽、超出就滚动条，
+   不会互相挤占 */
+.asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px; width:max-content;}
 .asset-type-select{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 4px; border-radius:5px; font-size:12px; color:var(--text); font-family:inherit; text-align:center;}
 .asset-type-select:hover{border-color:var(--border);}
 /* 账户类型这一列表头自带一个迷你筛选下拉，不用另外占一整块工具栏，选了哪个类型就只显示那个类型的行 */
