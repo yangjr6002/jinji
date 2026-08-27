@@ -756,10 +756,26 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-bubble-edit{width:100%; box-sizing:border-box; border:1px solid var(--accent); border-radius:8px; background:var(--surface); font-size:13.5px; line-height:1.6; color:var(--text); font-family:inherit; padding:6px 8px; resize:vertical; min-height:140px;}
 .ssn-bubble-meta{display:flex; align-items:center; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint);}
 .ssn-bubble-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s;}
-.ssn-bubble:hover .ssn-bubble-del{opacity:1;}
+.ssn-bubble:hover .ssn-bubble-del, .ssn-axis-item:hover .ssn-bubble-del{opacity:1;}
 .ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
+.ssn-composer-title{width:100%; box-sizing:border-box; padding:6px 10px; margin-bottom:6px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:12px; color:var(--text); font-family:inherit;}
+/* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
+.ssn-axis-search{margin-bottom:10px;}
+.ssn-axis-search input{width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:12.5px; color:var(--text);}
+.ssn-axis{padding:14px 16px 14px 24px; position:relative;}
+.ssn-axis::before{content:""; position:absolute; left:9px; top:20px; bottom:20px; width:1px; background:var(--border);}
+.ssn-axis-item{position:relative; margin-bottom:2px;}
+.ssn-axis-dot{position:absolute; left:-18px; top:8px; width:6px; height:6px; border-radius:50%; background:var(--text-faint); border:2px solid var(--surface);}
+.ssn-axis-dot.expanded{background:var(--accent);}
+.ssn-axis-title-row{display:flex; align-items:center; gap:8px; cursor:pointer; padding:5px 0; min-height:16px;}
+.ssn-axis-title{font-size:11px; font-weight:600; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ssn-axis-title-row:hover .ssn-axis-title{color:var(--text);}
+.ssn-axis-title-input{font-size:11px; font-weight:600; border:1px solid var(--accent); border-radius:5px; padding:1px 4px; font-family:inherit; background:var(--surface);}
+.ssn-axis-time{font-size:10px; color:var(--text-faint); flex:none;}
+.ssn-axis-imgmark{font-size:10px; flex:none;}
+.ssn-axis-body{padding:4px 0 14px 0;}
 /* 留言/日志内容里的加图片：跟评论框那种小相机图标按钮同一个思路，缩略图一排，点开看大图，删除叉在角上 */
 .book-img-gallery{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
 .book-img-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-soft); flex:none;}
@@ -5315,12 +5331,48 @@ window.removeSuisuinianComposerImage = function(idx){
 };
 window.addSuisuinianMessage = function(topicId){
   var input = document.getElementById("suisuinianComposer");
+  var titleInput = document.getElementById("suisuinianComposerTitle");
   var value = (input.value||"").trim();
+  var title = titleInput ? (titleInput.value||"").trim() : "";
   if(!value && !suisuinianComposerImages.length) return;
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
-  DATA.suisuinianEntries.push({id:uid(), topic:topicId, createdAt:new Date().toISOString(), content:value, images:suisuinianComposerImages.slice()});
+  var id = uid();
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice()});
   suisuinianComposerImages = [];
+  suisuinianAxisExpanded[id] = true; /* 新写的这条默认展开，能立刻看到自己写的内容 */
   save(); render();
+};
+/* 留言板最底层改成竖轴：轴上只显示一个很小的标题（没有标题就退回内容前几个字），
+   点了才展开看完整内容/图片/编辑删除这些操作；顶部一个搜索框按标题（或者标题为空时按内容）过滤 */
+var suisuinianAxisExpanded = {};
+var suisuinianTitleSearch = "";
+window.toggleSuisuinianAxisExpand = function(id){
+  suisuinianAxisExpanded[id] = !suisuinianAxisExpanded[id];
+  render();
+};
+window.setSuisuinianTitleSearch = function(value){
+  suisuinianTitleSearch = value||"";
+  render();
+  var input = document.getElementById("suisuinianAxisSearch");
+  if(input){ input.focus(); input.selectionStart = input.selectionEnd = input.value.length; }
+};
+function suisuinianAxisLabel(m){
+  var t = (m.title||"").trim();
+  if(t) return t;
+  var flat = (m.content||"").replace(/\s+/g," ").trim();
+  return flat ? (flat.length>16 ? flat.slice(0,16)+"…" : flat) : "（无标题）";
+}
+window.commitSuisuinianMessageTitle = function(id, value){
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(m){ m.title = (value||"").trim(); save(); }
+  suisuinianRenamingMessageTitle = null;
+  render();
+};
+var suisuinianRenamingMessageTitle = null;
+window.startRenameSuisuinianMessageTitle = function(id){
+  suisuinianRenamingMessageTitle = id;
+  suisuinianAxisExpanded[id] = true;
+  render();
 };
 window.deleteSuisuinianMessage = function(id){
   confirmDelete("确定删除这条留言吗？", function(){
@@ -5360,21 +5412,35 @@ function renderSuisuinianTopicBoard(topicId){
       return sortAsc ? d : -d;
     });
   if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
-  var bubbles = msgs.map(function(m){
-    var contentHtml = suisuinianEditingMessage===m.id
-      ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
-      : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content)+'</div>';
-    return '<div class="ssn-bubble">'+
-      contentHtml+
-      '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
-      bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
-      '</span>'+
-      '<span class="ssn-bubble-meta-actions">'+
-        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
-        '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-      '</span></div>'+
-    '</div>';
-  }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
+  var searchQ = suisuinianTitleSearch.trim().toLowerCase();
+  if(searchQ) msgs = msgs.filter(function(m){ return suisuinianAxisLabel(m).toLowerCase().indexOf(searchQ)!==-1; });
+  var axisItems = msgs.map(function(m){
+    var expanded = !!suisuinianAxisExpanded[m.id];
+    var titleHtml = suisuinianRenamingMessageTitle===m.id
+      ? '<input type="text" class="ssn-axis-title-input" value="'+esc(m.title||"")+'" autofocus onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitSuisuinianMessageTitle(\''+m.id+'\', this.value)">'
+      : '<span class="ssn-axis-title" ondblclick="event.stopPropagation();startRenameSuisuinianMessageTitle(\''+m.id+'\')" title="双击改小标题">'+esc(suisuinianAxisLabel(m))+'</span>';
+    var head = '<div class="ssn-axis-dot'+(expanded?' expanded':'')+'"></div>'+
+      '<div class="ssn-axis-title-row" onclick="toggleSuisuinianAxisExpand(\''+m.id+'\')">'+
+        titleHtml+
+        '<span class="ssn-axis-time">'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+        (m.images&&m.images.length ? '<span class="ssn-axis-imgmark" title="有图">📷</span>' : '')+
+      '</div>';
+    var body = '';
+    if(expanded){
+      var contentHtml = suisuinianEditingMessage===m.id
+        ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+        : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+      body = '<div class="ssn-axis-body">'+contentHtml+
+        '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
+        '<span class="ssn-bubble-meta-actions">'+
+          bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+          '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+        '</span></div>'+
+      '</div>';
+    }
+    return '<div class="ssn-axis-item">'+head+body+'</div>';
+  }).join('') || '<div class="sub" style="padding:8px 2px">'+(searchQ?"没找到匹配的标题":"还没有留言，在下面写第一条吧")+'</div>';
+  var axisSearchHtml = '<div class="ssn-axis-search"><input type="text" id="suisuinianAxisSearch" placeholder="🔍 搜索小标题…" value="'+esc(suisuinianTitleSearch)+'" oninput="setSuisuinianTitleSearch(this.value)"></div>';
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
@@ -5391,11 +5457,13 @@ function renderSuisuinianTopicBoard(topicId){
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
+        '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">'+
         '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>'+
-    '<div class="card-panel ssn-feed">'+bubbles+'</div>';
+    axisSearchHtml+
+    '<div class="card-panel ssn-axis">'+axisItems+'</div>';
 }
 window.toggleBookSort = function(moduleId){
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
