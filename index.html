@@ -762,8 +762,9 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
 .ssn-composer-title{width:100%; box-sizing:border-box; padding:6px 10px; margin-bottom:6px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:12px; color:var(--text); font-family:inherit;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
-.ssn-axis-search{margin-bottom:10px;}
-.ssn-axis-search input{width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:12.5px; color:var(--text);}
+.ssn-axis-search-item{margin-bottom:6px;}
+.ssn-axis-search-input{border:none; background:transparent; font-size:11px; color:var(--text-dim); padding:4px 0; width:140px; font-family:inherit;}
+.ssn-axis-search-input:focus{outline:none; color:var(--text);}
 .ssn-axis{padding:14px 16px 14px 24px; position:relative;}
 .ssn-axis::before{content:""; position:absolute; left:9px; top:20px; bottom:20px; width:1px; background:var(--border);}
 .ssn-axis-item{position:relative; margin-bottom:2px;}
@@ -5440,7 +5441,10 @@ function renderSuisuinianTopicBoard(topicId){
     }
     return '<div class="ssn-axis-item">'+head+body+'</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">'+(searchQ?"没找到匹配的标题":"还没有留言，在下面写第一条吧")+'</div>';
-  var axisSearchHtml = '<div class="ssn-axis-search"><input type="text" id="suisuinianAxisSearch" placeholder="🔍 搜索小标题…" value="'+esc(suisuinianTitleSearch)+'" oninput="setSuisuinianTitleSearch(this.value)"></div>';
+  var axisSearchHtml = '<div class="ssn-axis-item ssn-axis-search-item">'+
+    '<div class="ssn-axis-dot"></div>'+
+    '<input type="text" id="suisuinianAxisSearch" class="ssn-axis-search-input" placeholder="🔍 搜索小标题" value="'+esc(suisuinianTitleSearch)+'" oninput="setSuisuinianTitleSearch(this.value)">'+
+  '</div>';
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
@@ -5462,8 +5466,7 @@ function renderSuisuinianTopicBoard(topicId){
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>'+
-    axisSearchHtml+
-    '<div class="card-panel ssn-axis">'+axisItems+'</div>';
+    '<div class="card-panel ssn-axis">'+axisSearchHtml+axisItems+'</div>';
 }
 window.toggleBookSort = function(moduleId){
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
