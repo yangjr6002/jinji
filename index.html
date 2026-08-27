@@ -265,10 +265,20 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
   border-bottom:1px solid var(--border); box-sizing:border-box;
 }
-.asset-table td{padding:11px 16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--border-soft); color:var(--text); box-sizing:border-box;}
+.asset-table td{padding:6px 10px; border-bottom:1px solid var(--border-soft); color:var(--text); box-sizing:border-box; vertical-align:middle;}
+.asset-table th{text-align:center;}
 .asset-table tr:last-child td{border-bottom:none;}
 .asset-table tr:hover td{background:var(--surface-2);}
-.asset-table td .row-actions{display:flex; gap:6px;}
+.asset-table td .row-actions{display:flex; gap:6px; justify-content:center;}
+/* 格子内容太多的话展示成2行，多的用省略号，悬浮看完整；点了才切成输入框编辑 */
+.asset-cell-view{width:100%; box-sizing:border-box; padding:4px 5px; border-radius:5px; font-size:12px; color:var(--text); text-align:center; cursor:text;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; line-height:1.4; min-height:2.8em;}
+.asset-cell-view:hover{background:var(--surface-2);}
+.asset-cell-placeholder{color:var(--text-faint);}
+/* 字段列太多要横向拖动看的时候，第一列（名称）冻结在最左边不跟着滚 */
+.asset-table th:first-child{position:sticky; left:0; z-index:4; background:var(--surface-2);}
+.asset-table td:first-child{position:sticky; left:0; z-index:1; background:var(--surface);}
+.asset-table tr:hover td:first-child{background:var(--surface-2);}
 th.col-resizable{position:relative;}
 .col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
@@ -6028,9 +6038,11 @@ function renderAssets(){
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
-    var cells = '<td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" placeholder="名称" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td>'+
+    var cells = '<td>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
       columns.map(function(c){
-        return '<td><input type="text" class="asset-inline-input" value="'+esc(fieldMap[c]!==undefined?fieldMap[c]:"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(c)+'\',this.value)"></td>';
+        var v = fieldMap[c]!==undefined?fieldMap[c]:"";
+        var cEsc = c.replace(/'/g,"\\'");
+        return '<td>'+assetCellHtml(a.id+"::"+c, v, "内容", "updateAssetFieldValue('"+a.id+"','"+cEsc+"',this.value)")+'</td>';
       }).join('')+
       '<td class="row-actions"><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
     return '<tr>'+cells+'</tr>';
@@ -6048,15 +6060,32 @@ window.createAssetInline = function(){
 };
 window.updateAssetBasicField = function(id, key, value){
   var a = DATA.assets.filter(function(x){return x.id===id;})[0]; if(!a) return;
-  a[key] = value; save(); render();
+  a[key] = value; assetCellEditing = null; save(); render();
 };
 window.updateAssetFieldValue = function(id, label, value){
   var a = DATA.assets.filter(function(x){return x.id===id;})[0]; if(!a) return;
   a.fields = a.fields || [];
   var f = a.fields.filter(function(x){return x.label===label;})[0];
   if(f){ f.value = value; } else { a.fields.push({id:uid(), label:label, value:value}); }
-  save(); render();
+  assetCellEditing = null; save(); render();
 };
+/* 表格格子太多字挤不下：默认只读展示、最多2行、超出省略号+悬浮看完整，点了才切成输入框改，
+   跟密码/资产其他地方"点格子直接改"的习惯保持一致，只是加了这一步查看态 */
+var assetCellEditing = null;
+window.startEditAssetCell = function(key){
+  assetCellEditing = key;
+  render();
+  var input = document.getElementById("assetCellEditInput");
+  if(input){ input.focus(); input.select(); } /* autofocus 属性在 innerHTML 重绘后不可靠，手动 focus 才稳 */
+};
+function assetCellHtml(cellKey, value, placeholder, updateCall){
+  if(assetCellEditing===cellKey){
+    return '<input type="text" id="assetCellEditInput" class="asset-inline-input" value="'+esc(value||"")+'" placeholder="'+esc(placeholder)+'" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="'+updateCall+'">';
+  }
+  return '<div class="asset-cell-view" onclick="startEditAssetCell(\''+cellKey.replace(/'/g,"\\'")+'\')" title="'+esc(value||"")+'">'+
+    (value ? esc(value) : '<span class="asset-cell-placeholder">'+esc(placeholder)+'</span>')+
+  '</div>';
+}
 /* 改列头名字：只在当前这张表（同一个地点+类型）范围内生效，不去动其他地点/类型下面偶然同名的字段 */
 window.renameAssetColumn = function(oldLabel, newLabel){
   newLabel = (newLabel||"").trim();
