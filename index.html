@@ -258,7 +258,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   box-shadow:var(--shadow); background:var(--surface); cursor:grab;
 }
 .asset-table-wrap.grabbing{cursor:grabbing;}
-.asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px;}
+.asset-table{border-collapse:collapse; table-layout:auto; font-size:13px;}
+.asset-toolbar{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+.asset-type-select{padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text); font-size:12.5px; font-family:inherit;}
 .asset-table th{
   position:sticky; top:0; z-index:2; text-align:left; white-space:nowrap; overflow:hidden;
   padding:11px 16px; background:var(--surface-2); color:var(--text-dim);
@@ -271,8 +273,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table tr:hover td{background:var(--surface-2);}
 .asset-table td .row-actions{display:flex; gap:6px; justify-content:center;}
 /* 格子内容太多的话展示成2行，多的用省略号，悬浮看完整；点了才切成输入框编辑 */
-.asset-cell-view{width:100%; box-sizing:border-box; padding:4px 5px; border-radius:5px; font-size:12px; color:var(--text); text-align:center; cursor:text;
+.asset-cell-view{width:100%; max-width:170px; box-sizing:border-box; padding:4px 5px; border-radius:5px; font-size:12px; color:var(--text); text-align:center; cursor:text;
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; line-height:1.4; min-height:2.8em;}
+.asset-table td:has(.asset-cell-view){max-width:180px;}
 .asset-cell-view:hover{background:var(--surface-2);}
 .asset-cell-placeholder{color:var(--text-faint);}
 /* 字段列太多要横向拖动看的时候，第一列（名称）冻结在最左边不跟着滚 */
@@ -1091,7 +1094,8 @@ function normalizeData(d){
   d.settings.passwordColumnLabels = d.settings.passwordColumnLabels || {username:"账号",password:"密码",note:"备注"};
   d.settings.passwordColumnWidths = d.settings.passwordColumnWidths || {};
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
-  d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "名称";
+  d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "账户内容";
+  d.settings.assetTypeColumnLabel = d.settings.assetTypeColumnLabel || "账户类型";
   d.settings.memoSidebarWidth = d.settings.memoSidebarWidth || 260;
   d.settings.memoModalSize = d.settings.memoModalSize || {w:1300, h:760};
   if(!d.settings.quickAccessIds){
@@ -5934,11 +5938,26 @@ function renderPasswordDetailPage(id){
     '</table></div>';
 }
 
-/* ================= 资产信息：地点 → 类型 → 一行行的列表 ================= */
-window.assetEnterLocation = function(moduleId, key){ moduleCatView.assets_location = key; moduleCatView.assets_type = null; render(); };
-window.assetBackToLocations = function(){ moduleCatView.assets_location = null; moduleCatView.assets_type = null; render(); };
-window.assetEnterType = function(moduleId, key){ moduleCatView.assets_type = key; render(); };
-window.assetBackToTypes = function(){ moduleCatView.assets_type = null; render(); };
+/* ================= 资产信息：只有3层——进模块 → 分类（自定义，比如中国/日本/不动产）→ 表格 =================
+   原来的"类型"那一层文件夹去掉了，改成表格里的固定字段"账户类型"（下拉选，选项还是用原来那份可管理的分类列表），
+   表格上方能按这个类型筛选，方便把同一类型的账户挑出来一起看/确认 */
+window.assetEnterLocation = function(moduleId, key){ moduleCatView.assets_location = key; moduleCatView.assets_type_filter = ""; render(); };
+window.assetBackToLocations = function(){ moduleCatView.assets_location = null; moduleCatView.assets_type_filter = ""; render(); };
+window.setAssetTypeFilter = function(v){ moduleCatView.assets_type_filter = v; render(); };
+function assetTypeSelectHtml(a){
+  var selected = a.assetType||"";
+  var opts = '<option value=""'+(!selected?' selected':'')+'>'+esc(uncategorizedLabel("assets_type"))+'</option>'+
+    getModuleCategories("assets_type").map(function(c){
+      return '<option value="'+esc(c.key)+'"'+(c.key===selected?' selected':'')+'>'+esc(c.label)+'</option>';
+    }).join('');
+  return '<select class="asset-type-select" onchange="updateAssetBasicField(\''+a.id+'\',\'assetType\',this.value)">'+opts+'</select>';
+}
+window.renameAssetTypeColumnLabel = function(newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel){ render(); return; }
+  DATA.settings.assetTypeColumnLabel = newLabel;
+  save(); render();
+};
 
 /* 资产表格/密码表格列宽可拖拽调整，宽度存进 settings 里持久化，跟着这张表（资产按地点+类型区分，密码全局共用）走。
    实际列宽用 <colgroup><col> 控制（比直接设 th 宽度在 table-layout:fixed 下更可靠），拖拽手柄挂在每个可调整的 th 右边缘。 */
@@ -5999,46 +6018,44 @@ document.addEventListener("mouseup", function(){
 function renderAssets(){
   var locKey = moduleCatView.assets_location;
 
-  // 第一层：地点
+  // 第一层：分类（自定义，比如中国/日本/不动产）
   if(locKey===null || locKey===undefined){
-    return moduleShell("assets","💳","assets","按地点整理银行卡、账户等资产信息。","",
+    return moduleShell("assets","💳","assets","按分类整理银行卡、账户等资产信息。","",
       renderCategoryFolders("assets_location", DATA.assets, function(it){return it.location||"";},
-        {clickFn:"assetEnterLocation", sectionLabel:"选择地点", manageTitle:"资产信息 · 地点管理"})
+        {clickFn:"assetEnterLocation", sectionLabel:"选择分类", manageTitle:"资产信息 · 分类管理"})
     );
   }
 
-  var byLoc = DATA.assets.filter(function(a){ return (a.location||"")===locKey; });
-  var typeKey = moduleCatView.assets_type;
-
-  // 第二层：类型（银行卡实体 / 电子信用 / 不动产 / 其他功能卡……可自定义增删）
-  if(typeKey===null || typeKey===undefined){
-    return moduleShell("assets","💳","assets","选择这个地点下的资产类型。","",
-      categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 地点管理") +
-      renderCategoryFolders("assets_type", byLoc, function(it){return it.assetType||"";},
-        {clickFn:"assetEnterType", sectionLabel:"选择类型", manageTitle:"资产信息 · 类型管理"})
-    );
-  }
-
-  // 第三层：具体的卡/账户/会员卡……表格形式展现，列头按实际出现过的字段名动态生成，
-  // 名称/字段格子和列头名字都直接在表格上改，不跳编辑框
-  var scoped = byLoc.filter(function(a){ return (a.assetType||"")===typeKey; });
+  // 第二层（表格）：这个分类下所有资产，账户内容/账户类型是固定字段（类型是下拉选，可按类型筛选），
+  // 其余列头按实际出现过的字段名动态生成；名称/字段格子和列头名字都直接在表格上改，不跳编辑框
+  var scopedAll = DATA.assets.filter(function(a){ return (a.location||"")===locKey; });
+  var typeFilter = moduleCatView.assets_type_filter || "";
+  var scoped = typeFilter ? scopedAll.filter(function(a){ return (a.assetType||"")===typeFilter; }) : scopedAll;
   var columns = [];
-  scoped.forEach(function(a){
+  scopedAll.forEach(function(a){
     (a.fields||[]).forEach(function(f){
       if(columns.indexOf(f.label)===-1){ columns.push(f.label); }
     });
   });
-  var assetScopeKey = locKey+"::"+typeKey;
-  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 110;
-  var colWidths = [nameColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 140; })).concat([44]);
-  var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
-  var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+columns.map(function(c){
-    return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)">'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
-  }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
+  var typeFilterHtml = '<div class="asset-toolbar"><label class="sub" style="margin-right:6px">按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选：</label>'+
+    '<select class="asset-type-select" onchange="setAssetTypeFilter(this.value)">'+
+      '<option value=""'+(!typeFilter?' selected':'')+'>全部</option>'+
+      getModuleCategories("assets_type").map(function(c){
+        return '<option value="'+esc(c.key)+'"'+(c.key===typeFilter?' selected':'')+'>'+esc(c.label)+'</option>';
+      }).join('')+
+    '</select>'+
+    '<button type="button" class="gear-btn" onclick="manageModuleCategories(\'assets_type\',\'资产信息 · 类型管理\')" title="管理类型选项">⚙</button>'+
+  '</div>';
+  var theadCells = '<th><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)"></th>'+
+    '<th><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" onchange="renameAssetTypeColumnLabel(this.value)"></th>'+
+    columns.map(function(c){
+      return '<th><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"></th>';
+    }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
     var cells = '<td>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
+      '<td>'+assetTypeSelectHtml(a)+'</td>'+
       columns.map(function(c){
         var v = fieldMap[c]!==undefined?fieldMap[c]:"";
         var cEsc = c.replace(/'/g,"\\'");
@@ -6046,16 +6063,16 @@ function renderAssets(){
       }).join('')+
       '<td class="row-actions"><button class="btn small danger" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
     return '<tr>'+cells+'</tr>';
-  }).join('');
-  var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table">'+colgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
-  return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，可左右拖动查看更多字段。",
+  }).join('') || (scopedAll.length ? '<tr><td colspan="'+(columns.length+3)+'" class="sub" style="text-align:center;padding:16px">没有匹配这个类型的资产</td></tr>' : '');
+  var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table"><thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+  return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，可左右拖动查看更多字段，第一列冻结不跟着滚。",
     '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>',
-    categoryBackBar("assets_type","assetBackToTypes()","资产信息 · 类型管理") +
-    (scoped.length ? tableHtml : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
+    categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 分类管理") +
+    (scopedAll.length ? (typeFilterHtml+tableHtml) : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
   );
 }
 window.createAssetInline = function(){
-  DATA.assets.push({id:uid(), title:"", location:moduleCatView.assets_location||"", assetType:moduleCatView.assets_type||"", fields:[]});
+  DATA.assets.push({id:uid(), title:"", location:moduleCatView.assets_location||"", assetType:"", fields:[]});
   save(); render();
 };
 window.updateAssetBasicField = function(id, key, value){
@@ -6090,9 +6107,9 @@ function assetCellHtml(cellKey, value, placeholder, updateCall){
 window.renameAssetColumn = function(oldLabel, newLabel){
   newLabel = (newLabel||"").trim();
   if(!newLabel || newLabel===oldLabel){ render(); return; }
-  var locKey = moduleCatView.assets_location, typeKey = moduleCatView.assets_type;
+  var locKey = moduleCatView.assets_location;
   DATA.assets.forEach(function(a){
-    if((a.location||"")!==locKey || (a.assetType||"")!==typeKey) return;
+    if((a.location||"")!==locKey) return;
     (a.fields||[]).forEach(function(f){ if(f.label===oldLabel) f.label = newLabel; });
   });
   save(); render();
@@ -6107,8 +6124,8 @@ window.renameAssetTitleColumn = function(newLabel){
 /* 加一列空字段：给当前表里每一行都挂一个空标签的字段，表头会多出一个可以直接输入名字的输入框。
    表格可能左右很宽，新列加在最右边容易被横向滚动条挡住看不见，误以为点了没反应，所以加完自动把它滚到可视范围内并聚焦。 */
 window.addAssetColumnInline = function(){
-  var locKey = moduleCatView.assets_location, typeKey = moduleCatView.assets_type;
-  var scoped = DATA.assets.filter(function(a){ return (a.location||"")===locKey && (a.assetType||"")===typeKey; });
+  var locKey = moduleCatView.assets_location;
+  var scoped = DATA.assets.filter(function(a){ return (a.location||"")===locKey; });
   if(!scoped.length){ toast("先添加一条资产才能加字段列"); return; }
   var hasBlank = scoped.some(function(a){ return (a.fields||[]).some(function(f){return f.label==="";}); });
   if(hasBlank){
@@ -6150,8 +6167,8 @@ function renderAssetDetailPage(id){
     '<div class="row-actions"><button class="btn danger" onclick="deleteAsset(\''+a.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
-      '<tr><th>地点</th><td>'+esc(locLabel)+'</td></tr>'+
-      '<tr><th>类型</th><td>'+esc(typeLabel)+'</td></tr>'+
+      '<tr><th>分类</th><td>'+esc(locLabel)+'</td></tr>'+
+      '<tr><th>'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'</th><td>'+assetTypeSelectHtml(a)+'</td></tr>'+
       fieldRows+
     '</table></div>';
 }
