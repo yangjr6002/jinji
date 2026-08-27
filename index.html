@@ -279,7 +279,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table td .row-actions{display:flex; gap:6px; justify-content:center;}
 /* 格子内容太多的话展示成2行，多的用省略号，悬浮看完整；点了才切成输入框编辑 */
 .asset-cell-view{width:100%; box-sizing:border-box; padding:6px 8px; border-radius:5px; font-size:13px; color:var(--text); text-align:center; cursor:text;
-  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; line-height:1.5; min-height:3em;}
+  white-space:normal; word-break:break-word; line-height:1.5;}
 .asset-cell-view:hover{background:var(--surface-2);}
 .asset-cell-placeholder{color:var(--text-faint);}
 /* 字段列太多要横向拖动看的时候，第一列（名称）冻结在最左边不跟着滚 */
