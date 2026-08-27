@@ -1258,12 +1258,12 @@ function idbSet(key, value){
    查得到就说明云端已经有数据了（云端为准）；查到 null 说明这个人是第一次登录，云端还没建行，
    要把本地（或默认）数据推上去当种子；查询本身失败（离线/网络问题）就退回本地缓存，不报错打断使用。 */
 async function sbFetchCloudData(){
-  if(!sbClient || !sbSession) return {ok:false, data:null};
+  if(!sbClient || !sbSession) return {ok:false, data:null, updatedAt:null};
   try{
-    var res = await sbClient.from("app_data").select("data").eq("user_id", sbSession.user.id).maybeSingle();
-    if(res.error) return {ok:false, data:null};
-    return {ok:true, data: res.data ? res.data.data : null};
-  }catch(e){ return {ok:false, data:null}; }
+    var res = await sbClient.from("app_data").select("data,updated_at").eq("user_id", sbSession.user.id).maybeSingle();
+    if(res.error) return {ok:false, data:null, updatedAt:null};
+    return {ok:true, data: res.data ? res.data.data : null, updatedAt: res.data ? res.data.updated_at : null};
+  }catch(e){ return {ok:false, data:null, updatedAt:null}; }
 }
 function sbPushData(dataObj){
   if(!sbClient || !sbSession) return;
@@ -1291,6 +1291,15 @@ async function loadDataAsync(){
     var cloudRes = await sbFetchCloudData();
     if(cloudRes.ok){
       if(cloudRes.data){
+        /* 改完东西马上刷新/关页面，云端那次异步推送可能还没写完，这时候云端数据其实是"旧的"。
+           两边都带着各自最后一次改动的时间戳，谁的时间新就用谁的，不能无脑"云端说了算"，
+           不然手速快的改动会被旧数据悄悄覆盖掉。本地更新的话顺便再推一次云端，把云端也补齐。 */
+        var cloudTime = cloudRes.data.__localUpdatedAt ? new Date(cloudRes.data.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
+        var localTime = (localData && localData.__localUpdatedAt) ? new Date(localData.__localUpdatedAt).getTime() : -1;
+        if(localData && localTime > cloudTime){
+          sbPushData(localData);
+          return localData;
+        }
         var normalized = normalizeData(cloudRes.data);
         idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
         return normalized;
@@ -1325,6 +1334,7 @@ function persistToStorage(payload){
   }
 }
 function save(){
+  DATA.__localUpdatedAt = new Date().toISOString(); /* 每次真正保存都盖个时间戳，云端/本地谁的数据新靠这个判断，不是无脑"云端优先" */
   var payload = JSON.stringify(DATA);
   if(__lastSnapshot!==null && payload!==__lastSnapshot){
     undoStack.push(__lastSnapshot);
