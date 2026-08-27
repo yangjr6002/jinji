@@ -5415,7 +5415,7 @@ function renderSuisuinianTopicBoard(topicId){
   var searchQ = suisuinianTitleSearch.trim().toLowerCase();
   if(searchQ) msgs = msgs.filter(function(m){ return suisuinianAxisLabel(m).toLowerCase().indexOf(searchQ)!==-1; });
   var axisItems = msgs.map(function(m){
-    var expanded = !!suisuinianAxisExpanded[m.id];
+    var expanded = suisuinianAxisExpanded[m.id]!==false; /* 默认全部展开，点了才收起 */
     var titleHtml = suisuinianRenamingMessageTitle===m.id
       ? '<input type="text" class="ssn-axis-title-input" value="'+esc(m.title||"")+'" autofocus onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitSuisuinianMessageTitle(\''+m.id+'\', this.value)">'
       : '<span class="ssn-axis-title" ondblclick="event.stopPropagation();startRenameSuisuinianMessageTitle(\''+m.id+'\')" title="双击改小标题">'+esc(suisuinianAxisLabel(m))+'</span>';
@@ -5430,13 +5430,13 @@ function renderSuisuinianTopicBoard(topicId){
       var contentHtml = suisuinianEditingMessage===m.id
         ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
         : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-      body = '<div class="ssn-axis-body">'+contentHtml+
+      body = '<div class="ssn-axis-body"><div class="ssn-bubble">'+contentHtml+
         '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
         '<span class="ssn-bubble-meta-actions">'+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
           '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
         '</span></div>'+
-      '</div>';
+      '</div></div>';
     }
     return '<div class="ssn-axis-item">'+head+body+'</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">'+(searchQ?"没找到匹配的标题":"还没有留言，在下面写第一条吧")+'</div>';
