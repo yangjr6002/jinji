@@ -6073,9 +6073,9 @@ function renderAssets(){
     });
   });
   var assetScopeKey = locKey;
-  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 180;
-  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || 190;
-  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 190; })).concat([50]);
+  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 100;
+  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || 150;
+  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 110; })).concat([50]);
   var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
   var typeFilterSelect = '<select class="asset-type-filter-mini" onchange="setAssetTypeFilter(this.value)" title="按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选，集中看某一类">'+
       '<option value=""'+(!typeFilter?' selected':'')+'>全部</option>'+
