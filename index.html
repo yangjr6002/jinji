@@ -760,7 +760,11 @@ table.data tr:hover{background:var(--surface-2)}
 .ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
-.ssn-composer-title{width:100%; box-sizing:border-box; padding:6px 10px; margin-bottom:6px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:12px; color:var(--text); font-family:inherit;}
+/* 小标题和内容合成一个框：外层一个共用的边框/圆角，里面两个输入各自去掉自己的边框，中间一条细线分隔 */
+.ssn-composer-box{border:1px solid var(--border); border-radius:10px; background:var(--surface-2); overflow:hidden;}
+.ssn-composer-box .ssn-composer-title{width:100%; box-sizing:border-box; padding:7px 12px; border:none; border-bottom:1px solid var(--border-soft); border-radius:0; background:transparent; font-size:12px; color:var(--text); font-family:inherit;}
+.ssn-composer-box textarea{width:100%; box-sizing:border-box; border:none; border-radius:0; background:transparent;}
+.ssn-composer-title:focus, .ssn-composer-box textarea:focus{outline:none;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
 .ssn-axis-search-item{margin-bottom:6px;}
 .ssn-axis-search-input{border:none; background:transparent; font-size:11px; color:var(--text-dim); padding:4px 0; width:140px; font-family:inherit;}
@@ -5461,8 +5465,10 @@ function renderSuisuinianTopicBoard(topicId){
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
-        '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">'+
-        '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+        '<div class="ssn-composer-box">'+
+          '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">'+
+          '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+        '</div>'+
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>'+
