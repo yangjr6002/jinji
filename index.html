@@ -790,6 +790,12 @@ th.col-resizable .mini-del{margin-top:6px;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
 .ssn-axis-search-item{margin-bottom:6px;}
 .ssn-axis-search-input{border:none; background:transparent; font-size:11px; color:var(--text-dim); padding:4px 0; width:140px; font-family:inherit;}
+/* 碎碎念三种展现形式切换：简洁泡泡/时间轴/表格 */
+.ssn-mode-switch{display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-right:auto;}
+.ssn-mode-btn{border:none; background:var(--surface); color:var(--text-dim); font-size:11.5px; padding:6px 10px; cursor:pointer; border-right:1px solid var(--border);}
+.ssn-mode-btn:last-child{border-right:none;}
+.ssn-mode-btn.active{background:var(--accent); color:#fff;}
+.asset-toolbar-lite{display:flex; align-items:center; gap:8px;}
 .ssn-axis-search-input:focus{outline:none; color:var(--text);}
 .ssn-axis{padding:14px 16px 14px 24px; position:relative;}
 .ssn-axis::before{content:""; position:absolute; left:9px; top:20px; bottom:20px; width:1px; background:var(--border);}
@@ -1105,6 +1111,7 @@ function normalizeData(d){
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
   d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "账户内容";
   d.settings.assetTypeColumnLabel = d.settings.assetTypeColumnLabel || "账户类型";
+  d.settings.suisuinianDisplayMode = d.settings.suisuinianDisplayMode || "axis";
   d.settings.memoSidebarWidth = d.settings.memoSidebarWidth || 260;
   d.settings.memoModalSize = d.settings.memoModalSize || {w:1300, h:760};
   if(!d.settings.quickAccessIds){
@@ -5412,7 +5419,7 @@ window.addSuisuinianMessage = function(topicId){
   if(!value && !suisuinianComposerImages.length) return;
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
   var id = uid();
-  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice()});
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[]});
   suisuinianComposerImages = [];
   suisuinianAxisExpanded[id] = true; /* 新写的这条默认展开，能立刻看到自己写的内容 */
   save(); render();
@@ -5472,23 +5479,38 @@ window.toggleSuisuinianImageFilter = function(){
   suisuinianFilterHasImage = !suisuinianFilterHasImage;
   render();
 };
-function renderSuisuinianTopicBoard(topicId){
-  var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
-  if(!topic){
-    return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
-      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
-  }
-  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; }
-  DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
-  var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
-  var msgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;})
-    .slice().sort(function(a,b){
-      var d = (a.createdAt||"").localeCompare(b.createdAt||"");
-      return sortAsc ? d : -d;
-    });
-  if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
-  var searchQ = suisuinianTitleSearch.trim().toLowerCase();
-  if(searchQ) msgs = msgs.filter(function(m){ return suisuinianAxisLabel(m).toLowerCase().indexOf(searchQ)!==-1; });
+/* 展现形式：简洁泡泡（无标题，回到最早那种纯留言板）、时间轴（有标题+泡泡，点了才展开）、
+   表格（跟资产那张表一个思路，自己加字段列还能筛选）。全局一个开关，三种切着看 */
+window.setSuisuinianDisplayMode = function(mode){
+  DATA.settings.suisuinianDisplayMode = mode;
+  save(); render();
+};
+function suisuinianModeSwitchHtml(){
+  var mode = DATA.settings.suisuinianDisplayMode || "axis";
+  var opts = [["bubble","简洁泡泡"],["axis","时间轴"],["table","表格"]];
+  return '<div class="ssn-mode-switch">'+opts.map(function(o){
+    return '<button type="button" class="ssn-mode-btn'+(mode===o[0]?' active':'')+'" onclick="setSuisuinianDisplayMode(\''+o[0]+'\')">'+o[1]+'</button>';
+  }).join('')+'</div>';
+}
+function renderSuisuinianBubbleList(msgs){
+  var bubbles = msgs.map(function(m){
+    var contentHtml = suisuinianEditingMessage===m.id
+      ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+      : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+    return '<div class="ssn-bubble">'+
+      contentHtml+
+      '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+      bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
+      '</span>'+
+      '<span class="ssn-bubble-meta-actions">'+
+        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+        '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+      '</span></div>'+
+    '</div>';
+  }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
+  return '<div class="card-panel ssn-feed">'+bubbles+'</div>';
+}
+function renderSuisuinianAxis(msgs, searchQ){
   var axisItems = msgs.map(function(m){
     var expanded = suisuinianAxisExpanded[m.id]!==false; /* 默认全部展开，点了才收起 */
     var titleHtml = suisuinianRenamingMessageTitle===m.id
@@ -5509,7 +5531,7 @@ function renderSuisuinianTopicBoard(topicId){
         '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
         '<span class="ssn-bubble-meta-actions">'+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
-          '<button type="button" class="ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+          '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
         '</span></div>'+
       '</div></div>';
     }
@@ -5519,6 +5541,123 @@ function renderSuisuinianTopicBoard(topicId){
     '<div class="ssn-axis-dot"></div>'+
     '<input type="text" id="suisuinianAxisSearch" class="ssn-axis-search-input" placeholder="🔍 搜索小标题" value="'+esc(suisuinianTitleSearch)+'" oninput="setSuisuinianTitleSearch(this.value)">'+
   '</div>';
+  return '<div class="card-panel ssn-axis">'+axisSearchHtml+axisItems+'</div>';
+}
+/* 表格版：跟资产那张表一个套路——固定"内容"这一列，自己加字段列，能按某个字段的值筛选，
+   借用资产表格已经写好的点格子编辑（assetCellHtml/assetCellEditing）不重新做一套 */
+var suisuinianTableFilterCol = "";
+var suisuinianTableFilterVal = "";
+window.setSuisuinianTableFilterCol = function(v){ suisuinianTableFilterCol = v; suisuinianTableFilterVal = ""; render(); };
+window.setSuisuinianTableFilterVal = function(v){ suisuinianTableFilterVal = v; render(); };
+window.addSuisuinianColumnInline = function(topicId){
+  var msgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;});
+  if(!msgs.length){ toast("先写一条留言才能加字段列"); return; }
+  var hasBlank = msgs.some(function(m){ return (m.fields||[]).some(function(f){return f.label==="";}); });
+  if(hasBlank){ toast("已经有一个未命名的字段列了，先给它起个名字"); return; }
+  msgs.forEach(function(m){ m.fields = m.fields || []; m.fields.push({id:uid(), label:"", value:""}); });
+  save(); render();
+};
+window.renameSuisuinianColumn = function(topicId, oldLabel, newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel || newLabel===oldLabel){ render(); return; }
+  (DATA.suisuinianEntries||[]).forEach(function(m){
+    if(m.topic!==topicId) return;
+    (m.fields||[]).forEach(function(f){ if(f.label===oldLabel) f.label = newLabel; });
+  });
+  save(); render();
+};
+window.deleteSuisuinianColumn = function(topicId, label){
+  confirmDelete("确定删除这一列字段吗？这个子主题下所有留言的「"+label+"」都会被删掉，不能撤销。", function(){
+    (DATA.suisuinianEntries||[]).forEach(function(m){
+      if(m.topic!==topicId) return;
+      m.fields = (m.fields||[]).filter(function(f){ return f.label!==label; });
+    });
+    save(); render(); toast("已删除");
+  });
+};
+window.updateSuisuinianMessageContentCell = function(id, value){
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0]; if(!m) return;
+  m.content = value; assetCellEditing = null; save(); render();
+};
+window.updateSuisuinianMessageField = function(id, label, value){
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0]; if(!m) return;
+  m.fields = m.fields || [];
+  var f = m.fields.filter(function(x){return x.label===label;})[0];
+  if(f){ f.value = value; } else { m.fields.push({id:uid(), label:label, value:value}); }
+  assetCellEditing = null; save(); render();
+};
+function renderSuisuinianTable(topicId, allMsgs){
+  var columns = [];
+  allMsgs.forEach(function(m){
+    (m.fields||[]).forEach(function(f){ if(columns.indexOf(f.label)===-1) columns.push(f.label); });
+  });
+  var filterCol = suisuinianTableFilterCol;
+  var filterVal = suisuinianTableFilterVal;
+  var msgs = allMsgs;
+  if(filterCol && filterVal){
+    msgs = allMsgs.filter(function(m){
+      var f = (m.fields||[]).filter(function(x){return x.label===filterCol;})[0];
+      return (f?f.value:"")===filterVal;
+    });
+  }
+  var filterColSelect = '<select class="asset-type-select" style="width:auto;display:inline-block" onchange="setSuisuinianTableFilterCol(this.value)">'+
+    '<option value=""'+(!filterCol?' selected':'')+'>不筛选</option>'+
+    columns.map(function(c){ return '<option value="'+esc(c)+'"'+(c===filterCol?' selected':'')+'>按'+esc(c)+'筛选</option>'; }).join('')+
+  '</select>';
+  var filterValSelect = "";
+  if(filterCol){
+    var values = [];
+    allMsgs.forEach(function(m){
+      var f = (m.fields||[]).filter(function(x){return x.label===filterCol;})[0];
+      var v = f?f.value:"";
+      if(v && values.indexOf(v)===-1) values.push(v);
+    });
+    filterValSelect = '<select class="asset-type-select" style="width:auto;display:inline-block" onchange="setSuisuinianTableFilterVal(this.value)">'+
+      '<option value=""'+(!filterVal?' selected':'')+'>全部</option>'+
+      values.map(function(v){ return '<option value="'+esc(v)+'"'+(v===filterVal?' selected':'')+'>'+esc(v)+'</option>'; }).join('')+
+    '</select>';
+  }
+  var theadCells = '<th>内容</th>'+columns.map(function(c){
+    var cEsc = c.replace(/'/g,"\\'");
+    return '<th><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameSuisuinianColumn(\''+topicId+'\',\''+cEsc+'\',this.value)"><button type="button" class="mini-del" onclick="deleteSuisuinianColumn(\''+topicId+'\',\''+cEsc+'\')" title="删除这一列">✕</button></th>';
+  }).join('')+'<th><button type="button" class="btn small ghost" onclick="addSuisuinianColumnInline(\''+topicId+'\')" title="给这张表加一列字段">+</button></th>';
+  var bodyRows = msgs.map(function(m){
+    var fieldMap = {};
+    (m.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
+    var cells = '<td>'+assetCellHtml(m.id+"::__content__", m.content, "内容", "updateSuisuinianMessageContentCell('"+m.id+"',this.value)")+'</td>'+
+      columns.map(function(c){
+        var v = fieldMap[c]!==undefined?fieldMap[c]:"";
+        var cEsc = c.replace(/'/g,"\\'");
+        return '<td>'+assetCellHtml(m.id+"::"+c, v, "内容", "updateSuisuinianMessageField('"+m.id+"','"+cEsc+"',this.value)")+'</td>';
+      }).join('')+
+      '<td class="row-actions"><button class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')">✕</button></td>';
+    return '<tr>'+cells+'</tr>';
+  }).join('') || '<tr><td colspan="'+(columns.length+2)+'" class="sub" style="text-align:center;padding:16px">'+(filterCol&&filterVal?"没有匹配这个筛选的留言":"还没有留言，在下面写第一条吧")+'</td></tr>';
+  return (columns.length ? '<div class="asset-toolbar-lite" style="margin-bottom:10px">'+filterColSelect+filterValSelect+'</div>' : '')+
+    '<div class="asset-table-wrap"><table class="asset-table"><thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
+}
+function renderSuisuinianTopicBoard(topicId){
+  var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
+  if(!topic){
+    return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
+      '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
+  }
+  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; }
+  DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
+  var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
+  var allMsgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;})
+    .slice().sort(function(a,b){
+      var d = (a.createdAt||"").localeCompare(b.createdAt||"");
+      return sortAsc ? d : -d;
+    });
+  var msgs = allMsgs;
+  if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
+  var searchQ = suisuinianTitleSearch.trim().toLowerCase();
+  if(searchQ) msgs = msgs.filter(function(m){ return suisuinianAxisLabel(m).toLowerCase().indexOf(searchQ)!==-1; });
+  var mode = DATA.settings.suisuinianDisplayMode || "axis";
+  var bodyHtml = mode==="bubble" ? renderSuisuinianBubbleList(msgs)
+    : mode==="table" ? renderSuisuinianTable(topicId, allMsgs)
+    : renderSuisuinianAxis(msgs, searchQ);
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
@@ -5527,7 +5666,8 @@ function renderSuisuinianTopicBoard(topicId){
     '<div class="module-head"><div>'+titleHtml+
     '<div class="sub">留言板形式，按时间'+(sortAsc?"升序":"降序")+'排列。</div></div>'+
     '<div class="row-actions">'+
-    '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>'+
+    suisuinianModeSwitchHtml()+
+    (mode==="table" ? '' : '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>')+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     '<button class="btn ghost small" onclick="deleteSuisuinianTopic(\''+topic.id+'\')">删除子主题</button>'+
     '</div></div>'+
@@ -5542,7 +5682,7 @@ function renderSuisuinianTopicBoard(topicId){
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>'+
-    '<div class="card-panel ssn-axis">'+axisSearchHtml+axisItems+'</div>';
+    bodyHtml;
 }
 window.toggleBookSort = function(moduleId){
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
