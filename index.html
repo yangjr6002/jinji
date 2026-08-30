@@ -1265,14 +1265,21 @@ async function sbFetchCloudData(){
     return {ok:true, data: res.data ? res.data.data : null, updatedAt: res.data ? res.data.updated_at : null};
   }catch(e){ return {ok:false, data:null, updatedAt:null}; }
 }
+/* 同步状态记成看得见的东西（不只是转瞬即逝的 toast），备份弹窗里随时能翻出来看，
+   不用非得会开控制台才能帮着排查 */
+var lastCloudSync = {ok:null, time:null, error:null};
 function sbPushData(dataObj){
   if(!sbClient || !sbSession) return;
   sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}, {onConflict:"user_id"}).then(function(res){
     if(res && res.error){
+      lastCloudSync = {ok:false, time:new Date().toISOString(), error:res.error.message||JSON.stringify(res.error)};
       console.error("[云端同步失败]", res.error);
       toast("云端同步失败："+(res.error.message||"未知错误")+"，这次改动暂时只存在本机", 6000);
+    } else {
+      lastCloudSync = {ok:true, time:new Date().toISOString(), error:null};
     }
   }).catch(function(e){
+    lastCloudSync = {ok:false, time:new Date().toISOString(), error:(e&&e.message)||String(e)};
     console.error("[云端同步失败]", e);
     toast("云端同步失败（网络问题？），这次改动暂时只存在本机", 6000);
   });
@@ -1614,8 +1621,18 @@ function storageUsageHtml(){
 }
 window.openBackupModal = function(){
   var root=document.getElementById("modalRoot");
+  var syncStatusHtml = "";
+  if(sbSession){
+    if(lastCloudSync.ok===true){
+      syncStatusHtml = '<div class="sub" style="margin-bottom:10px;color:var(--accent)">✓ 上次云端同步成功（'+esc(memoDateLabel(lastCloudSync.time))+'）</div>';
+    } else if(lastCloudSync.ok===false){
+      syncStatusHtml = '<div class="sub" style="margin-bottom:10px;color:var(--danger)">✕ 上次云端同步失败（'+esc(memoDateLabel(lastCloudSync.time))+'）：'+esc(lastCloudSync.error||"")+'</div>';
+    } else {
+      syncStatusHtml = '<div class="sub" style="margin-bottom:10px">这次打开还没触发过云端同步（改点什么东西试试）</div>';
+    }
+  }
   var cloudNote = sbSession
-    ? '<div class="sub" style="margin-bottom:16px">数据存在云端（Supabase），当前登录：'+esc(sbSession.user.email||"")+'。本机浏览器只留一份缓存，换设备登录同一账号就能看到全部数据。建议还是不定期导出一份 JSON 存别处，多一层保险。</div>'
+    ? '<div class="sub" style="margin-bottom:8px">数据存在云端（Supabase），当前登录：'+esc(sbSession.user.email||"")+'。本机浏览器只留一份缓存，换设备登录同一账号就能看到全部数据。建议还是不定期导出一份 JSON 存别处，多一层保险。</div>'+syncStatusHtml
     : '<div class="sub" style="margin-bottom:16px">所有数据只存在本机浏览器里：换设备、换浏览器、清缓存、或者改动这个文件的路径/文件名，数据都可能对不上。建议不定期导出一份 JSON 文件保存到别处。</div>';
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>备份与恢复</h3>'+
