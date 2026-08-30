@@ -1500,6 +1500,13 @@ window.openMemoModal = function(){
   renderMemoModal();
 };
 function renderMemoModal(){
+  /* 切换备忘录、编辑内容都会重新整个重建这个弹窗，如果只按存下来的尺寸重建，
+     手动拖过还没来得及存盘的这次调整就会被"重置"回旧尺寸——所以重建之前先把当前
+     实际显示的尺寸读出来记上，保证切换备忘录不会把刚调的大小弹回去 */
+  var __existingBox = document.getElementById("memoModalBox");
+  if(__existingBox){
+    DATA.settings.memoModalSize = {w: Math.round(__existingBox.offsetWidth), h: Math.round(__existingBox.offsetHeight)};
+  }
   var root = document.getElementById("modalRoot");
   var list = (DATA.quickMemos||[]).slice().sort(function(a,b){ return (b.updatedAt||"").localeCompare(a.updatedAt||""); });
   var m = memoEditingId ? list.filter(function(x){return x.id===memoEditingId;})[0] : null;
