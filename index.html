@@ -1267,7 +1267,15 @@ async function sbFetchCloudData(){
 }
 function sbPushData(dataObj){
   if(!sbClient || !sbSession) return;
-  sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}).then(function(){}).catch(function(){});
+  sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}, {onConflict:"user_id"}).then(function(res){
+    if(res && res.error){
+      console.error("[云端同步失败]", res.error);
+      toast("云端同步失败："+(res.error.message||"未知错误")+"，这次改动暂时只存在本机", 6000);
+    }
+  }).catch(function(e){
+    console.error("[云端同步失败]", e);
+    toast("云端同步失败（网络问题？），这次改动暂时只存在本机", 6000);
+  });
 }
 async function loadDataAsync(){
   var raw = null;
