@@ -5676,7 +5676,7 @@ function renderSuisuinianTopicBoard(topicId){
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
         '<div class="ssn-composer-box">'+
-          '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">'+
+          (mode==="axis" ? '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">' : '')+
           '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
         '</div>'+
       '</div>'+
