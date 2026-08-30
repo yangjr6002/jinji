@@ -1555,6 +1555,11 @@ function setupMemoModalResize(){
     var box = entries[0].contentRect;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){
+      /* 关闭弹窗把这个元素从页面里拆掉，本身也会触发一次"尺寸变没了"的 resize 回调——
+         这个防抖定时器如果还是照常把 el 现在（已经被拆除、宽高为0）的尺寸存下去，
+         就会把刚关闭时正确存的尺寸覆盖成 0，下次打开自然就弹回最小尺寸了。
+         元素已经不在页面里了就说明是这种假触发，直接跳过不存。 */
+      if(!document.body.contains(el)) return;
       DATA.settings.memoModalSize = {w: Math.round(el.offsetWidth), h: Math.round(el.offsetHeight)};
       save();
     }, 300);
