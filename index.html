@@ -5681,9 +5681,9 @@ function renderSuisuinianTopicBoard(topicId){
     '<div class="module-head"><div>'+titleHtml+
     '<div class="sub">留言板形式，按时间'+(sortAsc?"升序":"降序")+'排列。</div></div>'+
     '<div class="row-actions">'+
-    suisuinianModeSwitchHtml()+
     (mode==="table" ? '' : '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>')+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
+    suisuinianModeSwitchHtml()+
     '</div></div>'+
     '<div class="ssn-composer">'+
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
