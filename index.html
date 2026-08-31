@@ -1299,7 +1299,9 @@ function sbPushData(dataObj){
     toast("云端同步失败（网络问题？），这次改动暂时只存在本机", 6000);
   });
 }
-async function loadDataAsync(){
+/* 只读本地缓存，不碰网络——开屏第一次渲染就靠这个，先把本机已经有的东西马上显示出来，
+   不用干等云端那次请求（免费数据库偶尔会有点延迟，尤其是刚醒过来的时候），观感上快很多 */
+async function loadLocalDataOnly(){
   var raw = null;
   if(hasArtifactStorage){
     try{
@@ -1315,32 +1317,35 @@ async function loadDataAsync(){
       }catch(e){}
     }
   }
-  var localData = null;
-  if(raw){ try{ localData = normalizeData(JSON.parse(raw)); }catch(e){ localData = null; } }
-  if(sbClient && sbSession){
-    var cloudRes = await sbFetchCloudData();
-    if(cloudRes.ok){
-      if(cloudRes.data){
-        /* 改完东西马上刷新/关页面，云端那次异步推送可能还没写完，这时候云端数据其实是"旧的"。
-           两边都带着各自最后一次改动的时间戳，谁的时间新就用谁的，不能无脑"云端说了算"，
-           不然手速快的改动会被旧数据悄悄覆盖掉。本地更新的话顺便再推一次云端，把云端也补齐。 */
-        var cloudTime = cloudRes.data.__localUpdatedAt ? new Date(cloudRes.data.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
-        var localTime = (localData && localData.__localUpdatedAt) ? new Date(localData.__localUpdatedAt).getTime() : -1;
-        if(localData && localTime > cloudTime){
-          sbPushData(localData);
-          return localData;
-        }
-        var normalized = normalizeData(cloudRes.data);
-        idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
-        return normalized;
-      } else {
-        sbPushData(localData || DATA);
-        return localData;
-      }
-    }
-    /* 云端查询失败（比如离线），退回本地缓存，不打断使用 */
+  if(!raw) return null;
+  try{ return normalizeData(JSON.parse(raw)); }catch(e){ return null; }
+}
+/* 云端那次核对放在后台跑，跑完发现云端有更新的数据才重新渲染一次；跑不完/跑失败也不影响
+   已经先显示出来的本地内容，静默重试就好，不用弹错误打断使用 */
+async function syncCloudInBackground(localData){
+  if(!sbClient || !sbSession) return;
+  var cloudRes = await sbFetchCloudData();
+  if(!cloudRes.ok || !cloudRes.data){
+    if(cloudRes.ok && !cloudRes.data) sbPushData(localData || DATA); /* 云端还没建过行，第一次登录，把本地推上去 */
+    return;
   }
-  return localData;
+  /* 改完东西马上刷新/关页面，云端那次异步推送可能还没写完，这时候云端数据其实是"旧的"。
+     两边都带着各自最后一次改动的时间戳，谁的时间新就用谁的，不能无脑"云端说了算"，
+     不然手速快的改动会被旧数据悄悄覆盖掉。本地更新的话顺便再推一次云端，把云端也补齐。 */
+  var cloudTime = cloudRes.data.__localUpdatedAt ? new Date(cloudRes.data.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
+  var localTime = (localData && localData.__localUpdatedAt) ? new Date(localData.__localUpdatedAt).getTime() : -1;
+  if(localData && localTime > cloudTime){
+    sbPushData(localData);
+    return;
+  }
+  var normalized = normalizeData(cloudRes.data);
+  idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
+  /* 云端确实有更新的数据，才悄悄换一下再刷新；跟本地一样就不用重新渲染，省得画面白闪一下 */
+  if(JSON.stringify(normalized)!==JSON.stringify(localData)){
+    DATA = normalized;
+    __lastSnapshot = JSON.stringify(DATA);
+    render();
+  }
 }
 /* 撤销/重做：每次 save() 都跟上一次保存的快照比一下，不一样就把"上一次"的快照推进撤销栈，
    当前这份变成新的"上一次"；撤销/重做本身移动这两个栈，但不再往栈里重复推入新记录 */
@@ -7080,9 +7085,27 @@ function fieldSelect(name,label,options,value){
 async function bootAfterAuth(){
   var logoutBtn = document.getElementById("logoutTopBtn");
   if(logoutBtn) logoutBtn.style.display = sbSession ? "" : "none";
-  var loaded = await loadDataAsync();
-  if(loaded){
-    DATA = loaded;
+  var localData = await loadLocalDataOnly();
+  if(localData){
+    /* 本机已经有缓存：先拿这份马上显示出来，不用干等云端那次网络请求，云端核对放后台去跑，
+       跑完发现有更新的数据才悄悄刷新一次画面 */
+    DATA = localData;
+    __lastSnapshot = JSON.stringify(DATA);
+    render();
+    applyBackgroundImage();
+    syncCloudInBackground(localData);
+    return;
+  }
+  /* 这台设备完全没有本地缓存（第一次用这台设备，或者刚清过缓存），没东西能先垫着显示，
+     这一次没法省，还是得等云端查完 */
+  if(sbClient && sbSession){
+    var cloudRes = await sbFetchCloudData();
+    if(cloudRes.ok && cloudRes.data){
+      DATA = normalizeData(cloudRes.data);
+      idbSet(STORE_KEY, JSON.stringify(DATA)).catch(function(){});
+    } else {
+      save(); /* 云端也没有：用默认数据，顺便把云端底也建起来 */
+    }
   } else {
     save();
   }
