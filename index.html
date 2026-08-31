@@ -790,11 +790,13 @@ th.col-resizable .mini-del{margin-top:6px;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
 .ssn-axis-search-item{margin-bottom:6px;}
 .ssn-axis-search-input{border:none; background:transparent; font-size:11px; color:var(--text-dim); padding:4px 0; width:140px; font-family:inherit;}
-/* 碎碎念三种展现形式切换：简洁泡泡/时间轴/表格 */
-.ssn-mode-switch{display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-right:auto;}
-.ssn-mode-btn{border:none; background:var(--surface); color:var(--text-dim); font-size:11.5px; padding:6px 10px; cursor:pointer; border-right:1px solid var(--border);}
-.ssn-mode-btn:last-child{border-right:none;}
-.ssn-mode-btn.active{background:var(--accent); color:#fff;}
+/* 碎碎念三种展现形式（简洁泡泡/时间轴/表格）收在设置图标弹出的小列表里选，不摆成随手一点就能切的按钮 */
+.ssn-mode-settings-list{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+.ssn-mode-settings-row{border:1px solid var(--border); border-radius:8px; padding:10px 12px; cursor:pointer; transition:.12s;}
+.ssn-mode-settings-row:hover{border-color:var(--accent);}
+.ssn-mode-settings-row.active{border-color:var(--accent); background:var(--surface-2);}
+.ssn-mode-settings-title{font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:2px;}
+.ssn-mode-settings-desc{font-size:11.5px; color:var(--text-dim);}
 .asset-toolbar-lite{display:flex; align-items:center; gap:8px;}
 .ssn-axis-search-input:focus{outline:none; color:var(--text);}
 .ssn-axis{padding:14px 16px 14px 24px; position:relative;}
@@ -5485,13 +5487,26 @@ window.setSuisuinianDisplayMode = function(mode){
   DATA.settings.suisuinianDisplayMode = mode;
   save(); render();
 };
+/* 三种展现形式不摆成随手一点就能切的按钮，收进一个设置图标里管理，免得太容易误碰 */
 function suisuinianModeSwitchHtml(){
-  var mode = DATA.settings.suisuinianDisplayMode || "axis";
-  var opts = [["bubble","简洁泡泡"],["axis","时间轴"],["table","表格"]];
-  return '<div class="ssn-mode-switch">'+opts.map(function(o){
-    return '<button type="button" class="ssn-mode-btn'+(mode===o[0]?' active':'')+'" onclick="setSuisuinianDisplayMode(\''+o[0]+'\')">'+o[1]+'</button>';
-  }).join('')+'</div>';
+  return '<button type="button" class="gear-btn" onclick="openSuisuinianDisplaySettings()" title="留言板展现形式">⚙</button>';
 }
+window.openSuisuinianDisplaySettings = function(){
+  var mode = DATA.settings.suisuinianDisplayMode || "axis";
+  var opts = [["bubble","简洁泡泡","没有标题，最简单的一条条留言"],["axis","时间轴","有小标题，点了才展开看内容"],["table","表格","像资产那张表，自己加字段还能筛选"]];
+  var root = document.getElementById("modalRoot");
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:340px">'+
+    '<h3>留言板展现形式</h3>'+
+    '<div class="ssn-mode-settings-list">'+opts.map(function(o){
+      return '<div class="ssn-mode-settings-row'+(mode===o[0]?' active':'')+'" onclick="setSuisuinianDisplayMode(\''+o[0]+'\');closeModal();">'+
+        '<div class="ssn-mode-settings-title">'+o[1]+(mode===o[0]?' ✓':'')+'</div>'+
+        '<div class="ssn-mode-settings-desc">'+o[2]+'</div>'+
+      '</div>';
+    }).join('')+'</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
 function renderSuisuinianBubbleList(msgs){
   var bubbles = msgs.map(function(m){
     var contentHtml = suisuinianEditingMessage===m.id
@@ -5669,7 +5684,6 @@ function renderSuisuinianTopicBoard(topicId){
     suisuinianModeSwitchHtml()+
     (mode==="table" ? '' : '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>')+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
-    '<button class="btn ghost small" onclick="deleteSuisuinianTopic(\''+topic.id+'\')">删除子主题</button>'+
     '</div></div>'+
     '<div class="ssn-composer">'+
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
