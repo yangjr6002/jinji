@@ -1149,6 +1149,7 @@ function normalizeData(d){
   d.suisuinianTopics = d.suisuinianTopics || [];
   d.suisuinianDeletedIds = d.suisuinianDeletedIds || [];
   d.suisuinianTopicDeletedIds = d.suisuinianTopicDeletedIds || [];
+  d.deletedIds = d.deletedIds || {};
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   d.residenceTags = (d.residenceTags && d.residenceTags.length) ? d.residenceTags : JSON.parse(JSON.stringify(DEFAULT_RESIDENCE_TAGS));
@@ -1338,17 +1339,50 @@ function mergeIdSetUnion(a,b){
   (a||[]).concat(b||[]).forEach(function(id){ if(id && !seen[id]){ seen[id]=true; out.push(id); } });
   return out;
 }
-function mergeListsById(localList, cloudList, deletedIds, preferLocalOnConflict){
+function mergeListsById(localList, cloudList, deletedIds, preferLocalOnConflict, key){
+  key = key || "id";
   var map = {};
   var order = preferLocalOnConflict ? [cloudList, localList] : [localList, cloudList];
   order.forEach(function(list){
-    (list||[]).forEach(function(item){ if(item && item.id!=null) map[item.id]=item; });
+    (list||[]).forEach(function(item){ if(item && item[key]!=null) map[item[key]]=item; });
   });
   var deletedSet = {}; (deletedIds||[]).forEach(function(id){ deletedSet[id]=true; });
   var out = [];
   Object.keys(map).forEach(function(id){ if(!deletedSet[id]) out.push(map[id]); });
   return out;
 }
+/* 记一笔"这条真的被删除过"，同步合并的时候要靠这个名单把它从并集里排除掉，
+   不然一边删掉的东西会被另一边还留着的旧缓存"合并"回来，越合并越删不掉 */
+function markRecordsDeleted(field, ids){
+  if(ids==null) return;
+  if(!Array.isArray(ids)) ids = [ids];
+  ids = ids.filter(function(x){return x!=null;});
+  if(!ids.length) return;
+  DATA.deletedIds = DATA.deletedIds || {};
+  DATA.deletedIds[field] = (DATA.deletedIds[field]||[]).concat(ids);
+}
+/* 除了碎碎念（单独处理，逻辑一样但字段名是老的），其余"一条条记录"型的数据也按同样的
+   思路合并：本机新增的、云端新增的都保留，只有真被删除、记进 deletedIds 的才去掉 */
+var SYNC_MERGE_LIST_FIELDS = [
+  {field:"lifeTimeline", key:"id"},
+  {field:"memorialEvents", key:"id"},
+  {field:"declutterItems", key:"id"},
+  {field:"customBoards", key:"id"},
+  {field:"quickMemos", key:"id"},
+  {field:"journalEntries", key:"id"},
+  {field:"familyMembers", key:"id"},
+  {field:"assets", key:"id"},
+  {field:"passwords", key:"id"},
+  {field:"idPhotos", key:"id"},
+  {field:"idPeople", key:"id"},
+  {field:"idOfficialDocs", key:"id"},
+  {field:"idRegularPhotos", key:"id"},
+  {field:"idBranches", key:"id"},
+  {field:"albumPhotos", key:"id"},
+  {field:"contacts", key:"id"},
+  {field:"workTags", key:"key"},
+  {field:"residenceTags", key:"key"}
+];
 async function syncCloudInBackground(localData){
   if(!sbClient || !sbSession) return;
   var cloudRes = await sbFetchCloudData();
@@ -1375,11 +1409,20 @@ async function syncCloudInBackground(localData){
   var mergedEntries = mergeListsById(localData && localData.suisuinianEntries, cloudData.suisuinianEntries, mergedSsnDeleted, preferLocal);
 
   var base = preferLocal ? (localData || DATA) : cloudData;
-  var merged = normalizeData(JSON.parse(JSON.stringify(base)));
+  var merged = JSON.parse(JSON.stringify(base));
   merged.suisuinianTopics = mergedTopics;
   merged.suisuinianEntries = mergedEntries;
   merged.suisuinianTopicDeletedIds = mergedTopicDeleted;
   merged.suisuinianDeletedIds = mergedSsnDeleted;
+  merged.deletedIds = merged.deletedIds || {};
+  SYNC_MERGE_LIST_FIELDS.forEach(function(cfg){
+    var localDeleted = (localData && localData.deletedIds) ? localData.deletedIds[cfg.field] : null;
+    var cloudDeleted = cloudData.deletedIds ? cloudData.deletedIds[cfg.field] : null;
+    var mergedDeleted = mergeIdSetUnion(localDeleted, cloudDeleted);
+    merged[cfg.field] = mergeListsById(localData && localData[cfg.field], cloudData[cfg.field], mergedDeleted, preferLocal, cfg.key);
+    merged.deletedIds[cfg.field] = mergedDeleted;
+  });
+  merged = normalizeData(merged); /* 合并完了再统一跑一遍默认值补全，比如 workTags 合并完万一是空的，这里会正确地补回默认列表 */
 
   var changedFromLocal = JSON.stringify(merged) !== JSON.stringify(localData);
   var changedFromCloud = JSON.stringify(merged) !== JSON.stringify(cloudData);
@@ -1678,6 +1721,7 @@ window.updateMemoContent = function(id, value){
 };
 window.deleteMemo = function(id){
   confirmDelete("确定删除这条备忘录吗？", function(){
+    markRecordsDeleted("quickMemos", id);
     DATA.quickMemos = (DATA.quickMemos||[]).filter(function(x){return x.id!==id;});
     save();
     if(memoEditingId===id) memoEditingId = null;
@@ -2718,6 +2762,7 @@ window.toggleFamilyLink = function(selfId, otherId, checked){
 };
 window.deleteFamilyMember = function(id){
   confirmDelete("确定删除这位成员吗？和TA相关的连线也会一起消失（不影响其他成员）。", function(){
+    markRecordsDeleted("familyMembers", id);
     DATA.familyMembers = (DATA.familyMembers||[]).filter(function(x){return x.id!==id;});
     DATA.familyMembers.forEach(function(p){
       p.parentIds = (p.parentIds||[]).filter(function(pid){return pid!==id;});
@@ -3805,6 +3850,8 @@ window.deleteTravelFolder = function(kind, segment, event){
   }
   var count = DATA.lifeTimeline.filter(matches).length;
   confirmDelete("确定删除「"+segment+"」吗？里面的 "+count+" 个地点会一起永久删除，不能撤销。", function(){
+    var matchedIds = DATA.lifeTimeline.filter(matches).map(function(t){return t.id;});
+    markRecordsDeleted("lifeTimeline", matchedIds);
     DATA.lifeTimeline = DATA.lifeTimeline.filter(function(t){ return !matches(t); });
     save(); render(); toast("已删除");
   });
@@ -4061,6 +4108,7 @@ window.deleteTravelField = function(id, fieldId){
 };
 window.deleteTravelEntry = function(id){
   confirmDelete("确定删除这个地点吗？", function(){
+    markRecordsDeleted("lifeTimeline", id);
     DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
     var box = document.getElementById("travelTagFloat");
     if(box) box.style.display = "none";
@@ -4711,6 +4759,7 @@ window.updateWorkTagColor = function(key, value){
 window.deleteWorkTag = function(key){
   if((DATA.workTags||[]).length<=1) return;
   confirmDelete("确定删除这个标签吗？用过这个标签的经历会变回默认颜色。", function(){
+    markRecordsDeleted("workTags", key);
     DATA.workTags = (DATA.workTags||[]).filter(function(x){return x.key!==key;});
     DATA.lifeTimeline.forEach(function(t){ if(t.jobType===key){ t.jobType = ""; } });
     if(timelineDraft && timelineDraft.jobType===key){ timelineDraft.jobType = ""; }
@@ -4760,6 +4809,7 @@ window.renameResidenceTag = function(key, value){
 window.deleteResidenceTag = function(key){
   if((DATA.residenceTags||[]).length<=1) return;
   confirmDelete("确定删除这个标签吗？用过这个标签的经历会变回默认颜色。", function(){
+    markRecordsDeleted("residenceTags", key);
     DATA.residenceTags = (DATA.residenceTags||[]).filter(function(x){return x.key!==key;});
     DATA.lifeTimeline.forEach(function(t){ if(t.residenceType===key){ t.residenceType = ""; } });
     if(timelineDraft && timelineDraft.residenceType===key){ timelineDraft.residenceType = ""; }
@@ -4841,6 +4891,7 @@ window.deleteTimelineEntry = function(id){
   confirmDelete("确定删除这段经历吗？", function(){
     var key = "timeline:"+id;
     var wasActive = (VIEW==="itemDetail" && activeTabKey===key);
+    markRecordsDeleted("lifeTimeline", id);
     DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
     openTabs = openTabs.filter(function(t){return t.key!==key;});
     save();
@@ -6023,6 +6074,7 @@ window.editMemorial = function(id){
 };
 window.deleteMemorial = function(id){
   confirmDelete("确定删除这个纪念事件吗？", function(){
+    markRecordsDeleted("memorialEvents", id);
     DATA.memorialEvents = DATA.memorialEvents.filter(function(x){return x.id!==id;});
     save(); render(); toast("已删除");
   });
@@ -6064,6 +6116,7 @@ window.editDeclutter = function(id){
 };
 window.deleteDeclutter = function(id){
   confirmDelete("确定删除这条记录吗？", function(){
+    markRecordsDeleted("declutterItems", id);
     DATA.declutterItems = DATA.declutterItems.filter(function(x){return x.id!==id;});
     save(); render(); toast("已删除");
   });
@@ -6217,6 +6270,7 @@ window.renamePasswordColumn = function(key, value){
 };
 window.deletePassword = function(id){
   confirmDelete("确定删除这条密码记录吗？", function(){
+    markRecordsDeleted("passwords", id);
     DATA.passwords = DATA.passwords.filter(function(x){return x.id!==id;});
     save();
     if(!closeTabAndMaybeGoHome("password", id)) render();
@@ -6491,6 +6545,7 @@ window.addAssetColumnInline = function(){
 };
 window.deleteAsset = function(id){
   confirmDelete("确定删除这条资产记录吗？", function(){
+    markRecordsDeleted("assets", id);
     DATA.assets = DATA.assets.filter(function(x){return x.id!==id;});
     save();
     if(!closeTabAndMaybeGoHome("asset", id)) render();
@@ -6647,6 +6702,9 @@ window.addIdBranch = function(){
 };
 window.deleteIdBranch = function(id){
   confirmDelete("确定删除这个分层吗？里面的证件/证件照会一起永久删除，不能撤销。", function(){
+    markRecordsDeleted("idBranches", id);
+    markRecordsDeleted("idOfficialDocs", (DATA.idOfficialDocs||[]).filter(function(x){return x.branchId===id;}).map(function(x){return x.id;}));
+    markRecordsDeleted("idRegularPhotos", (DATA.idRegularPhotos||[]).filter(function(x){return x.branchId===id;}).map(function(x){return x.id;}));
     DATA.idBranches = (DATA.idBranches||[]).filter(function(x){return x.id!==id;});
     DATA.idOfficialDocs = (DATA.idOfficialDocs||[]).filter(function(x){return x.branchId!==id;});
     DATA.idRegularPhotos = (DATA.idRegularPhotos||[]).filter(function(x){return x.branchId!==id;});
@@ -6705,6 +6763,9 @@ window.addIdPerson = function(){
 };
 window.deleteIdPerson = function(id){
   confirmDelete("确定删除这个人吗？TA名下所有分层里的证件和证件照也会一起删除，不能撤销。", function(){
+    markRecordsDeleted("idPeople", id);
+    markRecordsDeleted("idOfficialDocs", (DATA.idOfficialDocs||[]).filter(function(x){return x.personId===id;}).map(function(x){return x.id;}));
+    markRecordsDeleted("idRegularPhotos", (DATA.idRegularPhotos||[]).filter(function(x){return x.personId===id;}).map(function(x){return x.id;}));
     DATA.idPeople = (DATA.idPeople||[]).filter(function(x){return x.id!==id;});
     DATA.idOfficialDocs = (DATA.idOfficialDocs||[]).filter(function(x){return x.personId!==id;});
     DATA.idRegularPhotos = (DATA.idRegularPhotos||[]).filter(function(x){return x.personId!==id;});
@@ -6780,6 +6841,7 @@ window.updateIdOfficialDocField = function(id, key, value){
 };
 window.deleteIdOfficialDoc = function(id){
   confirmDelete("确定删除这条证件记录吗？", function(){
+    markRecordsDeleted("idOfficialDocs", id);
     DATA.idOfficialDocs = (DATA.idOfficialDocs||[]).filter(function(x){return x.id!==id;});
     if(moduleCatView.idphotos_doc===id) moduleCatView.idphotos_doc=null;
     save(); render(); toast("已删除");
@@ -6859,6 +6921,7 @@ window.updateIdRegularPhotoField = function(id, key, value){
 };
 window.deleteIdRegularPhoto = function(id){
   confirmDelete("确定删除这条证件照记录吗？", function(){
+    markRecordsDeleted("idRegularPhotos", id);
     DATA.idRegularPhotos = (DATA.idRegularPhotos||[]).filter(function(x){return x.id!==id;});
     if(moduleCatView.idphotos_photo===id) moduleCatView.idphotos_photo=null;
     save(); render(); toast("已删除");
@@ -7120,6 +7183,7 @@ window.editContact = function(id){
 };
 window.deleteContact = function(id){
   confirmDelete("确定删除这位联系人吗？", function(){
+    markRecordsDeleted("contacts", id);
     DATA.contacts = DATA.contacts.filter(function(x){return x.id!==id;});
     save();
     if(!closeTabAndMaybeGoHome("contact", id)) render();
