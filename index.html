@@ -1693,6 +1693,7 @@ window.openBackupModal = function(){
     '<label class="btn ghost" style="width:100%;display:block;text-align:center;box-sizing:border-box;cursor:pointer;margin-bottom:10px">⬆ 导入备份（选择之前导出的 JSON 文件）'+
       '<input type="file" accept="application/json,.json" style="display:none" onchange="importBackupFile(this)">'+
     '</label>'+
+    '<button type="button" class="btn ghost" style="width:100%;margin-bottom:10px" onclick="exportSuisuinianDiag()">⬇ 导出碎碎念诊断数据（排查同步问题用，不含密码/资产）</button>'+
     (sbSession ? '<button type="button" class="btn ghost" style="width:100%;margin-bottom:10px" onclick="authSignOut()">退出登录</button>' : '')+
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
@@ -1708,6 +1709,26 @@ window.exportBackup = function(filenamePrefix){
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   if(!filenamePrefix){ toast("已导出备份文件"); }
+};
+window.exportSuisuinianDiag = function(){
+  var diag = {
+    exportedAt: new Date().toISOString(),
+    device: navigator.userAgent,
+    __localUpdatedAt: DATA.__localUpdatedAt || null,
+    topicCount: (DATA.suisuinianTopics||[]).length,
+    entryCount: (DATA.suisuinianEntries||[]).length,
+    suisuinianTopics: DATA.suisuinianTopics || [],
+    suisuinianEntries: DATA.suisuinianEntries || []
+  };
+  var payload = JSON.stringify(diag, null, 2);
+  var blob = new Blob([payload], {type:"application/json"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  var stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  a.href = url; a.download = "suisuinian-diag-"+stamp+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("已导出碎碎念诊断数据");
 };
 window.importBackupFile = function(input){
   var file = input.files[0]; if(!file) return;
