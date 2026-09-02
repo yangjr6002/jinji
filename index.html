@@ -1273,12 +1273,12 @@ function idbSet(key, value){
    查得到就说明云端已经有数据了（云端为准）；查到 null 说明这个人是第一次登录，云端还没建行，
    要把本地（或默认）数据推上去当种子；查询本身失败（离线/网络问题）就退回本地缓存，不报错打断使用。 */
 async function sbFetchCloudData(){
-  if(!sbClient || !sbSession) return {ok:false, data:null, updatedAt:null};
+  if(!sbClient || !sbSession) return {ok:false, data:null, updatedAt:null, error:"未登录"};
   try{
     var res = await sbClient.from("app_data").select("data,updated_at").eq("user_id", sbSession.user.id).maybeSingle();
-    if(res.error) return {ok:false, data:null, updatedAt:null};
+    if(res.error){ console.error("[云端读取失败]", res.error); return {ok:false, data:null, updatedAt:null, error:res.error.message||JSON.stringify(res.error)}; }
     return {ok:true, data: res.data ? res.data.data : null, updatedAt: res.data ? res.data.updated_at : null};
-  }catch(e){ return {ok:false, data:null, updatedAt:null}; }
+  }catch(e){ console.error("[云端读取失败]", e); return {ok:false, data:null, updatedAt:null, error:(e&&e.message)||String(e)}; }
 }
 /* 同步状态记成看得见的东西（不只是转瞬即逝的 toast），备份弹窗里随时能翻出来看，
    不用非得会开控制台才能帮着排查 */
@@ -1322,11 +1322,19 @@ async function loadLocalDataOnly(){
 }
 /* 云端那次核对放在后台跑，跑完发现云端有更新的数据才重新渲染一次；跑不完/跑失败也不影响
    已经先显示出来的本地内容，静默重试就好，不用弹错误打断使用 */
+/* "推上云端成不成功"和"从云端拉下来成不成功"是两件不同的事，之前只记了推的状态，
+   拉取这边一直没有任何可见的反馈——拉取失败的话本机会一直显示旧内容还看不出原因，这里补上 */
+var lastCloudFetch = {ok:null, time:null, error:null, gotNewer:null};
 async function syncCloudInBackground(localData){
   if(!sbClient || !sbSession) return;
   var cloudRes = await sbFetchCloudData();
-  if(!cloudRes.ok || !cloudRes.data){
-    if(cloudRes.ok && !cloudRes.data) sbPushData(localData || DATA); /* 云端还没建过行，第一次登录，把本地推上去 */
+  if(!cloudRes.ok){
+    lastCloudFetch = {ok:false, time:new Date().toISOString(), error:cloudRes.error||"查询云端失败", gotNewer:false};
+    return;
+  }
+  if(!cloudRes.data){
+    lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:false};
+    sbPushData(localData || DATA); /* 云端还没建过行，第一次登录，把本地推上去 */
     return;
   }
   /* 改完东西马上刷新/关页面，云端那次异步推送可能还没写完，这时候云端数据其实是"旧的"。
@@ -1335,13 +1343,16 @@ async function syncCloudInBackground(localData){
   var cloudTime = cloudRes.data.__localUpdatedAt ? new Date(cloudRes.data.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
   var localTime = (localData && localData.__localUpdatedAt) ? new Date(localData.__localUpdatedAt).getTime() : -1;
   if(localData && localTime > cloudTime){
+    lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:false};
     sbPushData(localData);
     return;
   }
   var normalized = normalizeData(cloudRes.data);
   idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
   /* 云端确实有更新的数据，才悄悄换一下再刷新；跟本地一样就不用重新渲染，省得画面白闪一下 */
-  if(JSON.stringify(normalized)!==JSON.stringify(localData)){
+  var changed = JSON.stringify(normalized)!==JSON.stringify(localData);
+  lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:changed};
+  if(changed){
     DATA = normalized;
     __lastSnapshot = JSON.stringify(DATA);
     render();
@@ -1656,11 +1667,19 @@ window.openBackupModal = function(){
   var syncStatusHtml = "";
   if(sbSession){
     if(lastCloudSync.ok===true){
-      syncStatusHtml = '<div class="sub" style="margin-bottom:10px;color:var(--accent)">✓ 上次云端同步成功（'+esc(memoDateLabel(lastCloudSync.time))+'）</div>';
+      syncStatusHtml = '<div class="sub" style="margin-bottom:4px;color:var(--accent)">✓ 上次推送到云端成功（'+esc(memoDateLabel(lastCloudSync.time))+'）</div>';
     } else if(lastCloudSync.ok===false){
-      syncStatusHtml = '<div class="sub" style="margin-bottom:10px;color:var(--danger)">✕ 上次云端同步失败（'+esc(memoDateLabel(lastCloudSync.time))+'）：'+esc(lastCloudSync.error||"")+'</div>';
+      syncStatusHtml = '<div class="sub" style="margin-bottom:4px;color:var(--danger)">✕ 上次推送到云端失败（'+esc(memoDateLabel(lastCloudSync.time))+'）：'+esc(lastCloudSync.error||"")+'</div>';
     } else {
-      syncStatusHtml = '<div class="sub" style="margin-bottom:10px">这次打开还没触发过云端同步（改点什么东西试试）</div>';
+      syncStatusHtml = '<div class="sub" style="margin-bottom:4px">这次打开还没触发过"推送"（改点什么东西试试）</div>';
+    }
+    /* 推上云端 跟 从云端拉下来 是两件事，各自的状态分开显示，不然只看得到一半 */
+    if(lastCloudFetch.ok===true){
+      syncStatusHtml += '<div class="sub" style="margin-bottom:10px;color:var(--accent)">✓ 上次从云端拉取成功（'+esc(memoDateLabel(lastCloudFetch.time))+'）'+(lastCloudFetch.gotNewer?"，拉到了比本机新的内容":"，云端跟本机内容一致")+'</div>';
+    } else if(lastCloudFetch.ok===false){
+      syncStatusHtml += '<div class="sub" style="margin-bottom:10px;color:var(--danger)">✕ 上次从云端拉取失败（'+esc(memoDateLabel(lastCloudFetch.time))+'）：'+esc(lastCloudFetch.error||"")+'</div>';
+    } else {
+      syncStatusHtml += '<div class="sub" style="margin-bottom:10px">这次打开还没触发过"拉取"</div>';
     }
   }
   var cloudNote = sbSession
