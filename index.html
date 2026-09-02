@@ -1147,6 +1147,8 @@ function normalizeData(d){
   });
   d.suisuinianEntries = d.suisuinianEntries || [];
   d.suisuinianTopics = d.suisuinianTopics || [];
+  d.suisuinianDeletedIds = d.suisuinianDeletedIds || [];
+  d.suisuinianTopicDeletedIds = d.suisuinianTopicDeletedIds || [];
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   d.residenceTags = (d.residenceTags && d.residenceTags.length) ? d.residenceTags : JSON.parse(JSON.stringify(DEFAULT_RESIDENCE_TAGS));
@@ -1325,6 +1327,28 @@ async function loadLocalDataOnly(){
 /* "推上云端成不成功"和"从云端拉下来成不成功"是两件不同的事，之前只记了推的状态，
    拉取这边一直没有任何可见的反馈——拉取失败的话本机会一直显示旧内容还看不出原因，这里补上 */
 var lastCloudFetch = {ok:null, time:null, error:null, gotNewer:null};
+/* 之前"谁的时间戳新就整份用谁的"看起来省事，实际上会把"新那份"里没有、但"旧那份"独有的
+   新增内容直接丢掉——比如手机和电脑分别在离线/还没来得及同步时各自往碎碎念加了新留言，
+   下次同步谁的时间戳新就整个覆盖掉另一份，另一份独有的那些留言就人间蒸发了，双方都看不到，
+   还都以为"同步成功"。这正是"手机加的电脑看不到、电脑加的手机看不到"的真正原因。
+   碎碎念的主题/留言现在按 id 做合并（并集），而不是整份取舍：两边各自新增的都保留，
+   只有真正点过"删除"、记进 xxxDeletedIds 墓碑名单里的才会被去掉。 */
+function mergeIdSetUnion(a,b){
+  var seen = {}, out = [];
+  (a||[]).concat(b||[]).forEach(function(id){ if(id && !seen[id]){ seen[id]=true; out.push(id); } });
+  return out;
+}
+function mergeListsById(localList, cloudList, deletedIds, preferLocalOnConflict){
+  var map = {};
+  var order = preferLocalOnConflict ? [cloudList, localList] : [localList, cloudList];
+  order.forEach(function(list){
+    (list||[]).forEach(function(item){ if(item && item.id!=null) map[item.id]=item; });
+  });
+  var deletedSet = {}; (deletedIds||[]).forEach(function(id){ deletedSet[id]=true; });
+  var out = [];
+  Object.keys(map).forEach(function(id){ if(!deletedSet[id]) out.push(map[id]); });
+  return out;
+}
 async function syncCloudInBackground(localData){
   if(!sbClient || !sbSession) return;
   var cloudRes = await sbFetchCloudData();
@@ -1337,25 +1361,39 @@ async function syncCloudInBackground(localData){
     sbPushData(localData || DATA); /* 云端还没建过行，第一次登录，把本地推上去 */
     return;
   }
+  var cloudData = cloudRes.data;
   /* 改完东西马上刷新/关页面，云端那次异步推送可能还没写完，这时候云端数据其实是"旧的"。
-     两边都带着各自最后一次改动的时间戳，谁的时间新就用谁的，不能无脑"云端说了算"，
-     不然手速快的改动会被旧数据悄悄覆盖掉。本地更新的话顺便再推一次云端，把云端也补齐。 */
-  var cloudTime = cloudRes.data.__localUpdatedAt ? new Date(cloudRes.data.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
+     两边都带着各自最后一次改动的时间戳，谁的时间新，冲突的地方（同一个 id 两边都有改动）
+     就听谁的；但"只有一边有"的内容不算冲突，不看时间戳，两边都要保留。 */
+  var cloudTime = cloudData.__localUpdatedAt ? new Date(cloudData.__localUpdatedAt).getTime() : (cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0);
   var localTime = (localData && localData.__localUpdatedAt) ? new Date(localData.__localUpdatedAt).getTime() : -1;
-  if(localData && localTime > cloudTime){
-    lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:false};
-    sbPushData(localData);
-    return;
-  }
-  var normalized = normalizeData(cloudRes.data);
-  idbSet(STORE_KEY, JSON.stringify(normalized)).catch(function(){});
-  /* 云端确实有更新的数据，才悄悄换一下再刷新；跟本地一样就不用重新渲染，省得画面白闪一下 */
-  var changed = JSON.stringify(normalized)!==JSON.stringify(localData);
-  lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:changed};
-  if(changed){
-    DATA = normalized;
+  var preferLocal = !!(localData && localTime > cloudTime);
+
+  var mergedTopicDeleted = mergeIdSetUnion(localData && localData.suisuinianTopicDeletedIds, cloudData.suisuinianTopicDeletedIds);
+  var mergedSsnDeleted = mergeIdSetUnion(localData && localData.suisuinianDeletedIds, cloudData.suisuinianDeletedIds);
+  var mergedTopics = mergeListsById(localData && localData.suisuinianTopics, cloudData.suisuinianTopics, mergedTopicDeleted, preferLocal);
+  var mergedEntries = mergeListsById(localData && localData.suisuinianEntries, cloudData.suisuinianEntries, mergedSsnDeleted, preferLocal);
+
+  var base = preferLocal ? (localData || DATA) : cloudData;
+  var merged = normalizeData(JSON.parse(JSON.stringify(base)));
+  merged.suisuinianTopics = mergedTopics;
+  merged.suisuinianEntries = mergedEntries;
+  merged.suisuinianTopicDeletedIds = mergedTopicDeleted;
+  merged.suisuinianDeletedIds = mergedSsnDeleted;
+
+  var changedFromLocal = JSON.stringify(merged) !== JSON.stringify(localData);
+  var changedFromCloud = JSON.stringify(merged) !== JSON.stringify(cloudData);
+  lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:changedFromLocal};
+  if(changedFromLocal){
+    merged.__localUpdatedAt = new Date().toISOString();
+    DATA = merged;
     __lastSnapshot = JSON.stringify(DATA);
+    idbSet(STORE_KEY, JSON.stringify(DATA)).catch(function(){});
     render();
+  }
+  if(changedFromCloud){
+    sbPushData(DATA); /* 合并结果跟云端存的不一样（比如补回了云端缺的内容），推回去让云端也补齐，
+                          这样另一台设备下次同步就能拿到完整的合并结果 */
   }
 }
 /* 撤销/重做：每次 save() 都跟上一次保存的快照比一下，不一样就把"上一次"的快照推进撤销栈，
@@ -5160,6 +5198,9 @@ window.deleteSuisuinianUncategorized = function(){
   var topicIds = topics.map(function(t){return t.id;});
   var msgCount = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)>=0;}).length;
   confirmDelete("「"+uncategorizedLabel("suisuinian")+"」里有 "+topics.length+" 个子主题（共 "+msgCount+" 条留言），没有别的分类可以转移过去，删除会直接永久清空，确定吗？", function(){
+    var removedEntryIds = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)>=0;}).map(function(e){return e.id;});
+    DATA.suisuinianTopicDeletedIds = (DATA.suisuinianTopicDeletedIds||[]).concat(topicIds);
+    DATA.suisuinianDeletedIds = (DATA.suisuinianDeletedIds||[]).concat(removedEntryIds);
     DATA.suisuinianTopics = (DATA.suisuinianTopics||[]).filter(function(t){return !!t.category;});
     DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(e){return topicIds.indexOf(e.topic)===-1;});
     save();
@@ -5431,6 +5472,9 @@ document.addEventListener("mouseout", function(e){
 window.deleteSuisuinianTopic = function(id){
   var n = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===id;}).length;
   confirmDelete("确定删除这个子主题吗？"+(n?("里面的 "+n+" 条留言会一起永久删除，"):"")+"不能撤销。", function(){
+    var removedEntryIds2 = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===id;}).map(function(e){return e.id;});
+    DATA.suisuinianTopicDeletedIds = (DATA.suisuinianTopicDeletedIds||[]).concat([id]);
+    DATA.suisuinianDeletedIds = (DATA.suisuinianDeletedIds||[]).concat(removedEntryIds2);
     DATA.suisuinianTopics = (DATA.suisuinianTopics||[]).filter(function(x){return x.id!==id;});
     DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic!==id;});
     save();
@@ -5511,6 +5555,7 @@ window.startRenameSuisuinianMessageTitle = function(id){
 };
 window.deleteSuisuinianMessage = function(id){
   confirmDelete("确定删除这条留言吗？", function(){
+    DATA.suisuinianDeletedIds = (DATA.suisuinianDeletedIds||[]).concat([id]);
     DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(x){return x.id!==id;});
     save(); render();
   });
