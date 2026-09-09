@@ -847,8 +847,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-item.expanded{height:auto; overflow:visible;}
 .ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
 .ssn-tag-item-date{font-size:10.5px; color:var(--text-faint); opacity:.65; margin-top:7px;}
-.ssn-tag-inline-select{width:100%; box-sizing:border-box; border:none; border-bottom:1px solid var(--border-soft); background:transparent; font-size:11px; color:var(--text-dim); font-family:inherit; padding:0 0 5px; margin-bottom:6px;}
-.ssn-tag-inline-select:focus{outline:none;}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
 .ssn-composer-row{display:flex; gap:6px; align-items:flex-end;}
@@ -5730,7 +5728,7 @@ function renderSuisuinianAxis(msgs, searchQ){
 /* 标签版：写一长串内容，选一个标签，标签做成一颗颗可点的小泡泡，不用老式下拉框。
    标签本身按子主题各自管理（存在 DATA.moduleCategories["suisuinian_tag_"+topicId] 里），
    跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
-var suisuinianTagEditingId = null; /* 当前正在就地编辑（内容+标签）的留言 id */
+var suisuinianTagEditingId = null; /* 当前正在就地编辑内容的留言 id（标签只在写的时候选一次，写完不能再改） */
 window.startEditSuisuinianTagEntry = function(id){
   suisuinianTagEditingId = id;
   render();
@@ -5740,31 +5738,6 @@ window.commitEditSuisuinianTagEntry = function(id, value){
   if(m){ m.content = (value||"").trim(); save(); }
   suisuinianTagEditingId = null;
   render();
-};
-/* 内容文本框失焦的时候，如果是切去旁边那个改标签的下拉框（relatedTarget 能看出下一个
-   焦点是谁），就只悄悄存一下内容，不整个退出编辑状态——不然一点标签下拉框，编辑框就先
-   被收起了，根本点不到标签选项 */
-window.handleSuisuinianTagContentBlur = function(e, id){
-  var next = e.relatedTarget;
-  if(next && next.classList && next.classList.contains("ssn-tag-inline-select")){
-    var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-    if(m){ m.content = (e.target.value||"").trim(); save(); }
-    return;
-  }
-  commitEditSuisuinianTagEntry(id, e.target.value);
-};
-window.setSuisuinianEntryTagInline = function(id, key){
-  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  /* 改标签这一下会触发重新渲染，先把还没失焦保存的正在编辑的内容原样存下来，渲染完再填回去，
-     不然半路改个标签，正在打的字就被刷掉了 */
-  var draft = document.getElementById("ssnTagEdit_"+id);
-  var v = draft ? draft.value : null;
-  if(m){ m.tag = key; save(); }
-  render();
-  if(v!==null){
-    var nd = document.getElementById("ssnTagEdit_"+id);
-    if(nd){ nd.value = v; nd.focus(); }
-  }
 };
 /* 果冻色系：每个标签固定分到一个颜色（新建时按当前已有标签数量顺位分配，存在 colorIdx 里，
    不会因为增删其他标签而跟着变）。列头用饱和一点的"果冻实心"，气泡用同色系的浅底 */
@@ -5863,19 +5836,14 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
   var innerHtml;
   if(editingThis){
-    var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-    var tagSelectHtml = '<select class="ssn-tag-inline-select" onclick="event.stopPropagation()" onchange="setSuisuinianEntryTagInline(\''+m.id+'\',this.value)">'+
-      '<option value=""'+(!m.tag?' selected':'')+'>无标签</option>'+
-      cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===m.tag?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
-    '</select>';
-    innerHtml = tagSelectHtml+
-      '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="handleSuisuinianTagContentBlur(event,\''+m.id+'\')">'+esc(m.content)+'</textarea>';
+    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>';
   } else {
-    innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑内容/标签">'+esc(m.content||"（没有内容）")+'</div>'+
+    innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>'+
       '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   }
-  /* 气泡固定大小：没在编辑的时候用固定高度+3行截断；点一下直接就地编辑（跟留言板其他展现
-     形式一个手感，不用弹编辑框），编辑状态里顺带带一个小标签下拉，改标签也不用再点别的地方 */
+  /* 气泡固定大小：没在编辑的时候用固定高度+3行截断；点一下直接就地编辑内容，跟留言板其他
+     展现形式一个手感，不弹编辑框。标签只在写的时候选一次，写完不能再改，编辑框里不再带
+     标签选项，保持跟别的展现形式一样干净 */
   return '<div class="ssn-tag-row">'+
     '<div class="ssn-tag-item'+(editingThis?' expanded':'')+'"'+itemStyle+'>'+innerHtml+'</div>'+
     '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions">'+
