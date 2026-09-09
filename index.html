@@ -5824,13 +5824,27 @@ window.addSuisuinianQuickMessage = function(topicId, tagKey){
     save(); render();
   });
 };
+/* 双击气泡进这个弹窗，内容和标签一起改，不用再常驻一个改标签的小胶囊在卡片上 */
+window.editSuisuinianTagEntry = function(topicId, id){
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(!m) return;
+  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
+  var tagOptions = '<option value=""'+(!m.tag?' selected':'')+'>无标签</option>'+
+    cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===m.tag?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('');
+  openModal("编辑留言",
+    '<div class="field"><label>标签</label><select name="tag">'+tagOptions+'</select></div>'+
+    '<div class="field"><label>内容</label><textarea name="content" autofocus style="min-height:110px" onkeydown="enterSubmitKeydown(event,this)">'+esc(m.content)+'</textarea></div>',
+    function(data){
+      m.content = (data.content||"").trim();
+      m.tag = data.tag||"";
+      save(); render();
+    }
+  );
+};
 function suisuinianTagEntryRowHtml(topicId, m, color){
   var expanded = !!suisuinianTagExpanded[m.id];
-  var editing = suisuinianEditingMessage===m.id;
-  var contentHtml = editing
-    ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
-    : '<div class="ssn-bubble-content'+(expanded?'':' ssn-tag-clamp')+'" onclick="toggleSuisuinianTagExpand(\''+m.id+'\')" ondblclick="event.stopPropagation();startEditSuisuinianMessage(\''+m.id+'\')" title="点击展开/收起，双击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-  var dateHtml = editing ? '' : '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
+  var contentHtml = '<div class="ssn-bubble-content'+(expanded?'':' ssn-tag-clamp')+'" onclick="toggleSuisuinianTagExpand(\''+m.id+'\')" ondblclick="event.stopPropagation();editSuisuinianTagEntry(\''+topicId+'\',\''+m.id+'\')" title="点击展开/收起，双击编辑内容和标签">'+esc(m.content||"（没有内容）")+'</div>';
+  var dateHtml = '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
   /* 气泡固定大小：不展开的时候用固定高度+3行截断，展开了才撑开显示全文；
      标签本身已经是列头了，每条内容下面不用再重复挂一遍标签小胶囊，太乱 */
