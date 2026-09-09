@@ -840,6 +840,12 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
 .ssn-tag-col-add{border:1px dashed var(--border); background:none; color:var(--text-faint); width:19px; height:19px; line-height:17px; text-align:center; border-radius:50%; font-size:13px; cursor:pointer; flex:none; padding:0; transition:.12s;}
 .ssn-tag-col-add:hover{border-color:var(--accent); color:var(--accent);}
+.ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
+.ssn-tag-col-addslot{flex:0 0 160px; width:160px; justify-content:flex-start;}
+.ssn-tag-col-newbtn{border:1px dashed var(--border); background:none; color:var(--text-faint); width:28px; height:28px; border-radius:50%; font-size:16px; cursor:pointer; transition:.12s; flex:none;}
+.ssn-tag-col-newbtn:hover{border-color:var(--accent); color:var(--accent);}
+.ssn-tag-col-add-input{width:100%; box-sizing:border-box; padding:5px 12px; border:1px solid var(--accent); border-radius:999px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
+.ssn-tag-col-add-input:focus{outline:none;}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
 .ssn-tag-row .mini-del{opacity:0; transition:.12s;}
 .ssn-tag-row:hover .mini-del{opacity:1;}
@@ -5858,6 +5864,43 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   '</div>';
 }
 /* 标签展现形式改成分栏看板：一个标签一列，各自的留言堆在自己列里，不用再切换筛选来回看 */
+/* 新建标签：不弹编辑框，看板最后加一个虚线"+"槛位，点了原地变成一个输入框，
+   打完按 Enter（或点别处失焦）直接建好，Esc 取消 */
+var suisuinianAddingTagFor = null; /* 当前正在显示"新建标签"输入框的 topicId */
+var __ssnTagAddEscaped = false;
+window.startAddSuisuinianTagInline = function(topicId){
+  suisuinianAddingTagFor = topicId;
+  render();
+};
+window.commitAddSuisuinianTagInline = function(topicId, value){
+  if(__ssnTagAddEscaped){ __ssnTagAddEscaped = false; suisuinianAddingTagFor = null; render(); return; }
+  value = (value||"").trim();
+  suisuinianAddingTagFor = null;
+  if(!value){ render(); return; }
+  var catKey = suisuinianTagCatKey(topicId);
+  DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
+  DATA.moduleCategories[catKey].push({key:uid(), label:value, colorIdx:DATA.moduleCategories[catKey].length});
+  save(); render();
+};
+window.cancelAddSuisuinianTagInlineKey = function(e){
+  if(e.key==="Escape"){ __ssnTagAddEscaped = true; e.target.blur(); }
+  else if(e.key==="Enter"){ e.target.blur(); }
+};
+/* 标签名直接在看板列头那颗小胶囊上双击改，不用再进 ⚙ 管理弹窗 */
+var suisuinianRenamingTagKey = null; /* "topicId::key" */
+window.startRenameSuisuinianTagOnBoard = function(topicId, key){
+  suisuinianRenamingTagKey = topicId+"::"+key;
+  render();
+};
+window.commitRenameSuisuinianTagOnBoard = function(topicId, key, value){
+  value = (value||"").trim();
+  if(value){
+    var c = getModuleCategories(suisuinianTagCatKey(topicId)).filter(function(x){return x.key===key;})[0];
+    if(c){ c.label = value; save(); }
+  }
+  suisuinianRenamingTagKey = null;
+  render();
+};
 function renderSuisuinianTagView(topicId, allMsgs){
   var cats = getModuleCategories(suisuinianTagCatKey(topicId));
   var columns = cats.map(function(c,i){
@@ -5869,14 +5912,18 @@ function renderSuisuinianTagView(topicId, allMsgs){
       || '<div class="sub" style="padding:2px 2px;font-size:11.5px">还没有</div>';
     var countHtml = msgs.length ? '<span class="ssn-tag-col-count">'+msgs.length+'</span>' : '';
     var addBtn = '<button type="button" class="ssn-tag-col-add" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+</button>';
-    var labelHtml = col.color
-      ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'">'+esc(col.label)+'</div>'
-      : '<div class="ssn-tag-col-head">'+esc(col.label)+'</div>';
+    var renamingThis = suisuinianRenamingTagKey===(topicId+"::"+col.key);
+    var labelHtml = renamingThis
+      ? '<input type="text" class="ssn-tag-col-rename-input" style="background:'+col.color.strong+'" value="'+esc(col.label)+'" autofocus onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\',this.value)">'
+      : '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'" ondblclick="startRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\')" title="双击改标签名">'+esc(col.label)+'</div>';
     var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+'<div style="flex:1"></div>'+addBtn+'</div>';
     return '<div class="ssn-tag-col">'+headRow+itemsHtml+'</div>';
   }).join('');
-  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+suisuinianTagManageBtnHtml(topicId)+(cats.length?'':'<span class="sub">还没有标签，点⚙新建一个吧</span>')+'</div>'+
-    '<div class="ssn-tag-board">'+colsHtml+'</div>';
+  var addColHtml = suisuinianAddingTagFor===topicId
+    ? '<div class="ssn-tag-col ssn-tag-col-addslot"><input type="text" class="ssn-tag-col-add-input" placeholder="标签名称，回车创建" autofocus onkeydown="cancelAddSuisuinianTagInlineKey(event)" onblur="commitAddSuisuinianTagInline(\''+topicId+'\',this.value)"></div>'
+    : '<div class="ssn-tag-col ssn-tag-col-addslot"><button type="button" class="ssn-tag-col-newbtn" onclick="startAddSuisuinianTagInline(\''+topicId+'\')" title="新建标签">+</button></div>';
+  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+suisuinianTagManageBtnHtml(topicId)+(cats.length?'':'<span class="sub">还没有标签，点右边的 + 新建一个吧</span>')+'</div>'+
+    '<div class="ssn-tag-board">'+colsHtml+addColHtml+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
