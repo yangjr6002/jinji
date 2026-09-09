@@ -845,7 +845,7 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-row:hover .mini-del{opacity:1;}
 .ssn-tag-item{max-width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer;}
 .ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
-.ssn-tag-time{font-size:9.5px; opacity:.5;}
+.ssn-tag-item-date{font-size:10.5px; color:var(--text-faint); opacity:.65; margin-top:7px;}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .ssn-tag-pill{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-dim); cursor:pointer; transition:.12s; white-space:nowrap; user-select:none;}
 .ssn-tag-pill:hover{filter:brightness(0.96);}
@@ -5889,13 +5889,15 @@ function suisuinianEntryTagPickerPopHtml(topicId, m){
 }
 function suisuinianTagEntryRowHtml(topicId, m, color){
   var expanded = !!suisuinianTagExpanded[m.id];
-  var contentHtml = suisuinianEditingMessage===m.id
+  var editing = suisuinianEditingMessage===m.id;
+  var contentHtml = editing
     ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
     : '<div class="ssn-bubble-content'+(expanded?'':' ssn-tag-clamp')+'" onclick="toggleSuisuinianTagExpand(\''+m.id+'\')" ondblclick="event.stopPropagation();startEditSuisuinianMessage(\''+m.id+'\')" title="点击展开/收起，双击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+  var dateHtml = editing ? '' : '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
   return '<div class="ssn-tag-row">'+
-    '<div class="ssn-tag-item"'+itemStyle+'>'+contentHtml+'</div>'+
-    '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions"><span class="ssn-tag-time">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</span>'+
+    '<div class="ssn-tag-item"'+itemStyle+'>'+contentHtml+dateHtml+'</div>'+
+    '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions">'+
     bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
     '</span>'+
     '<span class="ssn-bubble-meta-actions">'+
