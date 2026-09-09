@@ -830,11 +830,13 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-addimg{opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
 /* 标签展现形式：标签做成一颗颗小泡泡，不用 <select> 那种老式下拉框。
-   留言本身也是气泡形状，但跟"简洁泡泡"模式区分开——不铺满整行、不用大块底色，
-   改成贴着内容宽度的小气泡（只描边，透明底），跟聊天气泡那种感觉更像 */
-.ssn-tag-feed{display:flex; flex-direction:column; gap:14px; padding:2px 16px 16px;}
-.ssn-tag-row{display:flex; flex-direction:column; align-items:flex-start; gap:4px;}
-.ssn-tag-item{max-width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:transparent;}
+   留言按标签分栏摆成看板，一个标签一列，列宽固定住，气泡自然就不会铺得很宽；
+   气泡本身是白底+细描边，跟"简洁泡泡"模式的大块灰底区分开 */
+.ssn-tag-board{display:flex; gap:14px; overflow-x:auto; padding:2px 16px 16px;}
+.ssn-tag-col{flex:0 0 220px; width:220px; display:flex; flex-direction:column; gap:10px;}
+.ssn-tag-col-head{font-size:12px; font-weight:700; color:var(--text-dim); padding:2px 4px 4px; border-bottom:1px solid var(--border-soft);}
+.ssn-tag-row{display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:100%;}
+.ssn-tag-item{max-width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); box-shadow:var(--shadow);}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .ssn-tag-pill{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-dim); cursor:pointer; transition:.12s; white-space:nowrap; user-select:none;}
 .ssn-tag-pill:hover{border-color:var(--accent); color:var(--text);}
@@ -5726,12 +5728,7 @@ function renderSuisuinianAxis(msgs, searchQ){
    标签本身按子主题各自管理（存在 DATA.moduleCategories["suisuinian_tag_"+topicId] 里），
    跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
 var suisuinianComposerTag = "";
-var suisuinianTagFilter = {}; /* topicId -> 当前选中筛选的标签 key，空字符串表示"全部标签" */
 var suisuinianEntryTagPickerOpen = null; /* 当前正在展开"改标签"泡泡选择器的留言 id */
-window.setSuisuinianTagFilterVal = function(topicId, key){
-  suisuinianTagFilter[topicId] = (suisuinianTagFilter[topicId]===key) ? "" : key;
-  render();
-};
 function suisuinianTagCatKey(topicId){ return "suisuinian_tag_"+topicId; }
 function suisuinianTagManageTitle(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
@@ -5801,33 +5798,38 @@ function suisuinianEntryTagPickerPopHtml(topicId, m){
     (cats.length ? suisuinianTagManageBtnHtml(topicId) : '')+
   '</div>';
 }
+function suisuinianTagEntryRowHtml(topicId, m){
+  var contentHtml = suisuinianEditingMessage===m.id
+    ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+    : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+  return '<div class="ssn-tag-row">'+
+    '<div class="ssn-tag-item">'+contentHtml+'</div>'+
+    '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+    bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
+    '</span>'+
+    '<span class="ssn-bubble-meta-actions">'+
+      suisuinianEntryTagBadgeHtml(topicId, m)+
+      bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+      '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+    '</span></div>'+
+    suisuinianEntryTagPickerPopHtml(topicId, m)+
+  '</div>';
+}
+/* 标签展现形式改成分栏看板：一个标签一列，各自的留言堆在自己列里，不用再切换筛选来回看 */
 function renderSuisuinianTagView(topicId, allMsgs){
   var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var filterVal = suisuinianTagFilter[topicId] || "";
-  var msgs = filterVal ? allMsgs.filter(function(m){ return (m.tag||"")===filterVal; }) : allMsgs;
-  var filterPills = '<span class="ssn-tag-pill'+(!filterVal?' active':'')+'" onclick="setSuisuinianTagFilterVal(\''+topicId+'\',\'\')">全部标签</span>'+
-    cats.map(function(c){
-      return '<span class="ssn-tag-pill'+(c.key===filterVal?' active':'')+'" onclick="setSuisuinianTagFilterVal(\''+topicId+'\',\''+c.key+'\')">'+esc(c.label)+'</span>';
-    }).join('');
-  var list = msgs.map(function(m){
-    var contentHtml = suisuinianEditingMessage===m.id
-      ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
-      : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-    return '<div class="ssn-tag-row">'+
-      '<div class="ssn-tag-item">'+contentHtml+'</div>'+
-      '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
-      bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
-      '</span>'+
-      '<span class="ssn-bubble-meta-actions">'+
-        suisuinianEntryTagBadgeHtml(topicId, m)+
-        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
-        '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-      '</span></div>'+
-      suisuinianEntryTagPickerPopHtml(topicId, m)+
+  var columns = [{key:"", label:"未标记"}].concat(cats.map(function(c){ return {key:c.key, label:c.label}; }));
+  var colsHtml = columns.map(function(col){
+    var msgs = allMsgs.filter(function(m){ return (m.tag||"")===col.key; });
+    var itemsHtml = msgs.map(function(m){ return suisuinianTagEntryRowHtml(topicId, m); }).join('')
+      || '<div class="sub" style="padding:2px 2px;font-size:11.5px">还没有</div>';
+    return '<div class="ssn-tag-col">'+
+      '<div class="ssn-tag-col-head">'+esc(col.label)+(msgs.length?'<span class="muted"> · '+msgs.length+'</span>':'')+'</div>'+
+      itemsHtml+
     '</div>';
-  }).join('') || '<div class="sub" style="padding:8px 2px">'+(filterVal?"这个标签下还没有留言":"还没有留言，在下面写第一条吧")+'</div>';
-  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+filterPills+(cats.length?suisuinianTagManageBtnHtml(topicId):'')+'</div>'+
-    '<div class="ssn-tag-feed">'+list+'</div>';
+  }).join('');
+  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+(cats.length?suisuinianTagManageBtnHtml(topicId):'<span class="sub">还没有标签，在上面写留言时新建一个吧</span>')+'</div>'+
+    '<div class="ssn-tag-board">'+colsHtml+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
