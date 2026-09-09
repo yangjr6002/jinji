@@ -838,11 +838,11 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-head{font-size:11px; font-weight:700; color:var(--text-dim);}
 .ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
-.ssn-tag-col-add{border:1px dashed var(--border); background:none; color:var(--text-faint); width:19px; height:19px; line-height:17px; text-align:center; border-radius:50%; font-size:13px; cursor:pointer; flex:none; padding:0; transition:.12s;}
-.ssn-tag-col-add:hover{border-color:var(--accent); color:var(--accent);}
+.ssn-tag-col-add{border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); width:24px; height:24px; line-height:21px; text-align:center; border-radius:50%; font-size:16px; font-weight:700; cursor:pointer; flex:none; padding:0; transition:.12s;}
+.ssn-tag-col-add:hover{background:var(--accent); color:#fff;}
 .ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
-.ssn-tag-col-newbtn{border:1px dashed var(--border); background:none; color:var(--text-faint); width:28px; height:28px; border-radius:50%; font-size:16px; cursor:pointer; transition:.12s; flex:none;}
-.ssn-tag-col-newbtn:hover{border-color:var(--accent); color:var(--accent);}
+.ssn-tag-col-newbtn{border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); width:30px; height:30px; line-height:27px; text-align:center; border-radius:50%; font-size:18px; font-weight:700; cursor:pointer; transition:.12s; flex:none; padding:0;}
+.ssn-tag-col-newbtn:hover{background:var(--accent); color:#fff;}
 .ssn-tag-col-add-input{width:100%; box-sizing:border-box; padding:5px 12px; border:1px solid var(--accent); border-radius:999px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
 .ssn-tag-col-add-input:focus{outline:none;}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
@@ -5749,7 +5749,7 @@ window.commitEditSuisuinianTagEntry = function(id, value){
 /* 果冻色系：每个标签固定分到一个颜色（新建时按当前已有标签数量顺位分配，存在 colorIdx 里，
    不会因为增删其他标签而跟着变）。列头用饱和一点的"果冻实心"，气泡用同色系的浅底 */
 var SSN_JELLY_COLORS = [
-  {bg:"#D8F5E3", strong:"#289A63"}, /* 绿 */
+  {bg:"#E7EDD3", strong:"#7C9A45"}, /* 牛油果绿 */
   {bg:"#FFF2B8", strong:"#E0AC13"}, /* 黄 */
   {bg:"#FFE1EA", strong:"#F4568B"}, /* 粉 */
   {bg:"#E7DDFF", strong:"#8259C9"}, /* 紫 */
