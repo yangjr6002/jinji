@@ -840,20 +840,14 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
 .ssn-tag-col-add{border:1px dashed var(--border); background:none; color:var(--text-faint); width:19px; height:19px; line-height:17px; text-align:center; border-radius:50%; font-size:13px; cursor:pointer; flex:none; padding:0; transition:.12s;}
 .ssn-tag-col-add:hover{border-color:var(--accent); color:var(--accent);}
-.ssn-tag-row{display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:100%;}
+.ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
 .ssn-tag-row .mini-del{opacity:0; transition:.12s;}
 .ssn-tag-row:hover .mini-del{opacity:1;}
-.ssn-tag-item{max-width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer;}
+.ssn-tag-item{width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; height:106px; overflow:hidden;}
+.ssn-tag-item.expanded{height:auto; overflow:visible;}
 .ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
 .ssn-tag-item-date{font-size:10.5px; color:var(--text-faint); opacity:.65; margin-top:7px;}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
-.ssn-tag-pill{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-dim); cursor:pointer; transition:.12s; white-space:nowrap; user-select:none;}
-.ssn-tag-pill:hover{filter:brightness(0.96);}
-.ssn-tag-pill.add{border-style:dashed; color:var(--text-faint); background:transparent;}
-.ssn-tag-badge{display:inline-flex; align-items:center; padding:2px 10px; border-radius:999px; font-size:10.5px; font-weight:600; cursor:pointer; line-height:1.6; opacity:.92; transition:.12s;}
-.ssn-tag-badge:hover{opacity:1;}
-.ssn-tag-badge.none{background:var(--surface-2); color:var(--text-faint); border:1px dashed var(--border); font-weight:400;}
-.ssn-tag-picker-pop{display:flex; flex-wrap:wrap; gap:6px; padding:8px 0 0;}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
 .ssn-composer-row{display:flex; gap:6px; align-items:flex-end;}
 .book-lightbox-img{max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:var(--shadow-lg); display:block;}
@@ -5734,7 +5728,6 @@ function renderSuisuinianAxis(msgs, searchQ){
 /* 标签版：写一长串内容，选一个标签，标签做成一颗颗可点的小泡泡，不用老式下拉框。
    标签本身按子主题各自管理（存在 DATA.moduleCategories["suisuinian_tag_"+topicId] 里），
    跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
-var suisuinianEntryTagPickerOpen = null; /* 当前正在展开"改标签"泡泡选择器的留言 id */
 var suisuinianTagExpanded = {}; /* 留言 id -> 是否展开全文（默认收起，缩略展示） */
 window.toggleSuisuinianTagExpand = function(id){
   suisuinianTagExpanded[id] = !suisuinianTagExpanded[id];
@@ -5818,31 +5811,6 @@ window.addSuisuinianTagFromManager = function(topicId){
   DATA.moduleCategories[catKey].push({key:uid(), label:value, colorIdx:DATA.moduleCategories[catKey].length});
   save(); render(); manageSuisuinianTags(topicId);
 };
-/* 统一的果冻色泡泡：选中/激活是实心果冻色+白字，没选中是浅果冻底+同色系文字，
-   composer 选标签、改标签的浮层、列头都用这一个，颜色跟标签一一对应，不会串色 */
-function suisuinianTagPillHtml(cat, idx, active, onclickAttr){
-  var c = suisuinianTagColor(cat, idx);
-  var style = active
-    ? 'background:'+c.strong+';border-color:'+c.strong+';color:#fff;font-weight:600;'
-    : 'background:'+c.bg+';border-color:'+c.bg+';color:'+c.strong+';';
-  return '<span class="ssn-tag-pill" style="'+style+'" '+onclickAttr+'>'+esc(cat.label)+'</span>';
-}
-window.promptNewSuisuinianTag = function(topicId, entryId){
-  render();
-  openModal("新建标签", '<div class="field"><label>标签名称</label><input type="text" name="label" autofocus></div>', function(data){
-    var label = (data.label||"").trim(); if(!label) return;
-    var catKey = suisuinianTagCatKey(topicId);
-    DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
-    var key = uid();
-    DATA.moduleCategories[catKey].push({key:key, label:label, colorIdx:DATA.moduleCategories[catKey].length});
-    if(entryId){
-      var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===entryId;})[0];
-      if(m) m.tag = key;
-      suisuinianEntryTagPickerOpen = null;
-    }
-    save(); render();
-  });
-};
 /* 每列标题旁边一个小"+"，直接弹个小框写内容，写完就是这一列（这个标签）的留言——
    不用再摆一整块常驻的大编辑框在最上面 */
 window.addSuisuinianQuickMessage = function(topicId, tagKey){
@@ -5856,37 +5824,6 @@ window.addSuisuinianQuickMessage = function(topicId, tagKey){
     save(); render();
   });
 };
-/* 每条留言右下角是个小圆角标签泡泡，点一下展开一排可选泡泡改标签，选完自动收起 */
-window.toggleSuisuinianEntryTagPicker = function(id){
-  suisuinianEntryTagPickerOpen = (suisuinianEntryTagPickerOpen===id) ? null : id;
-  render();
-};
-window.setSuisuinianEntryTag = function(id, key){
-  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.tag = key; save(); }
-  suisuinianEntryTagPickerOpen = null;
-  render();
-};
-function suisuinianEntryTagBadgeHtml(topicId, m){
-  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var current = null, idx = -1;
-  cats.forEach(function(c,i){ if(c.key===m.tag){ current=c; idx=i; } });
-  if(!current) return '<span class="ssn-tag-badge none" onclick="toggleSuisuinianEntryTagPicker(\''+m.id+'\')" title="点击改标签">+ 标签</span>';
-  var col = suisuinianTagColor(current, idx);
-  return '<span class="ssn-tag-badge" style="background:'+col.strong+';color:#fff" onclick="toggleSuisuinianEntryTagPicker(\''+m.id+'\')" title="点击改标签">'+esc(current.label)+'</span>';
-}
-function suisuinianEntryTagPickerPopHtml(topicId, m){
-  if(suisuinianEntryTagPickerOpen!==m.id) return '';
-  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var pills = cats.map(function(c,i){
-    return suisuinianTagPillHtml(c, i, m.tag===c.key, 'onclick="setSuisuinianEntryTag(\''+m.id+'\',\''+c.key+'\')"');
-  }).join('');
-  return '<div class="ssn-tag-picker-pop">'+pills+
-    (m.tag ? '<span class="ssn-tag-pill" onclick="setSuisuinianEntryTag(\''+m.id+'\',\'\')">无标签</span>' : '')+
-    '<span class="ssn-tag-pill add" onclick="promptNewSuisuinianTag(\''+topicId+'\',\''+m.id+'\')">+ 新建</span>'+
-    (cats.length ? suisuinianTagManageBtnHtml(topicId) : '')+
-  '</div>';
-}
 function suisuinianTagEntryRowHtml(topicId, m, color){
   var expanded = !!suisuinianTagExpanded[m.id];
   var editing = suisuinianEditingMessage===m.id;
@@ -5895,17 +5832,17 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
     : '<div class="ssn-bubble-content'+(expanded?'':' ssn-tag-clamp')+'" onclick="toggleSuisuinianTagExpand(\''+m.id+'\')" ondblclick="event.stopPropagation();startEditSuisuinianMessage(\''+m.id+'\')" title="点击展开/收起，双击编辑">'+esc(m.content||"（没有内容）")+'</div>';
   var dateHtml = editing ? '' : '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
+  /* 气泡固定大小：不展开的时候用固定高度+3行截断，展开了才撑开显示全文；
+     标签本身已经是列头了，每条内容下面不用再重复挂一遍标签小胶囊，太乱 */
   return '<div class="ssn-tag-row">'+
-    '<div class="ssn-tag-item"'+itemStyle+'>'+contentHtml+dateHtml+'</div>'+
+    '<div class="ssn-tag-item'+(expanded?' expanded':'')+'"'+itemStyle+'>'+contentHtml+dateHtml+'</div>'+
     '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions">'+
     bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
     '</span>'+
     '<span class="ssn-bubble-meta-actions">'+
-      suisuinianEntryTagBadgeHtml(topicId, m)+
       bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
       '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
     '</span></div>'+
-    suisuinianEntryTagPickerPopHtml(topicId, m)+
   '</div>';
 }
 /* 标签展现形式改成分栏看板：一个标签一列，各自的留言堆在自己列里，不用再切换筛选来回看 */
