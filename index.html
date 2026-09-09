@@ -829,6 +829,16 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-meta-actions{display:flex; align-items:center; gap:2px;}
 .ssn-bubble-addimg{opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
+/* 标签展现形式：标签做成一颗颗小泡泡，不用 <select> 那种老式下拉框 */
+.ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+.ssn-tag-pill{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-dim); cursor:pointer; transition:.12s; white-space:nowrap; user-select:none;}
+.ssn-tag-pill:hover{border-color:var(--accent); color:var(--text);}
+.ssn-tag-pill.active{background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600;}
+.ssn-tag-pill.add{border-style:dashed; color:var(--text-faint);}
+.ssn-tag-badge{display:inline-flex; align-items:center; padding:2px 10px; border-radius:999px; background:var(--accent); color:#fff; font-size:10.5px; font-weight:600; cursor:pointer; line-height:1.6; opacity:.92; transition:.12s;}
+.ssn-tag-badge:hover{opacity:1;}
+.ssn-tag-badge.none{background:var(--surface-2); color:var(--text-faint); border:1px dashed var(--border); font-weight:400;}
+.ssn-tag-picker-pop{display:flex; flex-wrap:wrap; gap:6px; padding:8px 0 0;}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
 .ssn-composer-row{display:flex; gap:6px; align-items:flex-end;}
 .book-lightbox-img{max-width:92vw; max-height:92vh; border-radius:8px; box-shadow:var(--shadow-lg); display:block;}
@@ -5707,81 +5717,93 @@ function renderSuisuinianAxis(msgs, searchQ){
   '</div>';
   return '<div class="card-panel ssn-axis">'+axisSearchHtml+axisItems+'</div>';
 }
-/* 标签版：写一长串内容，选一个标签（复用资产"账户类型"那套下拉框自带新增/管理的思路），
-   顶部一个"按标签筛选"下拉框，选中某个标签就只看这个标签下的留言，选"全部标签"看全部。
+/* 标签版：写一长串内容，选一个标签，标签做成一颗颗可点的小泡泡，不用老式下拉框。
    标签本身按子主题各自管理（存在 DATA.moduleCategories["suisuinian_tag_"+topicId] 里），
-   跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套。 */
+   跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
 var suisuinianComposerTag = "";
 var suisuinianTagFilter = {}; /* topicId -> 当前选中筛选的标签 key，空字符串表示"全部标签" */
-window.setSuisuinianTagFilterVal = function(topicId, v){ suisuinianTagFilter[topicId] = v; render(); };
+var suisuinianEntryTagPickerOpen = null; /* 当前正在展开"改标签"泡泡选择器的留言 id */
+window.setSuisuinianTagFilterVal = function(topicId, key){
+  suisuinianTagFilter[topicId] = (suisuinianTagFilter[topicId]===key) ? "" : key;
+  render();
+};
 function suisuinianTagCatKey(topicId){ return "suisuinian_tag_"+topicId; }
 function suisuinianTagManageTitle(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
   return (topic?topic.label:"碎碎念")+" · 标签管理";
 }
+function suisuinianTagManageBtnHtml(topicId){
+  return '<button type="button" class="gear-btn" onclick="manageModuleCategories(\''+suisuinianTagCatKey(topicId)+'\',\''+suisuinianTagManageTitle(topicId).replace(/'/g,"")+'\')" title="管理标签">⚙</button>';
+}
+window.promptNewSuisuinianTag = function(topicId, entryId){
+  render();
+  openModal("新建标签", '<div class="field"><label>标签名称</label><input type="text" name="label" autofocus></div>', function(data){
+    var label = (data.label||"").trim(); if(!label) return;
+    var catKey = suisuinianTagCatKey(topicId);
+    DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
+    var key = uid();
+    DATA.moduleCategories[catKey].push({key:key, label:label});
+    if(entryId){
+      var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===entryId;})[0];
+      if(m) m.tag = key;
+      suisuinianEntryTagPickerOpen = null;
+    } else {
+      suisuinianComposerTag = key;
+    }
+    save(); render();
+  });
+};
+/* 写留言时选标签：一排泡泡，点一下选中（再点一下取消选中），旁边一颗虚线"+ 新建标签" */
 function suisuinianComposerTagSelectHtml(topicId){
   var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var opts = '<option value=""'+(!suisuinianComposerTag?' selected':'')+'>不选标签</option>'+
-    cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===suisuinianComposerTag?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
-    '<option value="__new__">+ 新建标签…</option>'+
-    (cats.length ? '<option value="__manage__">✎ 管理标签…</option>' : '');
-  return '<select class="asset-type-select ssn-tag-select" onchange="handleSuisuinianComposerTagSelect(\''+topicId+'\',this)">'+opts+'</select>';
+  var pills = cats.map(function(c){
+    return '<span class="ssn-tag-pill'+(suisuinianComposerTag===c.key?' active':'')+'" onclick="setSuisuinianComposerTag(\''+c.key+'\')">'+esc(c.label)+'</span>';
+  }).join('');
+  return '<div class="ssn-tag-pillrow" style="padding:7px 12px 0">'+pills+
+    '<span class="ssn-tag-pill add" onclick="promptNewSuisuinianTag(\''+topicId+'\',null)">+ 新建标签</span>'+
+    (cats.length ? suisuinianTagManageBtnHtml(topicId) : '')+
+  '</div>';
 }
-window.handleSuisuinianComposerTagSelect = function(topicId, selectEl){
-  var v = selectEl.value;
-  var catKey = suisuinianTagCatKey(topicId);
-  if(v==="__manage__"){ render(); manageModuleCategories(catKey, suisuinianTagManageTitle(topicId)); return; }
-  if(v==="__new__"){
-    render();
-    openModal("新建标签", '<div class="field"><label>标签名称</label><input type="text" name="label" autofocus></div>', function(data){
-      var label = (data.label||"").trim(); if(!label) return;
-      DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
-      var key = uid();
-      DATA.moduleCategories[catKey].push({key:key, label:label});
-      suisuinianComposerTag = key;
-      save(); render();
-    });
-    return;
-  }
-  suisuinianComposerTag = v;
+window.setSuisuinianComposerTag = function(key){
+  suisuinianComposerTag = (suisuinianComposerTag===key) ? "" : key;
+  render();
 };
-function suisuinianEntryTagSelectHtml(topicId, m){
-  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var current = m.tag||"";
-  var opts = '<option value=""'+(!current?' selected':'')+'>无标签</option>'+
-    cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===current?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
-    '<option value="__new__">+ 新建标签…</option>'+
-    (cats.length ? '<option value="__manage__">✎ 管理标签…</option>' : '');
-  return '<select class="asset-type-select ssn-tag-select" onchange="handleSuisuinianEntryTagSelect(\''+m.id+'\',\''+topicId+'\',this)">'+opts+'</select>';
-}
-window.handleSuisuinianEntryTagSelect = function(id, topicId, selectEl){
-  var v = selectEl.value;
-  var catKey = suisuinianTagCatKey(topicId);
-  if(v==="__manage__"){ render(); manageModuleCategories(catKey, suisuinianTagManageTitle(topicId)); return; }
-  if(v==="__new__"){
-    render();
-    openModal("新建标签", '<div class="field"><label>标签名称</label><input type="text" name="label" autofocus></div>', function(data){
-      var label = (data.label||"").trim(); if(!label) return;
-      DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
-      var key = uid();
-      DATA.moduleCategories[catKey].push({key:key, label:label});
-      var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-      if(m){ m.tag = key; save(); }
-      render();
-    });
-    return;
-  }
+/* 每条留言右下角是个小圆角标签泡泡，点一下展开一排可选泡泡改标签，选完自动收起 */
+window.toggleSuisuinianEntryTagPicker = function(id){
+  suisuinianEntryTagPickerOpen = (suisuinianEntryTagPickerOpen===id) ? null : id;
+  render();
+};
+window.setSuisuinianEntryTag = function(id, key){
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.tag = v; save(); render(); }
+  if(m){ m.tag = key; save(); }
+  suisuinianEntryTagPickerOpen = null;
+  render();
 };
+function suisuinianEntryTagBadgeHtml(topicId, m){
+  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
+  var current = m.tag ? cats.filter(function(c){return c.key===m.tag;})[0] : null;
+  return '<span class="ssn-tag-badge'+(current?'':' none')+'" onclick="toggleSuisuinianEntryTagPicker(\''+m.id+'\')" title="点击改标签">'+(current?esc(current.label):'+ 标签')+'</span>';
+}
+function suisuinianEntryTagPickerPopHtml(topicId, m){
+  if(suisuinianEntryTagPickerOpen!==m.id) return '';
+  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
+  var pills = cats.map(function(c){
+    return '<span class="ssn-tag-pill'+(m.tag===c.key?' active':'')+'" onclick="setSuisuinianEntryTag(\''+m.id+'\',\''+c.key+'\')">'+esc(c.label)+'</span>';
+  }).join('');
+  return '<div class="ssn-tag-picker-pop">'+pills+
+    (m.tag ? '<span class="ssn-tag-pill" onclick="setSuisuinianEntryTag(\''+m.id+'\',\'\')">无标签</span>' : '')+
+    '<span class="ssn-tag-pill add" onclick="promptNewSuisuinianTag(\''+topicId+'\',\''+m.id+'\')">+ 新建</span>'+
+    (cats.length ? suisuinianTagManageBtnHtml(topicId) : '')+
+  '</div>';
+}
 function renderSuisuinianTagView(topicId, allMsgs){
   var cats = getModuleCategories(suisuinianTagCatKey(topicId));
   var filterVal = suisuinianTagFilter[topicId] || "";
   var msgs = filterVal ? allMsgs.filter(function(m){ return (m.tag||"")===filterVal; }) : allMsgs;
-  var filterSelect = '<select class="asset-type-select" style="width:auto;display:inline-block" onchange="setSuisuinianTagFilterVal(\''+topicId+'\',this.value)">'+
-    '<option value=""'+(!filterVal?' selected':'')+'>全部标签</option>'+
-    cats.map(function(c){ return '<option value="'+esc(c.key)+'"'+(c.key===filterVal?' selected':'')+'>'+esc(c.label)+'</option>'; }).join('')+
-  '</select>';
+  var filterPills = '<span class="ssn-tag-pill'+(!filterVal?' active':'')+'" onclick="setSuisuinianTagFilterVal(\''+topicId+'\',\'\')">全部标签</span>'+
+    cats.map(function(c){
+      return '<span class="ssn-tag-pill'+(c.key===filterVal?' active':'')+'" onclick="setSuisuinianTagFilterVal(\''+topicId+'\',\''+c.key+'\')">'+esc(c.label)+'</span>';
+    }).join('');
   var list = msgs.map(function(m){
     var contentHtml = suisuinianEditingMessage===m.id
       ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
@@ -5792,13 +5814,14 @@ function renderSuisuinianTagView(topicId, allMsgs){
       bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
       '</span>'+
       '<span class="ssn-bubble-meta-actions">'+
-        suisuinianEntryTagSelectHtml(topicId, m)+
+        suisuinianEntryTagBadgeHtml(topicId, m)+
         bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
         '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
       '</span></div>'+
+      suisuinianEntryTagPickerPopHtml(topicId, m)+
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">'+(filterVal?"这个标签下还没有留言":"还没有留言，在下面写第一条吧")+'</div>';
-  return '<div class="asset-toolbar-lite" style="margin-bottom:10px">'+filterSelect+'</div>'+
+  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+filterPills+(cats.length?suisuinianTagManageBtnHtml(topicId):'')+'</div>'+
     '<div class="card-panel ssn-feed">'+list+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
