@@ -829,7 +829,11 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-meta-actions{display:flex; align-items:center; gap:2px;}
 .ssn-bubble-addimg{opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
-/* 标签展现形式：标签做成一颗颗小泡泡，不用 <select> 那种老式下拉框 */
+/* 标签展现形式：标签做成一颗颗小泡泡，不用 <select> 那种老式下拉框。
+   留言本身跟"简洁泡泡"模式区分开，不要一整块大底色卡片，改成一条条紧凑的，靠细分隔线分开 */
+.ssn-tag-feed{display:flex; flex-direction:column; padding:2px 16px 16px;}
+.ssn-tag-item{padding:10px 0; border-bottom:1px solid var(--border-soft);}
+.ssn-tag-item:last-child{border-bottom:none;}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .ssn-tag-pill{display:inline-flex; align-items:center; padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-dim); cursor:pointer; transition:.12s; white-space:nowrap; user-select:none;}
 .ssn-tag-pill:hover{border-color:var(--accent); color:var(--text);}
@@ -5808,7 +5812,7 @@ function renderSuisuinianTagView(topicId, allMsgs){
     var contentHtml = suisuinianEditingMessage===m.id
       ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-    return '<div class="ssn-bubble">'+
+    return '<div class="ssn-tag-item">'+
       contentHtml+
       '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
       bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
@@ -5822,7 +5826,7 @@ function renderSuisuinianTagView(topicId, allMsgs){
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">'+(filterVal?"这个标签下还没有留言":"还没有留言，在下面写第一条吧")+'</div>';
   return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+filterPills+(cats.length?suisuinianTagManageBtnHtml(topicId):'')+'</div>'+
-    '<div class="card-panel ssn-feed">'+list+'</div>';
+    '<div class="ssn-tag-feed">'+list+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
