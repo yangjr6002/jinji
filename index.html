@@ -834,9 +834,15 @@ th.col-resizable .mini-del{margin-top:6px;}
    气泡本身是白底+细描边，跟"简洁泡泡"模式的大块灰底区分开 */
 .ssn-tag-board{display:flex; gap:14px; overflow-x:auto; padding:2px 16px 16px;}
 .ssn-tag-col{flex:0 0 220px; width:220px; display:flex; flex-direction:column; gap:10px;}
-.ssn-tag-col-head{font-size:12px; font-weight:700; color:var(--text-dim); padding:2px 4px 4px; border-bottom:1px solid var(--border-soft);}
-.ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:4px 13px; border-radius:999px; font-size:12px; font-weight:700; color:#fff; margin-bottom:2px; width:fit-content;}
+.ssn-tag-col-headrow{display:flex; align-items:center; gap:5px;}
+.ssn-tag-col-head{font-size:11px; font-weight:700; color:var(--text-dim);}
+.ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
+.ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
+.ssn-tag-col-add{border:1px dashed var(--border); background:none; color:var(--text-faint); width:19px; height:19px; line-height:17px; text-align:center; border-radius:50%; font-size:13px; cursor:pointer; flex:none; padding:0; transition:.12s;}
+.ssn-tag-col-add:hover{border-color:var(--accent); color:var(--accent);}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:flex-start; gap:4px; width:100%;}
+.ssn-tag-row .mini-del{opacity:0; transition:.12s;}
+.ssn-tag-row:hover .mini-del{opacity:1;}
 .ssn-tag-item{max-width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer;}
 .ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
 .ssn-tag-time{font-size:9.5px; opacity:.5;}
@@ -5587,9 +5593,8 @@ window.addSuisuinianMessage = function(topicId){
   if(!value && !suisuinianComposerImages.length) return;
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
   var id = uid();
-  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[], tag:suisuinianComposerTag});
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[]});
   suisuinianComposerImages = [];
-  suisuinianComposerTag = "";
   suisuinianAxisExpanded[id] = true; /* 新写的这条默认展开，能立刻看到自己写的内容 */
   save(); render();
 };
@@ -5729,7 +5734,6 @@ function renderSuisuinianAxis(msgs, searchQ){
 /* 标签版：写一长串内容，选一个标签，标签做成一颗颗可点的小泡泡，不用老式下拉框。
    标签本身按子主题各自管理（存在 DATA.moduleCategories["suisuinian_tag_"+topicId] 里），
    跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
-var suisuinianComposerTag = "";
 var suisuinianEntryTagPickerOpen = null; /* 当前正在展开"改标签"泡泡选择器的留言 id */
 var suisuinianTagExpanded = {}; /* 留言 id -> 是否展开全文（默认收起，缩略展示） */
 window.toggleSuisuinianTagExpand = function(id){
@@ -5788,26 +5792,22 @@ window.promptNewSuisuinianTag = function(topicId, entryId){
       var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===entryId;})[0];
       if(m) m.tag = key;
       suisuinianEntryTagPickerOpen = null;
-    } else {
-      suisuinianComposerTag = key;
     }
     save(); render();
   });
 };
-/* 写留言时选标签：一排果冻色泡泡，点一下选中（再点一下取消选中），旁边一颗虚线"+ 新建标签" */
-function suisuinianComposerTagSelectHtml(topicId){
-  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var pills = cats.map(function(c,i){
-    return suisuinianTagPillHtml(c, i, suisuinianComposerTag===c.key, 'onclick="setSuisuinianComposerTag(\''+c.key+'\')"');
-  }).join('');
-  return '<div class="ssn-tag-pillrow" style="padding:7px 12px 0">'+pills+
-    '<span class="ssn-tag-pill add" onclick="promptNewSuisuinianTag(\''+topicId+'\',null)">+ 新建标签</span>'+
-    (cats.length ? suisuinianTagManageBtnHtml(topicId) : '')+
-  '</div>';
-}
-window.setSuisuinianComposerTag = function(key){
-  suisuinianComposerTag = (suisuinianComposerTag===key) ? "" : key;
+/* 每列标题旁边一个小"+"，直接弹个小框写内容，写完就是这一列（这个标签）的留言——
+   不用再摆一整块常驻的大编辑框在最上面 */
+window.addSuisuinianQuickMessage = function(topicId, tagKey){
   render();
+  openModal("写点什么", '<div class="field"><textarea name="content" autofocus placeholder="写点什么…" style="min-height:110px" onkeydown="enterSubmitKeydown(event,this)"></textarea></div>', function(data){
+    var value = (data.content||"").trim();
+    if(!value) return;
+    DATA.suisuinianEntries = DATA.suisuinianEntries || [];
+    var id = uid();
+    DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:"", content:value, images:[], fields:[], tag:tagKey||""});
+    save(); render();
+  });
 };
 /* 每条留言右下角是个小圆角标签泡泡，点一下展开一排可选泡泡改标签，选完自动收起 */
 window.toggleSuisuinianEntryTagPicker = function(id){
@@ -5869,12 +5869,15 @@ function renderSuisuinianTagView(topicId, allMsgs){
     var msgs = allMsgs.filter(function(m){ return (m.tag||"")===col.key; });
     var itemsHtml = msgs.map(function(m){ return suisuinianTagEntryRowHtml(topicId, m, col.color); }).join('')
       || '<div class="sub" style="padding:2px 2px;font-size:11.5px">还没有</div>';
-    var headHtml = col.color
-      ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'">'+esc(col.label)+(msgs.length?' · '+msgs.length:'')+'</div>'
-      : '<div class="ssn-tag-col-head">'+esc(col.label)+(msgs.length?'<span class="muted"> · '+msgs.length+'</span>':'')+'</div>';
-    return '<div class="ssn-tag-col">'+headHtml+itemsHtml+'</div>';
+    var countHtml = msgs.length ? '<span class="ssn-tag-col-count">'+msgs.length+'</span>' : '';
+    var addBtn = '<button type="button" class="ssn-tag-col-add" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+</button>';
+    var labelHtml = col.color
+      ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'">'+esc(col.label)+'</div>'
+      : '<div class="ssn-tag-col-head">'+esc(col.label)+'</div>';
+    var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+'<div style="flex:1"></div>'+addBtn+'</div>';
+    return '<div class="ssn-tag-col">'+headRow+itemsHtml+'</div>';
   }).join('');
-  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+(cats.length?suisuinianTagManageBtnHtml(topicId):'<span class="sub">还没有标签，在上面写留言时新建一个吧</span>')+'</div>'+
+  return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+suisuinianTagManageBtnHtml(topicId)+(cats.length?'':'<span class="sub">还没有标签，点⚙新建一个吧</span>')+'</div>'+
     '<div class="ssn-tag-board">'+colsHtml+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
@@ -5883,7 +5886,7 @@ function renderSuisuinianTopicBoard(topicId){
     return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTag = ""; suisuinianComposerTopicId = topicId; }
+  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; }
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
   var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
   var allMsgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;})
@@ -5911,18 +5914,18 @@ function renderSuisuinianTopicBoard(topicId){
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     suisuinianModeSwitchHtml()+
     '</div></div>'+
+    (mode==="tag" ? '' :
     '<div class="ssn-composer">'+
       '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
         '<div class="ssn-composer-box">'+
           (mode==="axis" ? '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">' : '')+
-          (mode==="tag" ? suisuinianComposerTagSelectHtml(topic.id) : '')+
           '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
         '</div>'+
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
-    '</div>'+
+    '</div>')+
     bodyHtml;
 }
 window.toggleBookSort = function(moduleId){
