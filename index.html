@@ -5769,8 +5769,55 @@ function suisuinianTagManageTitle(topicId){
   return (topic?topic.label:"碎碎念")+" · 标签管理";
 }
 function suisuinianTagManageBtnHtml(topicId){
-  return '<button type="button" class="gear-btn" onclick="manageModuleCategories(\''+suisuinianTagCatKey(topicId)+'\',\''+suisuinianTagManageTitle(topicId).replace(/'/g,"")+'\')" title="管理标签">⚙</button>';
+  return '<button type="button" class="gear-btn" onclick="manageSuisuinianTags(\''+topicId+'\')" title="管理标签">⚙</button>';
 }
+/* 标签管理用专门的一个平级列表弹窗，不借用资产类型那套"大分组+固定未分类"的分类管理器——
+   标签本身就没有分层的需求，未标记已经在看板里单独一列了，不用再套一层"未分类"概念 */
+window.manageSuisuinianTags = function(topicId){
+  var root = document.getElementById("modalRoot");
+  var catKey = suisuinianTagCatKey(topicId);
+  var cats = getModuleCategories(catKey);
+  var rows = cats.map(function(c,i){
+    var col = suisuinianTagColor(c,i);
+    return '<div class="cat-manage-row">'+
+      '<span style="width:14px;height:14px;border-radius:50%;flex:none;background:'+col.strong+'"></span>'+
+      '<input type="text" class="cat-name-input" value="'+esc(c.label)+'" onchange="renameSuisuinianTag(\''+topicId+'\',\''+c.key+'\', this.value)">'+
+      '<button type="button" class="mini-del" onclick="deleteSuisuinianTag(\''+topicId+'\',\''+c.key+'\')" title="删除">✕</button>'+
+    '</div>';
+  }).join('');
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>'+esc(suisuinianTagManageTitle(topicId))+'</h3>'+
+    '<div class="cat-manage-list">'+(rows||'<div class="sub" style="padding:2px 2px 14px">还没有标签，在下面加一个吧</div>')+'</div>'+
+    '<div class="cat-add-row">'+
+      '<input type="text" id="newSsnTagName" placeholder="新标签名称" maxlength="10" onkeydown="if(event.key===\'Enter\'){addSuisuinianTagFromManager(\''+topicId+'\');}">'+
+      '<button type="button" class="btn small solid" onclick="addSuisuinianTagFromManager(\''+topicId+'\')">+ 添加</button>'+
+    '</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+window.renameSuisuinianTag = function(topicId, key, value){
+  value = (value||"").trim();
+  var c = getModuleCategories(suisuinianTagCatKey(topicId)).filter(function(x){return x.key===key;})[0];
+  if(c && value){ c.label = value; save(); }
+  render(); manageSuisuinianTags(topicId);
+};
+window.deleteSuisuinianTag = function(topicId, key){
+  confirmDelete("确定删除这个标签吗？用过这个标签的留言会变回未标记，不会被删除。", function(){
+    var catKey = suisuinianTagCatKey(topicId);
+    DATA.moduleCategories[catKey] = getModuleCategories(catKey).filter(function(x){return x.key!==key;});
+    save(); render(); manageSuisuinianTags(topicId);
+  });
+};
+window.addSuisuinianTagFromManager = function(topicId){
+  var input = document.getElementById("newSsnTagName");
+  var value = input ? (input.value||"").trim() : "";
+  if(!value) return;
+  var catKey = suisuinianTagCatKey(topicId);
+  DATA.moduleCategories[catKey] = DATA.moduleCategories[catKey] || [];
+  DATA.moduleCategories[catKey].push({key:uid(), label:value, colorIdx:DATA.moduleCategories[catKey].length});
+  save(); render(); manageSuisuinianTags(topicId);
+};
 /* 统一的果冻色泡泡：选中/激活是实心果冻色+白字，没选中是浅果冻底+同色系文字，
    composer 选标签、改标签的浮层、列头都用这一个，颜色跟标签一一对应，不会串色 */
 function suisuinianTagPillHtml(cat, idx, active, onclickAttr){
