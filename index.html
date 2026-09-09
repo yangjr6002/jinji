@@ -1145,6 +1145,12 @@ function normalizeData(d){
   d.settings.assetTypeColumnLabel = d.settings.assetTypeColumnLabel || "账户类型";
   d.settings.suisuinianDisplayMode = d.settings.suisuinianDisplayMode || "axis";
   if(d.settings.suisuinianDisplayMode==="table") d.settings.suisuinianDisplayMode = "tag"; /* 旧版"表格"改成了"标签"，老用户的选择自动迁移过去 */
+  /* 展现形式改成各个子主题各自记各自的，不再全局共用一个开关——不然选了一个子主题的展现形式，
+     其他子主题会莫名其妙跟着变 */
+  d.settings.suisuinianDisplayModeByTopic = d.settings.suisuinianDisplayModeByTopic || {};
+  Object.keys(d.settings.suisuinianDisplayModeByTopic).forEach(function(k){
+    if(d.settings.suisuinianDisplayModeByTopic[k]==="table") d.settings.suisuinianDisplayModeByTopic[k] = "tag";
+  });
   d.settings.memoSidebarWidth = d.settings.memoSidebarWidth || 260;
   d.settings.memoModalSize = d.settings.memoModalSize || {w:1300, h:760};
   if(!d.settings.quickAccessIds){
@@ -5654,23 +5660,28 @@ window.toggleSuisuinianImageFilter = function(){
   render();
 };
 /* 展现形式：简洁泡泡（无标题，回到最早那种纯留言板）、时间轴（有标题+泡泡，点了才展开）、
-   标签（写一长串内容+选一个标签，能按标签筛选查看）。全局一个开关，三种切着看 */
-window.setSuisuinianDisplayMode = function(mode){
-  DATA.settings.suisuinianDisplayMode = mode;
+   标签（写一长串内容+选一个标签，能按标签筛选查看）。每个子主题各自记自己选的展现形式，
+   不共用一个全局开关——不然选了一个子主题就把其他子主题也带偏了 */
+function suisuinianTopicDisplayMode(topicId){
+  return (DATA.settings.suisuinianDisplayModeByTopic||{})[topicId] || DATA.settings.suisuinianDisplayMode || "axis";
+}
+window.setSuisuinianDisplayMode = function(topicId, mode){
+  DATA.settings.suisuinianDisplayModeByTopic = DATA.settings.suisuinianDisplayModeByTopic || {};
+  DATA.settings.suisuinianDisplayModeByTopic[topicId] = mode;
   save(); render();
 };
 /* 三种展现形式不摆成随手一点就能切的按钮，收进一个设置图标里管理，免得太容易误碰 */
-function suisuinianModeSwitchHtml(){
-  return '<button type="button" class="gear-btn" onclick="openSuisuinianDisplaySettings()" title="留言板展现形式">⚙</button>';
+function suisuinianModeSwitchHtml(topicId){
+  return '<button type="button" class="gear-btn" onclick="openSuisuinianDisplaySettings(\''+topicId+'\')" title="留言板展现形式">⚙</button>';
 }
-window.openSuisuinianDisplaySettings = function(){
-  var mode = DATA.settings.suisuinianDisplayMode || "axis";
+window.openSuisuinianDisplaySettings = function(topicId){
+  var mode = suisuinianTopicDisplayMode(topicId);
   var opts = [["bubble","简洁泡泡","没有标题，最简单的一条条留言"],["axis","时间轴","有小标题，点了才展开看内容"],["tag","标签","写一长串内容，选一个标签，可以按标签筛选只看某一类"]];
   var root = document.getElementById("modalRoot");
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:340px">'+
-    '<h3>留言板展现形式</h3>'+
+    '<h3>留言板展现形式（只影响这个子主题）</h3>'+
     '<div class="ssn-mode-settings-list">'+opts.map(function(o){
-      return '<div class="ssn-mode-settings-row'+(mode===o[0]?' active':'')+'" onclick="setSuisuinianDisplayMode(\''+o[0]+'\');closeModal();">'+
+      return '<div class="ssn-mode-settings-row'+(mode===o[0]?' active':'')+'" onclick="setSuisuinianDisplayMode(\''+topicId+'\',\''+o[0]+'\');closeModal();">'+
         '<div class="ssn-mode-settings-title">'+o[1]+(mode===o[0]?' ✓':'')+'</div>'+
         '<div class="ssn-mode-settings-desc">'+o[2]+'</div>'+
       '</div>';
@@ -5946,7 +5957,7 @@ function renderSuisuinianTopicBoard(topicId){
   if(suisuinianFilterHasImage) msgs = msgs.filter(function(m){ return m.images && m.images.length; });
   var searchQ = suisuinianTitleSearch.trim().toLowerCase();
   if(searchQ) msgs = msgs.filter(function(m){ return suisuinianAxisLabel(m).toLowerCase().indexOf(searchQ)!==-1; });
-  var mode = DATA.settings.suisuinianDisplayMode || "axis";
+  var mode = suisuinianTopicDisplayMode(topicId);
   var bodyHtml = mode==="bubble" ? renderSuisuinianBubbleList(msgs)
     : mode==="tag" ? renderSuisuinianTagView(topicId, msgs)
     : renderSuisuinianAxis(msgs, searchQ);
@@ -5960,7 +5971,7 @@ function renderSuisuinianTopicBoard(topicId){
     '<div class="row-actions">'+
     '<button class="btn small '+(suisuinianFilterHasImage?"solid":"ghost")+'" onclick="toggleSuisuinianImageFilter()">'+(suisuinianFilterHasImage?"✓ 只看有图":"筛选：只看有图")+'</button>'+
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
-    suisuinianModeSwitchHtml()+
+    suisuinianModeSwitchHtml(topicId)+
     '</div></div>'+
     (mode==="tag" ? '' :
     '<div class="ssn-composer">'+
