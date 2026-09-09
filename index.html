@@ -5739,7 +5739,16 @@ window.startEditSuisuinianTagEntry = function(id){
 };
 window.commitEditSuisuinianTagEntry = function(id, value){
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.content = (value||"").trim(); save(); }
+  value = (value||"").trim();
+  if(m){
+    if(!value && !(m.content||"").trim()){
+      /* 新建出来还没写内容就直接失焦，这条空气泡不用留着占地方 */
+      DATA.suisuinianEntries = DATA.suisuinianEntries.filter(function(x){return x.id!==id;});
+    } else {
+      m.content = value;
+    }
+    save();
+  }
   suisuinianTagEditingId = null;
   render();
 };
@@ -5821,20 +5830,15 @@ window.addSuisuinianTagFromManager = function(topicId){
   DATA.moduleCategories[catKey].push({key:uid(), label:value, colorIdx:DATA.moduleCategories[catKey].length});
   save(); render(); manageSuisuinianTags(topicId);
 };
-/* 每列标题旁边一个小"+"，直接弹个小框写内容，写完就是这一列（这个标签）的留言——
-   不用再摆一整块常驻的大编辑框在最上面 */
+/* 点这一列的"+"，不弹框，直接在这一列生成一个空气泡并进入就地编辑，跟点已有气泡编辑
+   是同一套手感；什么都没写就点别处，这个空气泡自动收掉，不留垃圾 */
 window.addSuisuinianQuickMessage = function(topicId, tagKey){
-  render();
-  openModal("写点什么", '<div class="field"><textarea name="content" autofocus placeholder="写点什么…" style="min-height:110px" onkeydown="enterSubmitKeydown(event,this)"></textarea></div>', function(data){
-    var value = (data.content||"").trim();
-    if(!value) return;
-    DATA.suisuinianEntries = DATA.suisuinianEntries || [];
-    var id = uid();
-    DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:"", content:value, images:[], fields:[], tag:tagKey||""});
-    save(); render();
-  });
+  DATA.suisuinianEntries = DATA.suisuinianEntries || [];
+  var id = uid();
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:"", content:"", images:[], fields:[], tag:tagKey||""});
+  suisuinianTagEditingId = id;
+  save(); render();
 };
-/* 双击气泡进这个弹窗，内容和标签一起改，不用再常驻一个改标签的小胶囊在卡片上 */
 function suisuinianTagEntryRowHtml(topicId, m, color){
   var editingThis = suisuinianTagEditingId===m.id;
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
