@@ -838,10 +838,10 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-head{font-size:11px; font-weight:700; color:var(--text-dim);}
 .ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
-.ssn-tag-col-add{border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); width:24px; height:24px; line-height:21px; text-align:center; border-radius:50%; font-size:16px; font-weight:700; cursor:pointer; flex:none; padding:0; transition:.12s;}
+.ssn-tag-col-add{display:inline-flex; align-items:center; gap:3px; border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); border-radius:999px; font-size:12px; font-weight:600; cursor:pointer; padding:5px 12px; transition:.12s;}
 .ssn-tag-col-add:hover{background:var(--accent); color:#fff;}
 .ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
-.ssn-tag-col-newbtn{border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); width:30px; height:30px; line-height:27px; text-align:center; border-radius:50%; font-size:18px; font-weight:700; cursor:pointer; transition:.12s; flex:none; padding:0;}
+.ssn-tag-col-newbtn{display:inline-flex; align-items:center; gap:4px; border:1.5px solid var(--accent); background:var(--surface); color:var(--accent); border-radius:999px; font-size:12.5px; font-weight:600; cursor:pointer; padding:6px 14px; transition:.12s;}
 .ssn-tag-col-newbtn:hover{background:var(--accent); color:#fff;}
 .ssn-tag-col-add-input{width:100%; box-sizing:border-box; padding:5px 12px; border:1px solid var(--accent); border-radius:999px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
 .ssn-tag-col-add-input:focus{outline:none;}
@@ -5916,13 +5916,13 @@ function renderSuisuinianTagView(topicId, allMsgs){
       : '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'" ondblclick="startRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\')" title="双击改标签名">'+esc(col.label)+'</div>';
     var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+'</div>';
     /* 加内容的"+"挪到这一列泡泡的最下面，不再摆在标题栏那一行 */
-    var addBtn = '<button type="button" class="ssn-tag-col-add" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+</button>';
+    var addBtn = '<button type="button" class="ssn-tag-col-add" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+ 添加内容</button>';
     return '<div class="ssn-tag-col">'+headRow+itemsHtml+addBtn+'</div>';
   }).join('');
   /* 加标签的"+"挪到最上面，跟 ⚙ 管理按钮摆一起 */
   var addTagHtml = suisuinianAddingTagFor===topicId
     ? '<input type="text" class="ssn-tag-col-add-input" style="width:130px" placeholder="标签名称，回车创建" autofocus onkeydown="cancelAddSuisuinianTagInlineKey(event)" onblur="commitAddSuisuinianTagInline(\''+topicId+'\',this.value)">'
-    : '<button type="button" class="ssn-tag-col-newbtn" onclick="startAddSuisuinianTagInline(\''+topicId+'\')" title="新建标签">+</button>';
+    : '<button type="button" class="ssn-tag-col-newbtn" onclick="startAddSuisuinianTagInline(\''+topicId+'\')" title="新建标签">+ 添加标签</button>';
   return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+suisuinianTagManageBtnHtml(topicId)+addTagHtml+(cats.length?'':'<span class="sub">还没有标签，点旁边的 + 新建一个吧</span>')+'</div>'+
     '<div class="ssn-tag-board">'+colsHtml+'</div>';
 }
