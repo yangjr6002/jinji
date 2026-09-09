@@ -5909,9 +5909,9 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
 /* 标签展现形式改成分栏看板：一个标签一列，各自的留言堆在自己列里，不用再切换筛选来回看 */
 function renderSuisuinianTagView(topicId, allMsgs){
   var cats = getModuleCategories(suisuinianTagCatKey(topicId));
-  var columns = [{key:"", label:"未标记", color:null}].concat(cats.map(function(c,i){
+  var columns = cats.map(function(c,i){
     return {key:c.key, label:c.label, color:suisuinianTagColor(c,i)};
-  }));
+  });
   var colsHtml = columns.map(function(col){
     var msgs = allMsgs.filter(function(m){ return (m.tag||"")===col.key; });
     var itemsHtml = msgs.map(function(m){ return suisuinianTagEntryRowHtml(topicId, m, col.color); }).join('')
