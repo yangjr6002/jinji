@@ -296,7 +296,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-cell-copy{position:absolute; top:2px; right:2px; border:none; background:none; color:var(--text-faint); font-size:13px; width:18px; height:18px; line-height:18px; text-align:center; border-radius:4px; cursor:pointer; opacity:0; transition:.12s; padding:0;}
 .asset-cell-view:hover .asset-cell-copy{opacity:1;}
 .asset-cell-copy:hover{background:var(--surface); color:var(--accent);}
-.asset-cell-placeholder{color:var(--text-faint);}
+.asset-cell-view.empty{min-height:20px;}
 /* 字段列太多要横向拖动看的时候，第一列（名称）冻结在最左边不跟着滚 */
 .asset-table th:first-child{position:sticky; left:0; z-index:4; background:var(--surface-2);}
 .asset-table td:first-child{position:sticky; left:0; z-index:1; background:var(--surface);}
@@ -6701,8 +6701,10 @@ function assetCellHtml(cellKey, value, placeholder, updateCall){
     return '<input type="text" id="assetCellEditInput" class="asset-inline-input" value="'+esc(value||"")+'" placeholder="'+esc(placeholder)+'" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="'+updateCall+'">';
   }
   var copyBtn = value ? '<button type="button" class="asset-cell-copy" data-copy="'+esc(value)+'" onclick="event.stopPropagation();copyTextToClipboard(this.getAttribute(\'data-copy\'))" title="复制">⧉</button>' : '';
-  return '<div class="asset-cell-view" onclick="startEditAssetCell(\''+cellKey.replace(/'/g,"\\'")+'\')" title="'+esc(value||"")+'">'+
-    (value ? esc(value) : '<span class="asset-cell-placeholder">'+esc(placeholder)+'</span>')+
+  /* 空格子不再铺一个灰灰的"内容"占位字，看着一整片很乱；就是空的，点一下照样能进编辑，
+     编辑框里还是会有"内容"这个提示 */
+  return '<div class="asset-cell-view'+(value?'':' empty')+'" onclick="startEditAssetCell(\''+cellKey.replace(/'/g,"\\'")+'\')" title="'+esc(value||"")+'">'+
+    (value ? esc(value) : '')+
     copyBtn+
   '</div>';
 }
