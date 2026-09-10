@@ -270,11 +270,14 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px; width:max-content;}
 .asset-type-select{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 4px; border-radius:5px; font-size:12px; color:var(--text); font-family:inherit; text-align:center;}
 .asset-type-select:hover{border-color:var(--border);}
-/* 账户类型这一列表头自带一个迷你筛选下拉，跟列名输入框摆在同一行（flex），
-   不再各占一行把表头撑得老高、跟别的列头高度对不上，看着一整排参差不齐 */
-.asset-th-row{display:flex; align-items:center; gap:5px;}
-.asset-th-row .asset-col-header-input{flex:1; min-width:0;}
-.asset-type-filter-mini{flex:none; width:52px; box-sizing:border-box; font-size:10.5px; padding:3px 3px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
+/* 账户类型这一列表头：筛选下拉本身就是列名（没筛选的时候下拉框上显示的就是"账户类型"
+   这几个字），不用另外摆一个改名输入框跟它并排、也不用另起一行，表头就是一个控件、一行高 */
+.asset-th-row{display:flex; align-items:center; gap:3px;}
+.asset-th-row .asset-type-filter-mini{flex:1; min-width:0;}
+.asset-th-rename-btn{flex:none; border:none; background:none; color:var(--text-faint); font-size:11px; width:16px; height:16px; line-height:16px; text-align:center; padding:0; cursor:pointer; opacity:0; transition:.12s;}
+.asset-th-row:hover .asset-th-rename-btn{opacity:1;}
+.asset-th-rename-btn:hover{color:var(--accent);}
+.asset-type-filter-mini{width:100%; box-sizing:border-box; font-size:10.5px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
 .asset-table th{
   position:sticky; top:0; z-index:2; text-align:left;
   padding:12px 14px; background:var(--surface-2); color:var(--text-dim);
@@ -6568,6 +6571,17 @@ document.addEventListener("mouseup", function(){
   colResizeState = null;
   render();
 });
+/* 按这一列实际内容的长短估算一个默认宽度，短内容（比如账号）默认就窄，长内容（比如备注）
+   默认就宽，不用所有列都套同一个数字；夹在 90～220px 之间，避免太窄挤成一团或太宽显得空 */
+function assetAutoColWidth(values){
+  var maxLen = 0;
+  (values||[]).forEach(function(v){ var len=(v||"").length; if(len>maxLen) maxLen = len; });
+  if(!maxLen) return 100;
+  return Math.min(220, Math.max(90, maxLen*15+36));
+}
+var assetTypeColRenaming = false;
+window.startRenameAssetTypeCol = function(){ assetTypeColRenaming = true; render(); };
+window.commitRenameAssetTypeCol = function(value){ assetTypeColRenaming = false; renameAssetTypeColumnLabel(value); };
 function renderAssets(){
   var locKey = moduleCatView.assets_location;
 
@@ -6591,21 +6605,29 @@ function renderAssets(){
     });
   });
   var assetScopeKey = locKey;
-  /* 默认列宽统一成一个基准值，不再"名称100/类型150/字段110"各不相同看着参差不齐；
-     拖拽调整过的列还是优先用调整过的宽度，只是没调过的默认值现在整整齐齐 */
-  var ASSET_DEFAULT_COL_W = 130;
-  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || ASSET_DEFAULT_COL_W;
-  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || (ASSET_DEFAULT_COL_W+40); /* 这一列头里多塞了个筛选下拉，比其他列默认宽一点，不然列名会被挤得显示不全 */
-  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || ASSET_DEFAULT_COL_W; })).concat([50]);
+  /* 默认列宽不再用同一个数字死套所有列，改成按这一列实际内容的长短估算一个合适的宽度——
+     "账号"这种短内容的列默认就窄一点，"备注"这种长内容的列默认就宽一点，不会都挤成一样大小
+     显得空空荡荡或者反而不够看。拖拽调整过的列还是优先用调整过的宽度。 */
+  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || assetAutoColWidth(scopedAll.map(function(a){return a.title;}));
+  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || 130;
+  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){
+    var vals = scopedAll.map(function(a){ var f=(a.fields||[]).filter(function(x){return x.label===c;})[0]; return f?f.value:""; });
+    return getAssetColWidth(assetScopeKey,c) || assetAutoColWidth(vals);
+  })).concat([50]);
   var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
-  var typeFilterSelect = '<select class="asset-type-filter-mini" onchange="setAssetTypeFilter(this.value)" title="按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选，集中看某一类">'+
-      '<option value=""'+(!typeFilter?' selected':'')+'>全部</option>'+
+  /* 筛选下拉直接就是列名本身——没选筛选的时候，下拉框上显示的就是"账户类型"这几个字，
+     不用另外摆一个改名输入框占地方；要改列名的话，点旁边那颗淡淡的 ✎ */
+  var typeFilterSelect = '<select class="asset-type-filter-mini" onchange="setAssetTypeFilter(this.value)" title="点击按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选，集中看某一类">'+
+      '<option value=""'+(!typeFilter?' selected':'')+'>'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'</option>'+
       getModuleCategories("assets_type").map(function(c){
         return '<option value="'+esc(c.key)+'"'+(c.key===typeFilter?' selected':'')+'>'+esc(c.label)+'</option>';
       }).join('')+
     '</select>';
+  var typeHeaderInner = assetTypeColRenaming
+    ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetTypeCol(this.value)">'
+    : '<div class="asset-th-row">'+typeFilterSelect+'<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetTypeCol()" title="改列名">✎</button></div>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+
-    '<th class="col-resizable"><div class="asset-th-row"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" onchange="renameAssetTypeColumnLabel(this.value)">'+typeFilterSelect+'</div>'+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
+    '<th class="col-resizable">'+typeHeaderInner+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
     columns.map(function(c){
       var cEsc2 = c.replace(/'/g,"\\'");
       return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
