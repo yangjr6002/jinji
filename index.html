@@ -2001,9 +2001,8 @@ function renderTopTabsBar(){
     var raw = tabTitle(tab);
     var label = raw.length>10 ? (raw.slice(0,10)+"…") : raw;
     var onClickCall = tab.type==="module" ? ("go('"+tab.id+"')") : ("switchToItemTab('"+tab.key+"')");
-    var icon = tabIcon(tab);
     return '<span class="toptab-dyn lv'+tabLevel(tab)+(active?" active":"")+'" onclick="'+onClickCall+'" title="第'+tabLevel(tab)+'层">'+
-      (icon?icon+' ':'')+esc(label)+
+      esc(label)+
       '<span class="tclose" onclick="closeItemTab(event,\''+tab.key+'\')" title="关闭">✕</span></span>';
   }).join('');
   return html;
@@ -6466,7 +6465,7 @@ function renderPasswordDetailPage(id){
   }
   var show = revealed[r.id];
   var colLabels = DATA.settings.passwordColumnLabels;
-  return '<div class="module-head"><div><h2>🔐 '+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码，直接改，失焦自动保存。</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(r.site)+'</h2><div class="sub">网站 / 应用账号密码，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="mini-del" onclick="deletePassword(\''+r.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>网站/应用</th><td><input type="text" class="pw-inline-input" value="'+esc(r.site)+'" onchange="updatePasswordField(\''+r.id+'\',\'site\',this.value)"></td></tr>'+
@@ -6782,7 +6781,7 @@ function renderAssetDetailPage(id){
   var fieldRows = (a.fields||[]).map(function(f){
     return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
   }).join('');
-  return '<div class="module-head"><div><h2>💳 '+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="mini-del" onclick="deleteAsset(\''+a.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
@@ -7087,7 +7086,7 @@ function renderIdOfficialDocDetail(docId){
       : ('<label class="upload-tile" style="height:160px">📤 上传'+sideLabel+'<input type="file" accept="image/*" onchange="uploadIdOfficialSide(this,\''+d.id+'\',\''+sideKey+'\')"></label>'))+
     '</div>';
   }
-  return '<div class="module-head"><div><h2>🪪 '+esc(catLabel)+' · '+esc(d.year||"未填年份")+'</h2><div class="sub">正反面全景图，点「下载原图」拿到没有压缩过的原始文件。</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(catLabel)+' · '+esc(d.year||"未填年份")+'</h2><div class="sub">正反面全景图，点「下载原图」拿到没有压缩过的原始文件。</div></div>'+
     '<div class="row-actions"><button class="mini-del" onclick="deleteIdOfficialDoc(\''+d.id+'\')" title="删除">✕</button></div></div>'+
     backBar+
     '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(d.year||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdOfficialDocField(\''+d.id+'\',\'year\',this.value)"></div>'+
@@ -7161,7 +7160,7 @@ function renderIdRegularPhotoDetail(photoId){
     '</div>';
   }).join('');
   var uploadTile = '<div class="idph-variant-card"><label class="upload-tile" style="height:140px">📤 上传新尺寸<input type="file" accept="image/*" onchange="uploadIdRegularVariant(this,\''+p.id+'\')"></label></div>';
-  return '<div class="module-head"><div><h2>📸 '+esc(person?person.name:"")+' · '+esc(p.year||"未填年份")+'</h2><div class="sub">同一张证件照的不同尺寸文件，各自下载原图（不压缩、不改变实际尺寸）。</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(person?person.name:"")+' · '+esc(p.year||"未填年份")+'</h2><div class="sub">同一张证件照的不同尺寸文件，各自下载原图（不压缩、不改变实际尺寸）。</div></div>'+
     '<div class="row-actions"><button class="btn danger" onclick="deleteIdRegularPhoto(\''+p.id+'\')">删除整条记录</button></div></div>'+
     backBar+
     '<div class="field" style="max-width:160px"><label>年份</label><input type="text" class="asset-inline-input" value="'+esc(p.year||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateIdRegularPhotoField(\''+p.id+'\',\'year\',this.value)"></div>'+
@@ -7355,7 +7354,7 @@ function renderCustomItemDetailPage(boardId, itemId){
     return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  return '<div class="module-head"><div><h2>📌 '+esc(it.title)+'</h2><div class="sub">'+esc(labelFor(boardId))+'</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(it.title)+'</h2><div class="sub">'+esc(labelFor(boardId))+'</div></div>'+
     '<div class="row-actions"><button class="btn ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">编辑</button><button class="mini-del" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>内容</th><td>'+esc(it.note||"—")+'</td></tr>'+
@@ -7415,7 +7414,7 @@ function renderContactDetailPage(id){
     return '<div class="module-head"><div><h2>没找到这条记录</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  return '<div class="module-head"><div><h2>👥 '+esc(c.name)+'</h2><div class="sub">'+esc(c.relation||"未分类")+'</div></div>'+
+  return '<div class="module-head"><div><h2>'+esc(c.name)+'</h2><div class="sub">'+esc(c.relation||"未分类")+'</div></div>'+
     '<div class="row-actions"><button class="btn ghost" onclick="editContact(\''+c.id+'\')">编辑</button><button class="mini-del" onclick="deleteContact(\''+c.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>关系</th><td>'+esc(c.relation||"—")+'</td></tr>'+
@@ -7427,8 +7426,9 @@ function renderContactDetailPage(id){
 /* ================= 公共小组件 ================= */
 function moduleShell(id, icon, key, sub, actionHtml, bodyHtml){
   var label = labelFor(key);
+  /* 标题不再带 emoji（icon 参数保留只是懒得改所有调用处），页面清爽点 */
   return '<div class="module-head"><div>'+
-    '<div class="title-row"><h2>'+(icon?icon+' ':'')+esc(label)+'</h2>'+
+    '<div class="title-row"><h2>'+esc(label)+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\''+key+'\')" title="重命名">✎</button></div>'+
     '<div class="sub">'+sub+'</div></div>'+actionHtml+'</div>'+bodyHtml;
 }
