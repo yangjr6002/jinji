@@ -307,7 +307,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
    首行就冻结不住了。sticky 本身也是"定位元素"，够给下面的拖拽手柄当定位参照，不用再 relative */
 .col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
 /* 字段列表头那个删除✕默认藏起来，鼠标移到这一列表头上才显出来，不然一整排✕挺碍眼 */
-.asset-col-del{opacity:0; transition:.12s;}
+/* ✕ 绝对定位，不占正常文档流——不然它虽然透明了还是撑出一行高度，字段列表头比首列表头高，
+   一整排对不齐。放在表头格子右上角，躲开右边缘那条拖拽手柄 */
+.asset-col-del{position:absolute; top:3px; right:9px; opacity:0; transition:.12s;}
 .asset-table th:hover .asset-col-del, .asset-table th:focus-within .asset-col-del{opacity:1;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
