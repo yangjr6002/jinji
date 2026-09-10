@@ -6582,6 +6582,15 @@ function assetAutoColWidth(values){
 var assetTypeColRenaming = false;
 window.startRenameAssetTypeCol = function(){ assetTypeColRenaming = true; render(); };
 window.commitRenameAssetTypeCol = function(value){ assetTypeColRenaming = false; renameAssetTypeColumnLabel(value); };
+/* 之前手动拖拽存下来的列宽优先级比"按内容自动算"更高（不然每次都会把手动调过的又弹回去），
+   但这也导致老用户手滑拖过一次留下的很宽的列宽会一直卡住、按内容算的新默认值用不上。
+   加个"重置列宽"清掉这张表存的宽度，清完就会重新走自动计算 */
+window.resetAssetColumnWidths = function(scope){
+  confirmDelete("确定要把这张表的列宽都恢复成默认值吗？手动拖拽调整过的宽度会被清掉，改成按内容长短自动算的宽度。", function(){
+    if(DATA.settings.assetColumnWidths) delete DATA.settings.assetColumnWidths[scope];
+    save(); render(); toast("列宽已重置");
+  }, "重置列宽", "确定重置");
+};
 function renderAssets(){
   var locKey = moduleCatView.assets_location;
 
@@ -6647,7 +6656,8 @@ function renderAssets(){
   }).join('') || (scopedAll.length ? '<tr><td colspan="'+(columns.length+3)+'" class="sub" style="text-align:center;padding:16px">没有匹配这个类型的资产</td></tr>' : '');
   var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table">'+colgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
   return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，列宽可拖，第一列冻结不跟着横向滚。",
-    '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>',
+    '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>'+
+    (scopedAll.length ? '<button class="btn ghost" onclick="resetAssetColumnWidths(\''+assetScopeKey+'\')" title="之前手动拖拽调整过的列宽会被清掉，改用按内容自动算的默认宽度">↺ 重置列宽</button>' : ''),
     categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 分类管理") +
     (scopedAll.length ? tableHtml : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
   );
