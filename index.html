@@ -306,6 +306,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 /* 注意：这里不能写 position:relative——会盖掉上面表头的 position:sticky（同权重、后者生效），
    首行就冻结不住了。sticky 本身也是"定位元素"，够给下面的拖拽手柄当定位参照，不用再 relative */
 .col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
+/* 字段列表头那个删除✕默认藏起来，鼠标移到这一列表头上才显出来，不然一整排✕挺碍眼 */
+.asset-col-del{opacity:0; transition:.12s;}
+.asset-table th:hover .asset-col-del, .asset-table th:focus-within .asset-col-del{opacity:1;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
 table.data th{position:relative; text-align:left; white-space:nowrap; overflow:hidden; box-sizing:border-box; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
@@ -6642,7 +6645,7 @@ function renderAssets(){
     '<th class="col-resizable">'+typeHeaderInner+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
     columns.map(function(c){
       var cEsc2 = c.replace(/'/g,"\\'");
-      return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
+      return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del asset-col-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
     }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
