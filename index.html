@@ -6595,7 +6595,7 @@ function renderAssets(){
      拖拽调整过的列还是优先用调整过的宽度，只是没调过的默认值现在整整齐齐 */
   var ASSET_DEFAULT_COL_W = 130;
   var nameColW = getAssetColWidth(assetScopeKey,"__title__") || ASSET_DEFAULT_COL_W;
-  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || ASSET_DEFAULT_COL_W;
+  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || (ASSET_DEFAULT_COL_W+40); /* 这一列头里多塞了个筛选下拉，比其他列默认宽一点，不然列名会被挤得显示不全 */
   var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || ASSET_DEFAULT_COL_W; })).concat([50]);
   var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
   var typeFilterSelect = '<select class="asset-type-filter-mini" onchange="setAssetTypeFilter(this.value)" title="按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选，集中看某一类">'+
