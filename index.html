@@ -284,9 +284,12 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table tr:hover td{background:var(--surface-2);}
 .asset-table td .row-actions{display:flex; gap:6px; justify-content:center;}
 /* 格子内容太多的话展示成2行，多的用省略号，悬浮看完整；点了才切成输入框编辑 */
-.asset-cell-view{width:100%; box-sizing:border-box; padding:6px 8px; border-radius:5px; font-size:13px; color:var(--text); text-align:center; cursor:text;
+.asset-cell-view{position:relative; width:100%; box-sizing:border-box; padding:6px 22px 6px 8px; border-radius:5px; font-size:13px; color:var(--text); text-align:center; cursor:text;
   white-space:normal; word-break:break-word; line-height:1.5;}
 .asset-cell-view:hover{background:var(--surface-2);}
+.asset-cell-copy{position:absolute; top:2px; right:2px; border:none; background:none; color:var(--text-faint); font-size:13px; width:18px; height:18px; line-height:18px; text-align:center; border-radius:4px; cursor:pointer; opacity:0; transition:.12s; padding:0;}
+.asset-cell-view:hover .asset-cell-copy{opacity:1;}
+.asset-cell-copy:hover{background:var(--surface); color:var(--accent);}
 .asset-cell-placeholder{color:var(--text-faint);}
 /* 字段列太多要横向拖动看的时候，第一列（名称）冻结在最左边不跟着滚 */
 .asset-table th:first-child{position:sticky; left:0; z-index:4; background:var(--surface-2);}
@@ -1544,6 +1547,25 @@ function reorderById(arr, fromId, targetId){
   return copy;
 }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+/* 通用复制到剪贴板：优先用现代 clipboard API，不支持（或权限被拒）就退回老式的
+   隐藏 textarea + execCommand 方案，尽量哪个浏览器都能用 */
+function copyTextToClipboard(text){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast("已复制"); }).catch(function(){ copyTextFallback(text); });
+  } else {
+    copyTextFallback(text);
+  }
+}
+function copyTextFallback(text){
+  try{
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast("已复制");
+  }catch(e){ toast("复制失败，这个浏览器不支持"); }
+}
 
 /* 统一的图片文件读取：iPhone"实况"照片/HEIC·HEIF 格式绝大多数浏览器的 <img> 标签原生显示不出来，
    看起来就像"上传了但不显示"。这里读取前先探测一下，是 HEIC/HEIF 就用 heic2any 转成 PNG 再存。
@@ -6640,8 +6662,10 @@ function assetCellHtml(cellKey, value, placeholder, updateCall){
   if(assetCellEditing===cellKey){
     return '<input type="text" id="assetCellEditInput" class="asset-inline-input" value="'+esc(value||"")+'" placeholder="'+esc(placeholder)+'" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="'+updateCall+'">';
   }
+  var copyBtn = value ? '<button type="button" class="asset-cell-copy" data-copy="'+esc(value)+'" onclick="event.stopPropagation();copyTextToClipboard(this.getAttribute(\'data-copy\'))" title="复制">⧉</button>' : '';
   return '<div class="asset-cell-view" onclick="startEditAssetCell(\''+cellKey.replace(/'/g,"\\'")+'\')" title="'+esc(value||"")+'">'+
     (value ? esc(value) : '<span class="asset-cell-placeholder">'+esc(placeholder)+'</span>')+
+    copyBtn+
   '</div>';
 }
 /* 改列头名字：只在当前这张表（同一个地点+类型）范围内生效，不去动其他地点/类型下面偶然同名的字段 */
