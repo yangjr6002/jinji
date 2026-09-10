@@ -311,6 +311,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
    一整排对不齐。放在表头格子右上角，躲开右边缘那条拖拽手柄 */
 .asset-col-del{position:absolute; top:3px; right:9px; opacity:0; transition:.12s;}
 .asset-table th:hover .asset-col-del, .asset-table th:focus-within .asset-col-del{opacity:1;}
+/* 整行删除✕：钉在首列格子左上角，平时藏着，鼠标移到这一行才显 */
+.asset-row-del{position:absolute; top:2px; left:2px; z-index:5; opacity:0; transition:.12s;}
+.asset-table tr:hover .asset-row-del{opacity:1;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
 table.data th{position:relative; text-align:left; white-space:nowrap; overflow:hidden; box-sizing:border-box; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
@@ -6652,14 +6655,16 @@ function renderAssets(){
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
-    var cells = '<td>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
+    /* 整行删除的✕挪到首列格子左上角（首列是冻结的，随时看得见、够得着），
+       不用像以前那样滚到最右边才找得到；平时藏着，鼠标移到这一行才显 */
+    var cells = '<td><button type="button" class="mini-del asset-row-del" onclick="deleteAsset(\''+a.id+'\')" title="删除这条">✕</button>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
       '<td>'+assetTypeSelectHtml(a)+'</td>'+
       columns.map(function(c){
         var v = fieldMap[c]!==undefined?fieldMap[c]:"";
         var cEsc = c.replace(/'/g,"\\'");
         return '<td>'+assetCellHtml(a.id+"::"+c, v, "内容", "updateAssetFieldValue('"+a.id+"','"+cEsc+"',this.value)")+'</td>';
       }).join('')+
-      '<td class="row-actions"><button class="mini-del" onclick="deleteAsset(\''+a.id+'\')">✕</button></td>';
+      '<td></td>';
     return '<tr>'+cells+'</tr>';
   }).join('') || (scopedAll.length ? '<tr><td colspan="'+(columns.length+3)+'" class="sub" style="text-align:center;padding:16px">没有匹配这个类型的资产</td></tr>' : '');
   var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table">'+colgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
