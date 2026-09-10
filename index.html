@@ -267,7 +267,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 /* table-layout:fixed 的表格默认还是会被硬挤成跟外层容器一样宽，调宽一列就得从别的列里"偷"空间。
    加 width:max-content 让表格按各列实际设的宽度总和来撑开自己的宽度，调宽了就整体变宽、超出就滚动条，
    不会互相挤占 */
-.asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px; width:max-content;}
+/* 用 border-collapse:separate（不是 collapse）——collapse 模式下 position:sticky 加在
+   表头/首列的单元格上，好多浏览器（尤其手机 Safari）会失效，首行冻结不住 */
+.asset-table{border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:13px; width:max-content;}
 .asset-type-select{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 4px; border-radius:5px; font-size:12px; color:var(--text); font-family:inherit; text-align:center;}
 .asset-type-select:hover{border-color:var(--border);}
 /* 账户类型这一列表头：筛选下拉本身就是列名（没筛选的时候下拉框上显示的就是"账户类型"
