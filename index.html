@@ -303,7 +303,8 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table th:first-child{position:sticky; left:0; z-index:4; background:var(--surface-2);}
 .asset-table td:first-child{position:sticky; left:0; z-index:1; background:var(--surface);}
 .asset-table tr:hover td:first-child{background:var(--surface-2);}
-th.col-resizable{position:relative;}
+/* 注意：这里不能写 position:relative——会盖掉上面表头的 position:sticky（同权重、后者生效），
+   首行就冻结不住了。sticky 本身也是"定位元素"，够给下面的拖拽手柄当定位参照，不用再 relative */
 .col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
