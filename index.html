@@ -270,8 +270,11 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table{border-collapse:collapse; table-layout:fixed; font-size:13px; width:max-content;}
 .asset-type-select{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 4px; border-radius:5px; font-size:12px; color:var(--text); font-family:inherit; text-align:center;}
 .asset-type-select:hover{border-color:var(--border);}
-/* 账户类型这一列表头自带一个迷你筛选下拉，不用另外占一整块工具栏，选了哪个类型就只显示那个类型的行 */
-.asset-type-filter-mini{margin-top:6px; width:100%; box-sizing:border-box; font-size:11px; padding:4px 5px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
+/* 账户类型这一列表头自带一个迷你筛选下拉，跟列名输入框摆在同一行（flex），
+   不再各占一行把表头撑得老高、跟别的列头高度对不上，看着一整排参差不齐 */
+.asset-th-row{display:flex; align-items:center; gap:5px;}
+.asset-th-row .asset-col-header-input{flex:1; min-width:0;}
+.asset-type-filter-mini{flex:none; width:52px; box-sizing:border-box; font-size:10.5px; padding:3px 3px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
 .asset-table th{
   position:sticky; top:0; z-index:2; text-align:left;
   padding:12px 14px; background:var(--surface-2); color:var(--text-dim);
@@ -6588,9 +6591,12 @@ function renderAssets(){
     });
   });
   var assetScopeKey = locKey;
-  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || 100;
-  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || 150;
-  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || 110; })).concat([50]);
+  /* 默认列宽统一成一个基准值，不再"名称100/类型150/字段110"各不相同看着参差不齐；
+     拖拽调整过的列还是优先用调整过的宽度，只是没调过的默认值现在整整齐齐 */
+  var ASSET_DEFAULT_COL_W = 130;
+  var nameColW = getAssetColWidth(assetScopeKey,"__title__") || ASSET_DEFAULT_COL_W;
+  var typeColW = getAssetColWidth(assetScopeKey,"__type__") || ASSET_DEFAULT_COL_W;
+  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){ return getAssetColWidth(assetScopeKey,c) || ASSET_DEFAULT_COL_W; })).concat([50]);
   var colgroupHtml = '<colgroup>'+colWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
   var typeFilterSelect = '<select class="asset-type-filter-mini" onchange="setAssetTypeFilter(this.value)" title="按'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'筛选，集中看某一类">'+
       '<option value=""'+(!typeFilter?' selected':'')+'>全部</option>'+
@@ -6599,7 +6605,7 @@ function renderAssets(){
       }).join('')+
     '</select>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+
-    '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" onchange="renameAssetTypeColumnLabel(this.value)">'+typeFilterSelect+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
+    '<th class="col-resizable"><div class="asset-th-row"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" onchange="renameAssetTypeColumnLabel(this.value)">'+typeFilterSelect+'</div>'+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
     columns.map(function(c){
       var cEsc2 = c.replace(/'/g,"\\'");
       return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
