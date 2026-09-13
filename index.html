@@ -862,6 +862,7 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
 .ssn-tag-col-add-input{width:130px; box-sizing:border-box; padding:5px 9px; border:1px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
 .ssn-tag-col-add-input:focus{outline:none; border-color:var(--accent);}
+.ssn-untagged-pick{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:10.5px; padding:2px 5px; border-radius:5px; font-family:inherit; max-width:96px;}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
 .ssn-tag-row .mini-del{opacity:0; transition:.12s;}
 .ssn-tag-row:hover .mini-del{opacity:1;}
@@ -6018,16 +6019,33 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
      展现形式一个手感，不弹编辑框。标签只在写的时候选一次，写完不能再改，编辑框里不再带
      标签选项，保持跟别的展现形式一样干净。删除键嵌进气泡卡片右上角，不单独占一行 */
   var delBtn = editingThis ? '' : '<button type="button" class="mini-del ssn-tag-item-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
+  /* 没打过标签的老内容（比如从留言板/时间轴切过来的），在"未标记"栏里给一个小下拉，
+     直接选个标签把它归类过去，选完这条就自动搬进对应的标签列了 */
+  var pickHtml = (!m.tag && !editingThis) ? suisuinianUntaggedPickHtml(topicId, m.id) : '';
   return '<div class="ssn-tag-row">'+
     '<div class="ssn-tag-item'+(editingThis?' expanded':'')+'"'+itemStyle+'>'+innerHtml+delBtn+'</div>'+
     '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions">'+
     bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
     '</span>'+
     '<span class="ssn-bubble-meta-actions">'+
+      pickHtml+
       bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
     '</span></div>'+
   '</div>';
 }
+function suisuinianUntaggedPickHtml(topicId, entryId){
+  var cats = getModuleCategories(suisuinianTagCatKey(topicId));
+  if(!cats.length) return '';
+  var opts = '<option value="" selected>+ 选择标签</option>'+
+    cats.map(function(c){ return '<option value="'+esc(c.key)+'">'+esc(c.label)+'</option>'; }).join('');
+  return '<select class="ssn-untagged-pick" onchange="assignSuisuinianEntryTag(\''+entryId+'\',this.value)">'+opts+'</select>';
+}
+window.assignSuisuinianEntryTag = function(id, key){
+  if(!key) return;
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(m){ m.tag = key; m.updatedAt = new Date().toISOString(); save(); }
+  render();
+};
 /* 标签展现形式改成分栏看板：一个标签一列，各自的留言堆在自己列里，不用再切换筛选来回看 */
 /* 新建标签：不弹编辑框，看板最后加一个虚线"+"槛位，点了原地变成一个输入框，
    打完按 Enter（或点别处失焦）直接建好，Esc 取消 */
