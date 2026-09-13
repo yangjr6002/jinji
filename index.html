@@ -1386,6 +1386,33 @@ var lastCloudFetch = {ok:null, time:null, error:null, gotNewer:null};
    还都以为"同步成功"。这正是"手机加的电脑看不到、电脑加的手机看不到"的真正原因。
    碎碎念的主题/留言现在按 id 做合并（并集），而不是整份取舍：两边各自新增的都保留，
    只有真正点过"删除"、记进 xxxDeletedIds 墓碑名单里的才会被去掉。 */
+/* 判断"合并完的结果跟原来是不是真的不一样"不能直接用 JSON.stringify 比字符串——
+   同样的内容，如果对象的 key 顺序不一样（比如合并的时候重新拼过的字典），字符串就会不一样，
+   会被误判成"变了"，平白多触发一次几 MB 的整份重推云端。这里递归把每层对象的 key 都排序后
+   再转字符串，顺序不影响判断结果，只有内容真的不同才算变了。 */
+function stableStringify(obj){
+  return JSON.stringify(obj, function(key, value){
+    if(Array.isArray(value)){
+      /* 数组元素如果都是带 id/key 的对象（比如按 id 合并出来的留言、标签列表），
+         合并的时候顺序可能跟原来存的不一样，但只是顺序变了、内容没变，不该被当成"变了"，
+         这里按 id/key 排一下序再比较 */
+      if(value.length && value.every(function(x){ return x && typeof x==="object" && (x.id!=null || x.key!=null); })){
+        var idField = value[0].id!=null ? "id" : "key";
+        return value.slice().sort(function(a,b){
+          var av = String(a[idField]), bv = String(b[idField]);
+          return av<bv ? -1 : (av>bv ? 1 : 0);
+        });
+      }
+      return value;
+    }
+    if(value && typeof value==="object"){
+      var sorted = {};
+      Object.keys(value).sort().forEach(function(k){ sorted[k] = value[k]; });
+      return sorted;
+    }
+    return value;
+  });
+}
 function mergeIdSetUnion(a,b){
   var seen = {}, out = [];
   (a||[]).concat(b||[]).forEach(function(id){ if(id && !seen[id]){ seen[id]=true; out.push(id); } });
@@ -1513,8 +1540,8 @@ async function syncCloudInBackground(localData){
   merged.settings.suisuinianDisplayModeByTopic = mergedModeMap;
   merged = normalizeData(merged); /* 合并完了再统一跑一遍默认值补全，比如 workTags 合并完万一是空的，这里会正确地补回默认列表 */
 
-  var changedFromLocal = JSON.stringify(merged) !== JSON.stringify(localData);
-  var changedFromCloud = JSON.stringify(merged) !== JSON.stringify(cloudData);
+  var changedFromLocal = stableStringify(merged) !== stableStringify(localData);
+  var changedFromCloud = stableStringify(merged) !== stableStringify(cloudData);
   lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:changedFromLocal};
   if(changedFromLocal){
     merged.__localUpdatedAt = new Date().toISOString();
