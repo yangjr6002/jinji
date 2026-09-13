@@ -1406,12 +1406,17 @@ function mergeListsById(localList, cloudList, deletedIds, preferLocalOnConflict,
     var l = localMap[id], c = cloudMap[id];
     var pick;
     if(l && c){
-      /* 两边都有这一条（可能各自独立改过）。有各自的 updatedAt 就按谁改得更晚来挑，
-         不再无脑套用"整份数据谁的时间戳新就整批说了算"——不然会出现"一边改了 A 主题、
-         一边改了 B 主题，结果较晚同步的那台设备把对方真正刚改过的那条也一起带偏"这种坑
-         （没有 updatedAt 的老数据类型，还是照旧按整份数据的时间戳决定，行为不变）。 */
+      /* 两边都有这一条（可能各自独立改过）。只要有一边明确带着这条记录自己的 updatedAt
+         （说明它是真被这套新逻辑编辑过的），就该听它的——哪怕只有一边有，也不该退回去比
+         "整份数据"的总时间戳，不然会出现"手机压根没碰过这条，但手机整份数据保存时间更晚"，
+         结果手机那份没改过的旧内容反而把电脑刚编辑过的这条覆盖掉。两边都有 updatedAt 才比
+         谁更晚；两边都没有的老数据类型，才照旧退回去按整份数据的时间戳决定。 */
       if(l.updatedAt && c.updatedAt){
         pick = (new Date(l.updatedAt).getTime() >= new Date(c.updatedAt).getTime()) ? l : c;
+      } else if(l.updatedAt && !c.updatedAt){
+        pick = l;
+      } else if(!l.updatedAt && c.updatedAt){
+        pick = c;
       } else {
         pick = preferLocalOnConflict ? l : c;
       }
