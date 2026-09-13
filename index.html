@@ -1498,6 +1498,19 @@ async function syncCloudInBackground(localData){
     merged[cfg.field] = mergeListsById(localData && localData[cfg.field], cloudData[cfg.field], mergedDeleted, preferLocal, cfg.key);
     merged.deletedIds[cfg.field] = mergedDeleted;
   });
+  /* settings 里"每个子主题各自的展现形式"是个 {topicId: mode} 字典，之前直接跟着 settings
+     整个对象一起被"谁的时间戳新就用谁的"决定，导致一边刚设置的某个子主题展现形式，
+     只因为另一边整份数据保存时间更晚，就被那边没设置过这件事的旧字典整个覆盖掉。
+     这里单独按 key 取并集合并——两边各自设置过的子主题都保留，只有同一个子主题两边
+     都设过且不一样才需要争，这种真冲突才退回去看整份数据时间戳。 */
+  merged.settings = merged.settings || {};
+  var localModeMap = (localData && localData.settings && localData.settings.suisuinianDisplayModeByTopic) || {};
+  var cloudModeMap = (cloudData.settings && cloudData.settings.suisuinianDisplayModeByTopic) || {};
+  var mergedModeMap = {};
+  (preferLocal ? [cloudModeMap, localModeMap] : [localModeMap, cloudModeMap]).forEach(function(m){
+    Object.keys(m).forEach(function(k){ mergedModeMap[k] = m[k]; });
+  });
+  merged.settings.suisuinianDisplayModeByTopic = mergedModeMap;
   merged = normalizeData(merged); /* 合并完了再统一跑一遍默认值补全，比如 workTags 合并完万一是空的，这里会正确地补回默认列表 */
 
   var changedFromLocal = JSON.stringify(merged) !== JSON.stringify(localData);
