@@ -1393,14 +1393,33 @@ function mergeIdSetUnion(a,b){
 }
 function mergeListsById(localList, cloudList, deletedIds, preferLocalOnConflict, key){
   key = key || "id";
-  var map = {};
-  var order = preferLocalOnConflict ? [cloudList, localList] : [localList, cloudList];
-  order.forEach(function(list){
-    (list||[]).forEach(function(item){ if(item && item[key]!=null) map[item[key]]=item; });
-  });
+  var localMap = {}, cloudMap = {};
+  (localList||[]).forEach(function(item){ if(item && item[key]!=null) localMap[item[key]]=item; });
+  (cloudList||[]).forEach(function(item){ if(item && item[key]!=null) cloudMap[item[key]]=item; });
+  var allIds = {};
+  Object.keys(localMap).forEach(function(id){ allIds[id]=true; });
+  Object.keys(cloudMap).forEach(function(id){ allIds[id]=true; });
   var deletedSet = {}; (deletedIds||[]).forEach(function(id){ deletedSet[id]=true; });
   var out = [];
-  Object.keys(map).forEach(function(id){ if(!deletedSet[id]) out.push(map[id]); });
+  Object.keys(allIds).forEach(function(id){
+    if(deletedSet[id]) return;
+    var l = localMap[id], c = cloudMap[id];
+    var pick;
+    if(l && c){
+      /* 两边都有这一条（可能各自独立改过）。有各自的 updatedAt 就按谁改得更晚来挑，
+         不再无脑套用"整份数据谁的时间戳新就整批说了算"——不然会出现"一边改了 A 主题、
+         一边改了 B 主题，结果较晚同步的那台设备把对方真正刚改过的那条也一起带偏"这种坑
+         （没有 updatedAt 的老数据类型，还是照旧按整份数据的时间戳决定，行为不变）。 */
+      if(l.updatedAt && c.updatedAt){
+        pick = (new Date(l.updatedAt).getTime() >= new Date(c.updatedAt).getTime()) ? l : c;
+      } else {
+        pick = preferLocalOnConflict ? l : c;
+      }
+    } else {
+      pick = l || c;
+    }
+    out.push(pick);
+  });
   return out;
 }
 /* 记一笔"这条真的被删除过"，同步合并的时候要靠这个名单把它从并集里排除掉，
@@ -5434,7 +5453,7 @@ window.startEditSuisuinianMessage = function(id){
 };
 window.commitEditSuisuinianMessage = function(id, value){
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.content = value; save(); }
+  if(m){ m.content = value; m.updatedAt = new Date().toISOString(); save(); }
   suisuinianEditingMessage = null;
   render();
 };
@@ -5526,7 +5545,7 @@ window.addSuisuinianTopicInline = function(catKey){
   var value = (input.value||"").trim();
   if(!value) return;
   DATA.suisuinianTopics = DATA.suisuinianTopics || [];
-  DATA.suisuinianTopics.push({id:uid(), category:catKey||"", label:value});
+  DATA.suisuinianTopics.push({id:uid(), category:catKey||"", label:value, updatedAt:new Date().toISOString()});
   suisuinianAddingTopic = false;
   save(); render();
 };
@@ -5548,7 +5567,7 @@ window.startRenameSuisuinianTopic = function(id){
 window.commitRenameSuisuinianTopic = function(id, value){
   value = (value||"").trim();
   var t = (DATA.suisuinianTopics||[]).filter(function(x){return x.id===id;})[0];
-  if(t && value){ t.label = value; save(); }
+  if(t && value){ t.label = value; t.updatedAt = new Date().toISOString(); save(); }
   suisuinianRenamingTopic = null;
   render();
 };
@@ -5686,7 +5705,7 @@ window.addSuisuinianMessage = function(topicId){
   if(!value && !suisuinianComposerImages.length) return;
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
   var id = uid();
-  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[]});
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[]});
   suisuinianComposerImages = [];
   suisuinianAxisExpanded[id] = true; /* 新写的这条默认展开，能立刻看到自己写的内容 */
   save(); render();
@@ -5713,7 +5732,7 @@ function suisuinianAxisLabel(m){
 }
 window.commitSuisuinianMessageTitle = function(id, value){
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.title = (value||"").trim(); save(); }
+  if(m){ m.title = (value||"").trim(); m.updatedAt = new Date().toISOString(); save(); }
   suisuinianRenamingMessageTitle = null;
   render();
 };
@@ -5846,6 +5865,7 @@ window.commitEditSuisuinianTagEntry = function(id, value){
       DATA.suisuinianEntries = DATA.suisuinianEntries.filter(function(x){return x.id!==id;});
     } else {
       m.content = value;
+      m.updatedAt = new Date().toISOString();
     }
     save();
   }
@@ -5935,7 +5955,7 @@ window.addSuisuinianTagFromManager = function(topicId){
 window.addSuisuinianQuickMessage = function(topicId, tagKey){
   DATA.suisuinianEntries = DATA.suisuinianEntries || [];
   var id = uid();
-  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), title:"", content:"", images:[], fields:[], tag:tagKey||""});
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), title:"", content:"", images:[], fields:[], tag:tagKey||""});
   suisuinianTagEditingId = id;
   save(); render();
 };
