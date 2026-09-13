@@ -951,6 +951,7 @@ th.col-resizable .mini-del{margin-top:6px;}
     <button class="gear-btn" onclick="redoAction()" title="重做（Ctrl/Cmd+Shift+Z）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg></button>
     <button class="bg-settings-btn" onclick="openBgSettings()" title="自定义背景图"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></button>
     <button class="gear-btn" onclick="openMemoModal()" title="备忘录"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></button>
+    <button class="gear-btn" onclick="forceRefreshApp()" title="强制刷新（手机主屏幕快捷方式加载的是旧版本时用这个，比重新删加快捷方式方便）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
     <button class="gear-btn" id="logoutTopBtn" onclick="confirmSignOut()" title="退出登录" style="display:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
   </div>
@@ -1689,6 +1690,28 @@ function toast(msg, duration){
   var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
   clearTimeout(window.__toastTimer); window.__toastTimer=setTimeout(function(){t.classList.remove("show");}, duration||1800);
 }
+/* 手机主屏幕快捷方式（standalone 模式）经常死抱着旧的缓存版本不放，光下拉刷新没用，
+   之前只能教用户"删掉快捷方式重新加一个"，太麻烦。这里手动清一遍能清到的缓存
+   （Cache Storage、service worker，虽然这个项目目前没注册，但保留着不会出错），
+   再用带时间戳的地址强制重新从网络拉一次，绕开浏览器/系统的 HTTP 缓存。 */
+window.forceRefreshApp = function(){
+  toast("正在拉取最新版本…", 2000);
+  var cleanup = [];
+  if(window.caches && caches.keys){
+    cleanup.push(caches.keys().then(function(keys){
+      return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }).catch(function(){}));
+  }
+  if(navigator.serviceWorker && navigator.serviceWorker.getRegistrations){
+    cleanup.push(navigator.serviceWorker.getRegistrations().then(function(regs){
+      return Promise.all(regs.map(function(r){ return r.unregister(); }));
+    }).catch(function(){}));
+  }
+  Promise.all(cleanup).catch(function(){}).then(function(){
+    var url = location.pathname + "?_refresh=" + Date.now();
+    location.replace(url);
+  });
+};
 
 /* ---- 备忘录：首页右上角快速记点小事，跟 iOS 备忘录一样是个独立的小笔记本，
    不挂在任何一条具体记录下面。列表页看标题（取内容第一行）+ 预览 + 最后编辑时间，点进去是单条编辑页。 */
