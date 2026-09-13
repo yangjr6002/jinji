@@ -1506,11 +1506,38 @@ function persistToStorage(payload){
       try{ localStorage.setItem(STORE_KEY, payload); }catch(e){ warnStorageOnce(payload); }
     });
   }
-  /* 云端为主：本地写完之后同时把整份数据推上云端，登录状态下每次 save() 都会同步一次 */
+  /* 云端为主：本地写完之后同时把整份数据推上云端，登录状态下每次 save() 都会同步一次。
+     以前是"改一下就整份推一次"，如果这份数据本身已经好几 MB（照片多了很常见），
+     连续快速操作（打字、拖拽、切换）会变成连续好几次几 MB 的整份上传，一密集
+     就容易撞上数据库那边的 statement timeout（写太久被强制取消）。
+     现在改成"消停一下再推"——短时间内的连续改动只在最后落定 1.2 秒后真正推一次，
+     不会又快又密地反复怼大文件上去，明显减轻数据库压力。哪怕消停前就关页面，
+     下次打开时本地时间戳更新，也会被 syncCloudInBackground 发现并补推上去，不会丢。 */
   if(sbClient && sbSession){
-    try{ sbPushData(JSON.parse(payload)); }catch(e){}
+    try{ sbPushDataDebounced(JSON.parse(payload)); }catch(e){}
   }
 }
+var sbPushDebounceTimer = null;
+var sbPushPendingData = null;
+function sbPushDataDebounced(dataObj, delayMs){
+  sbPushPendingData = dataObj;
+  if(sbPushDebounceTimer) clearTimeout(sbPushDebounceTimer);
+  sbPushDebounceTimer = setTimeout(function(){
+    sbPushDebounceTimer = null;
+    var d = sbPushPendingData; sbPushPendingData = null;
+    if(d) sbPushData(d);
+  }, delayMs||1200);
+}
+/* 页面要被隐藏/关闭之前，如果还有一次"消停后再推"没触发，赶紧立刻推一次，
+   尽量别因为防抖延迟而白白错过这次上传（就算没推完也没关系，下次打开会自动补） */
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState==="hidden" && sbPushDebounceTimer){
+    clearTimeout(sbPushDebounceTimer);
+    sbPushDebounceTimer = null;
+    var d = sbPushPendingData; sbPushPendingData = null;
+    if(d) sbPushData(d);
+  }
+});
 function save(){
   DATA.__localUpdatedAt = new Date().toISOString(); /* 每次真正保存都盖个时间戳，云端/本地谁的数据新靠这个判断，不是无脑"云端优先" */
   var payload = JSON.stringify(DATA);
