@@ -1203,6 +1203,8 @@ function normalizeData(d){
   d.suisuinianDeletedIds = d.suisuinianDeletedIds || [];
   d.suisuinianTopicDeletedIds = d.suisuinianTopicDeletedIds || [];
   d.deletedIds = d.deletedIds || {};
+  d.deletedCategoryKeys = d.deletedCategoryKeys || {}; /* moduleCategories 各分类/标签删除的墓碑名单，跟 deletedIds 是同一个思路，
+    只是 moduleCategories 是"按 moduleId 分组的分类/标签列表"而不是普通记录列表，得单独记一份 */
   d.basicInfo = (d.basicInfo && d.basicInfo.length) ? d.basicInfo : JSON.parse(JSON.stringify(DEFAULT_DATA.basicInfo));
   d.workTags = (d.workTags && d.workTags.length) ? d.workTags : JSON.parse(JSON.stringify(DEFAULT_WORK_TAGS));
   d.residenceTags = (d.residenceTags && d.residenceTags.length) ? d.residenceTags : JSON.parse(JSON.stringify(DEFAULT_RESIDENCE_TAGS));
@@ -1465,6 +1467,18 @@ function markRecordsDeleted(field, ids){
   DATA.deletedIds = DATA.deletedIds || {};
   DATA.deletedIds[field] = (DATA.deletedIds[field]||[]).concat(ids);
 }
+/* 分类/标签（DATA.moduleCategories[moduleId]，比如资产的自定义分类、碎碎念子主题的标签）
+   之前完全没有参与跨设备合并——syncCloudInBackground 只合并了 SYNC_MERGE_LIST_FIELDS 里
+   列出的这些"记录列表"字段，moduleCategories 整个被当成"随便哪边数据新就整个用哪边"的
+   普通字段，导致一台设备新建的分类/标签，只要合并时选中了另一台设备的数据打底，
+   就会连人带影消失——这正是"标签功能在别的设备上都无法显示"的真正原因。
+   现在跟其它记录列表一样，按 key 做并集合并，删除也要记一笔墓碑名单，不然删掉的
+   分类/标签会被对方还留着的旧缓存"复活"回来。 */
+function markCategoryDeleted(moduleId, key){
+  if(moduleId==null || key==null) return;
+  DATA.deletedCategoryKeys = DATA.deletedCategoryKeys || {};
+  DATA.deletedCategoryKeys[moduleId] = (DATA.deletedCategoryKeys[moduleId]||[]).concat([key]);
+}
 /* 除了碎碎念（单独处理，逻辑一样但字段名是老的），其余"一条条记录"型的数据也按同样的
    思路合并：本机新增的、云端新增的都保留，只有真被删除、记进 deletedIds 的才去掉 */
 var SYNC_MERGE_LIST_FIELDS = [
@@ -1525,6 +1539,24 @@ async function syncCloudInBackground(localData){
     var mergedDeleted = mergeIdSetUnion(localDeleted, cloudDeleted);
     merged[cfg.field] = mergeListsById(localData && localData[cfg.field], cloudData[cfg.field], mergedDeleted, preferLocal, cfg.key);
     merged.deletedIds[cfg.field] = mergedDeleted;
+  });
+  /* moduleCategories（各模块的自定义分类、碎碎念子主题的标签列表）之前完全没参与合并，
+     整个跟着 base 走——这台设备新建的分类/标签，只要合并时选了另一台数据打底，就会
+     直接消失，这正是"标签在别的设备上不显示"的根因。现在跟其它记录列表一样，按每个
+     moduleId 分别取并集合并，删除的也排掉墓碑名单里记录过的，不会被对方的旧缓存复活。 */
+  merged.moduleCategories = merged.moduleCategories || {};
+  merged.deletedCategoryKeys = merged.deletedCategoryKeys || {};
+  var allCatModuleIds = {};
+  Object.keys((localData && localData.moduleCategories) || {}).forEach(function(k){ allCatModuleIds[k]=true; });
+  Object.keys(cloudData.moduleCategories || {}).forEach(function(k){ allCatModuleIds[k]=true; });
+  Object.keys(allCatModuleIds).forEach(function(moduleId){
+    var localCatDeleted = (localData && localData.deletedCategoryKeys) ? localData.deletedCategoryKeys[moduleId] : null;
+    var cloudCatDeleted = cloudData.deletedCategoryKeys ? cloudData.deletedCategoryKeys[moduleId] : null;
+    var mergedCatDeleted = mergeIdSetUnion(localCatDeleted, cloudCatDeleted);
+    var localCatList = (localData && localData.moduleCategories) ? localData.moduleCategories[moduleId] : null;
+    var cloudCatList = cloudData.moduleCategories ? cloudData.moduleCategories[moduleId] : null;
+    merged.moduleCategories[moduleId] = mergeListsById(localCatList, cloudCatList, mergedCatDeleted, preferLocal, "key");
+    merged.deletedCategoryKeys[moduleId] = mergedCatDeleted;
   });
   /* settings 里"每个子主题各自的展现形式"是个 {topicId: mode} 字典，之前直接跟着 settings
      整个对象一起被"谁的时间戳新就用谁的"决定，导致一边刚设置的某个子主题展现形式，
@@ -3363,6 +3395,7 @@ window.renameModuleCategory = function(moduleId, key, value, titleOverride){
 window.deleteModuleCategory = function(moduleId, key, titleOverride){
   confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
     DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
+    markCategoryDeleted(moduleId, key);
     if(moduleCatView[moduleId]===key) moduleCatView[moduleId]=null;
     save(); render(); manageModuleCategories(moduleId, titleOverride);
   });
@@ -5411,6 +5444,7 @@ window.renameBookCategory = function(moduleId, key, value){
 window.deleteBookCategory = function(moduleId, key){
   confirmDelete("确定删除这个分类吗？里面的内容会变成「未分类」，不会被删除。", function(){
     DATA.moduleCategories[moduleId] = getModuleCategories(moduleId).filter(function(x){return x.key!==key;});
+    markCategoryDeleted(moduleId, key);
     /* 碎碎念这个分类下挂的是子主题，不是普通条目，删分类时子主题也要一起归到未分类 */
     if(moduleId==="suisuinian"){
       (DATA.suisuinianTopics||[]).forEach(function(t){ if(t.category===key) t.category=""; });
@@ -5984,6 +6018,7 @@ window.deleteSuisuinianTag = function(topicId, key){
   confirmDelete("确定删除这个标签吗？用过这个标签的留言会变回未标记，不会被删除。", function(){
     var catKey = suisuinianTagCatKey(topicId);
     DATA.moduleCategories[catKey] = getModuleCategories(catKey).filter(function(x){return x.key!==key;});
+    markCategoryDeleted(catKey, key);
     save(); render(); manageSuisuinianTags(topicId);
   });
 };
