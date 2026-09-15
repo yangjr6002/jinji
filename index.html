@@ -178,11 +178,15 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .cat-folder-row:hover .cflabel{color:var(--accent);}
 .cat-folder-row .cflabel{font-size:13.5px; font-weight:600; color:var(--text);}
 .cat-folder-row .cfcount{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-dim); flex:none;}
-.cat-back-label{font-size:13px; font-weight:600; color:var(--text); flex:1;}
+.cat-back-label{font-size:13px; font-weight:600; color:var(--text);}
+/* "+ 新增xx"按钮要紧贴分类名字本身，"⚙ 管理分类"还是照旧钉在整排最右边不挪窝——
+   名字和按钮包一层 flex:1 的容器，⚙ 留在这层容器外面自己占最后一个位置 */
+.cat-back-label-wrap{display:flex; align-items:center; gap:8px; flex:1; min-width:0;}
 .section-label{
   font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
   color:var(--text-dim); margin:0; padding-bottom:8px; border-bottom:1px solid var(--border); flex:1;
 }
+.section-label-wrap{display:flex; align-items:center; gap:8px; flex:1; min-width:0; padding-bottom:8px; border-bottom:1px solid var(--border);}
 .gear-btn{
   width:26px;height:26px;border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text-dim);
   display:flex;align-items:center;justify-content:center; font-size:12px; flex:none; transition:.15s;
@@ -262,6 +266,8 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-table-wrap{
   max-height:66vh; overflow:auto; border:1px solid var(--border); border-radius:12px;
   box-shadow:var(--shadow); background:var(--surface); cursor:grab;
+  width:fit-content; max-width:100%; /* 字段少的时候白色背景块跟着表格实际宽度收窄，
+    不留一大截空白；字段多超出屏幕宽度时照旧靠 max-width:100% + overflow 横向滚动 */
 }
 .asset-table-wrap.grabbing{cursor:grabbing;}
 /* table-layout:fixed 的表格默认还是会被硬挤成跟外层容器一样宽，调宽一列就得从别的列里"偷"空间。
@@ -279,6 +285,12 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-th-rename-btn{flex:none; border:none; background:none; color:var(--text-faint); font-size:11px; width:16px; height:16px; line-height:16px; text-align:center; padding:0; cursor:pointer; opacity:0; transition:.12s;}
 .asset-th-row:hover .asset-th-rename-btn{opacity:1;}
 .asset-th-rename-btn:hover{color:var(--accent);}
+/* "账户类型/账号/密码"这三个固定列表头上的✕（关掉这一列，跟字段列表头那个✕删除样子统一，
+   只是这三个是"隐藏"不是真删除），跟改名✎同一行、同一套淡入淡出 */
+.asset-th-del-btn{flex:none; border:none; background:none; color:var(--text-faint); font-size:11px; width:16px; height:16px; line-height:16px; text-align:center; padding:0; cursor:pointer; opacity:0; transition:.12s;}
+.asset-th-row:hover .asset-th-del-btn{opacity:1;}
+.asset-th-del-btn:hover{color:var(--danger);}
+.asset-th-label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .asset-type-filter-mini{width:100%; box-sizing:border-box; font-size:10.5px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
 .asset-table th{
   position:sticky; top:0; z-index:2; text-align:left;
@@ -315,7 +327,10 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-row-del{position:absolute; top:2px; left:2px; z-index:5; opacity:0; transition:.12s;}
 .asset-table tr:hover .asset-row-del{opacity:1;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
-table.data{width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
+table.data{width:max-content; max-width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
+/* 这张表专用的外层容器：让白色卡片背景跟着表格实际宽度收窄，字段少的时候不留一大截空白；
+   密码管理这张表列数固定，正常不会超宽，加 overflow-x 只是保险 */
+.data-table-wrap{width:fit-content; max-width:100%; overflow-x:auto;}
 table.data th{position:relative; text-align:left; white-space:nowrap; overflow:hidden; box-sizing:border-box; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2);}
 table.data td{padding:13px 16px; border-bottom:1px solid var(--border-soft); vertical-align:middle;}
 table.data tr:last-child td{border-bottom:none}
@@ -323,13 +338,26 @@ table.data tr:hover{background:var(--surface-2)}
 .pw-mask{font-family:'IBM Plex Mono',monospace; letter-spacing:.1em;}
 .reveal-btn{background:none;border:none;color:var(--accent); font-size:12px; margin-left:8px; text-decoration:underline; padding:0;}
 .reveal-btn-header{background:none; border:none; cursor:pointer; font-size:12px; padding:0 2px; vertical-align:middle;}
+/* 显示/隐藏密码用颜文字代替 emoji，字符比单个 emoji 宽一些，字号小一点、给点字间距压缩，
+   免得表头看着太挤 */
+.reveal-btn-header.kaomoji{font-size:11px; letter-spacing:-.5px; color:var(--text-dim); font-family:'IBM Plex Mono',monospace;}
+.reveal-btn-header.kaomoji:hover{color:var(--accent);}
 /* 密码/资产表格直接在格子里编辑，不跳编辑框：输入框看起来跟普通文字差不多，只有 hover/focus 才露出边框 */
 .pw-inline-input, .asset-inline-input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-size:13px; color:var(--text); font-family:inherit;}
 .pw-inline-input:hover, .asset-inline-input:hover{border-color:var(--border);}
 .pw-inline-input:focus, .asset-inline-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
-.cat-back-label-input{font-size:13px; font-weight:600; color:var(--text); flex:1; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-family:inherit;}
+.cat-back-label-input{font-size:13px; font-weight:600; color:var(--text); flex:0 1 160px; min-width:60px; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px; font-family:inherit;}
 .cat-back-label-input:hover{border-color:var(--border);}
 .cat-back-label-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
+/* 通用"点铅笔图标改名"：文字本身单击行为不受影响（该进哪个分类/网站还是照常进），
+   铅笔图标常驻但比较淡，点一下才变成输入框；手机上没有鼠标悬浮，所以不靠 hover 才显示，
+   一直露出一点点，点得到、也不会太抢眼 */
+.dbl-edit-wrap{display:inline-flex; align-items:center; gap:3px; min-width:0; max-width:100%;}
+.dbl-edit-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1;}
+.dbl-edit-btn{flex:none; border:none; background:none; padding:3px; font-size:11px; line-height:1; color:var(--text-faint); opacity:.55; cursor:pointer; border-radius:4px; transition:.12s;}
+.dbl-edit-btn:hover{opacity:1; color:var(--accent); background:var(--surface-2);}
+.dbl-edit-input{font:inherit; color:inherit; border:1px solid var(--accent); background:var(--surface-2); border-radius:5px; padding:2px 5px; box-sizing:border-box; max-width:100%; width:100%;}
+.dbl-edit-input:focus{outline:none;}
 .asset-col-header-input{width:100%; box-sizing:border-box; border:1px solid transparent; background:transparent; padding:2px 4px; border-radius:5px; font-size:inherit; font-weight:inherit; color:inherit; font-family:inherit;}
 .asset-col-header-input:hover{border-color:var(--border);}
 .asset-col-header-input:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
@@ -859,6 +887,19 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
 .ssn-tag-col-add{align-self:flex-start; margin-top:2px;}
+.ssn-tag-col-addbtn{
+  width:19px; height:19px; border-radius:50%; border:none; flex:none; margin-left:auto;
+  display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; line-height:1;
+  color:#fff; cursor:pointer; transition:.15s; opacity:.85;
+}
+.ssn-tag-col-addbtn:hover{opacity:1; transform:scale(1.08);}
+/* 紧贴标题的"+新增xx"，跟旁边的"‹ 返回"（方形描边按钮）区分开，做成跟⚙管理分类一样的
+   圆形图标按钮——两颗圆放一起是一组操作，方形的返回按钮是另一码事，不会看着像重复的按钮 */
+.add-circle-btn{
+  width:26px; height:26px; border-radius:50%; border:1px solid var(--border); background:var(--surface); color:var(--text-dim);
+  display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex:none; transition:.15s; cursor:pointer;
+}
+.add-circle-btn:hover{border-color:var(--accent); color:var(--accent);}
 .ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
 .ssn-tag-col-add-input{width:130px; box-sizing:border-box; padding:5px 9px; border:1px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
 .ssn-tag-col-add-input:focus{outline:none; border-color:var(--accent);}
@@ -1007,7 +1048,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{}, assetTitleColumnLabel:"名称" },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{}, assetTitleColumnLabel:"名称", assetAccountColumnLabel:"账号", assetPasswordColumnLabel:"密码", assetFixedColsHidden:{} },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -1016,12 +1057,12 @@ var DEFAULT_DATA = {
     {id:"p3", site:"淘宝", username:"yo", password:"Tb!8827qWe", note:"绑定的是备用手机号"}
   ],
   assets:[
-    {id:"a1", title:"招商银行储蓄卡", location:"", assetType:"bankcard_physical", fields:[
+    {id:"a1", title:"招商银行储蓄卡", location:"", assetType:"bankcard_physical", account:"", password:"", fields:[
       {id:"af1", label:"卡号", value:"6225 88** **** 1234"},
       {id:"af2", label:"持有人", value:"yo"},
       {id:"af3", label:"备注", value:"工资卡"}
     ]},
-    {id:"a2", title:"建设银行信用卡", location:"", assetType:"bankcard_physical", fields:[
+    {id:"a2", title:"建设银行信用卡", location:"", assetType:"bankcard_physical", account:"", password:"", fields:[
       {id:"af4", label:"卡号", value:"4367 42** **** 5678"},
       {id:"af5", label:"持有人", value:"yo"},
       {id:"af6", label:"备注", value:"额度 5 万，账单日 8 号"}
@@ -1165,6 +1206,9 @@ function normalizeData(d){
   d.settings.assetColumnWidths = d.settings.assetColumnWidths || {};
   d.settings.assetTitleColumnLabel = d.settings.assetTitleColumnLabel || "账户内容";
   d.settings.assetTypeColumnLabel = d.settings.assetTypeColumnLabel || "账户类型";
+  d.settings.assetAccountColumnLabel = d.settings.assetAccountColumnLabel || "账号";
+  d.settings.assetPasswordColumnLabel = d.settings.assetPasswordColumnLabel || "密码";
+  d.settings.assetFixedColsHidden = d.settings.assetFixedColsHidden || {};
   d.settings.suisuinianDisplayMode = d.settings.suisuinianDisplayMode || "axis";
   if(d.settings.suisuinianDisplayMode==="table") d.settings.suisuinianDisplayMode = "tag"; /* 旧版"表格"改成了"标签"，老用户的选择自动迁移过去 */
   /* 展现形式改成各个子主题各自记各自的，不再全局共用一个开关——不然选了一个子主题的展现形式，
@@ -1237,7 +1281,7 @@ function normalizeData(d){
   if(!d.moduleCategories.assets_type || !d.moduleCategories.assets_type.length){
     d.moduleCategories.assets_type = JSON.parse(JSON.stringify(DEFAULT_DATA.moduleCategories.assets_type));
   }
-  d.assets = (d.assets||[]).map(migrateAssetItem);
+  d.assets = (d.assets||[]).map(migrateAssetItem).map(ensureAssetAccountPasswordFields);
   d.profile = d.profile || {name:"", avatarUrl:""};
   d.passwords = d.passwords || [];
   d.idPhotos = d.idPhotos || [];
@@ -1269,6 +1313,28 @@ function migrateAssetItem(a){
     location:a.location||"", assetType:a.assetType||"",
     fields: fields
   };
+}
+/* 账号/密码升级成跟"账户类型"一样的固定字段（以前只能自己手动加一列同名的动态字段来记，
+   密码那一列还完全是明文，没有密码管理那边的遮挡）。只在第一次遇到老数据（还没有 account/
+   password 这两个字段）时补一次：顺手把刚好叫"账号"/"密码"的动态字段挪进新固定字段，
+   不会两列重复出现，也不丢数据；这两个字段一旦补上了，以后就不会再触发这个搬家逻辑，
+   用户后来自己又加一列同名动态字段也不会被误搬。 */
+function ensureAssetAccountPasswordFields(a){
+  if(a.account===undefined || a.password===undefined){
+    a.account = a.account || "";
+    a.password = a.password || "";
+    var fields = a.fields || [];
+    if(!a.account){
+      var accF = fields.filter(function(f){return f.label==="账号";})[0];
+      if(accF) a.account = accF.value||"";
+    }
+    if(!a.password){
+      var pwF = fields.filter(function(f){return f.label==="密码";})[0];
+      if(pwF) a.password = pwF.value||"";
+    }
+    a.fields = fields.filter(function(f){return f.label!=="账号" && f.label!=="密码";});
+  }
+  return a;
 }
 var DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
 
@@ -2100,6 +2166,8 @@ function hideAllFloats(){
     if(el) el.remove();
   });
   if(typeof travelTagAnchorEl!=="undefined") travelTagAnchorEl = null;
+  if(typeof travelTagEditingId!=="undefined") travelTagEditingId = null;
+  if(typeof dblEditState!=="undefined") dblEditState = null;
   if(typeof famCardFor!=="undefined" && famCardFor!==null){ famCardFor = null; famCardLinkOpen = false; if(typeof renderFamilyCardOverlay==="function") renderFamilyCardOverlay(); }
 }
 var __lastRenderedView = null;
@@ -3328,6 +3396,29 @@ window.manageModuleCategories = function(moduleId, titleOverride){
     '<input type="text" class="cat-name-input" value="'+esc(uncategorizedLabel(moduleId))+'" onchange="renameUncategorized(\''+moduleId+'\', this.value, \''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">'+
     '<span class="cat-fixed-hint">固定分组</span>'+
   '</div>';
+  /* 资产信息这张表还有"账户类型/账号/密码"这三个固定字段的显示设置——本来想单独摆一颗⚙，
+     结果跟这里"管理分类"的⚙挤在一起显得重复，所以就塞进同一个弹窗里，当前正看着哪个分类
+     （地点）就管哪个分类的字段显示，在分类文件夹最外层（还没进任何分类）看不出该管谁，
+     就不显示这一段。 */
+  var assetFieldsSection = "";
+  if(moduleId==="assets_location" && moduleCatView.assets_location){
+    var scopeKey = moduleCatView.assets_location;
+    var hiddenFixed2 = assetHiddenFixedCols(scopeKey);
+    var fieldItems = [
+      {key:"type", label:DATA.settings.assetTypeColumnLabel||"账户类型"},
+      {key:"account", label:DATA.settings.assetAccountColumnLabel||"账号"},
+      {key:"password", label:DATA.settings.assetPasswordColumnLabel||"密码"}
+    ];
+    var fieldRows = fieldItems.map(function(it){
+      var checked = hiddenFixed2.indexOf(it.key)===-1;
+      return '<label class="cat-manage-row" style="cursor:pointer">'+
+        '<input type="checkbox" onchange="toggleAssetFixedColInManage(\''+scopeKey+'\',\''+it.key+'\',this.checked,\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')"'+(checked?' checked':'')+'>'+
+        '<span style="flex:1">'+esc(it.label)+'</span>'+
+      '</label>';
+    }).join('');
+    assetFieldsSection = '<div class="sub" style="margin:18px 0 10px">当前这张表要显示哪些固定字段（取消勾选只是不显示，数据还在）</div>'+
+      '<div class="cat-manage-list">'+fieldRows+'</div>';
+  }
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>'+esc(titleOverride||(labelFor(moduleId)+" · 分类管理"))+'</h3>'+
     '<div class="sub" style="margin-bottom:10px">展示方式</div>'+
@@ -3341,6 +3432,7 @@ window.manageModuleCategories = function(moduleId, titleOverride){
       '<input type="text" id="newModCatName" placeholder="新分类名称" maxlength="10">'+
       '<button type="button" class="btn small solid" onclick="addModuleCategory(\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')">+ 添加</button>'+
     '</div>'+
+    assetFieldsSection+
     '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
     '</div></div>';
   document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
@@ -3406,6 +3498,42 @@ function moduleCategorySelectField(moduleId, currentKey, fieldName, labelText){
   var options = [{value:"",label:uncategorizedLabel(moduleId)}].concat(cats.map(function(c){return {value:c.key,label:c.label};}));
   return fieldSelect(fieldName||"category", labelText||"分类", options, currentKey||"");
 }
+/* ============ 通用"点小铅笔图标改名" ============
+   密码管理"网站/应用"这一层压根没法在列表里直接改名，得先点进去才看得到输入框，用这个
+   小工具补一个近路：文字旁边带一个小铅笔图标，点一下原地变成自动聚焦的输入框，回车/点
+   别处失焦就把新值交给调用方传进来的"提交时执行的 JS"（一般就是复用已有的 renameXxx
+   函数，改用 this.value 当新值），跟这个文件里到处都是"内联 onclick 调 window.xxx"
+   的写法保持一致，不引入新机制。
+   分类文件夹/分类返回条上的分类名以前也接过这一套，但那两处本来就有一颗"⚙ 管理分类"
+   常驻在旁边、点开就能改名，铅笔图标反而是多余的重复入口，后来撤掉了，只留⚙这一个。
+   本来想做成"双击文字改名"，但这些文字本身就是所在整行的单击入口（单击直接进这个网站），
+   双击的前两次单击会在真正判定成"双击"之前就先各触发一次进入，把界面切走，双击反而失灵、
+   单击也变得要点两次才有反应。改成单独一个小图标，单击文字本身的单击行为完全不受影响，
+   点图标才触发改名，两者互不冲突；在手机上双击手势也不如"点一下图标"稳定，这样改顺带
+   也对触屏更友好。
+   Esc 取消，恢复原文字。同一时间只会有一处在编辑（用一个字符串 key 认哪一处），
+   render() 一刷新自然清空，不用额外收尾。 */
+var dblEditState = null;
+window.dblEditCancel = function(){ dblEditState = null; render(); };
+window.dblEditStart = function(key){ dblEditState = key; render(); };
+function dblEditLabel(key, text, commitJs, opts){
+  opts = opts || {};
+  var cls = opts.cls ? (" "+opts.cls) : "";
+  if(dblEditState === key){
+    return '<span class="dbl-edit-wrap'+cls+'"><input type="text" class="dbl-edit-input" value="'+esc(text)+'" autofocus '+
+      'onclick="event.stopPropagation()" '+
+      'onkeydown="if(event.key===\'Enter\')this.blur(); if(event.key===\'Escape\'){this.onblur=null; event.stopPropagation(); dblEditCancel();}" '+
+      'onblur="dblEditState=null; '+commitJs+'"></span>';
+  }
+  return '<span class="dbl-edit-wrap'+cls+'"><span class="dbl-edit-label">'+esc(text)+'</span>'+
+    '<button type="button" class="dbl-edit-btn" onclick="event.stopPropagation();dblEditStart(\''+key+'\')" title="改名">✎</button></span>';
+}
+/* 把一段文字安全地拼进"单引号包住的内联 JS 参数"里：先转 JS 转义（引号、反斜杠），
+   再走一遍 esc() 做 HTML 属性转义——顺序不能反，不然 esc() 先把单引号转成 &#39;，
+   浏览器解析属性时又会把它解码回单引号，照样会把内联 JS 字符串截断。 */
+function jsStrAttr(raw){
+  return esc(String(raw==null?"":raw).replace(/\\/g,"\\\\").replace(/'/g,"\\'"));
+}
 /* 渲染分类文件夹；items 是这个板块的全部数据，getCatKey(item) 返回该条数据的分类key（没有就返回空字符串） */
 function renderCategoryFolders(moduleId, items, getCatKey, opts){
   opts = opts || {};
@@ -3435,14 +3563,20 @@ function renderCategoryFolders(moduleId, items, getCatKey, opts){
         '<h3>'+esc(c.label)+'</h3></div>';
     }).join('')+'</div>';
   }
-  return '<div class="section-header-row"><div class="section-label">'+esc(sectionLabel)+'</div><button class="gear-btn" onclick="manageModuleCategories(\''+moduleId+'\',\''+manageTitleEsc+'\')" title="管理分类">⚙</button></div>'+
+  /* +新增按钮紧贴标题文字本身摆（label 和按钮包在同一个 flex:1 的容器里），
+     ⚙ 管理分类还是照旧钉在最右边，位置不动——两个诉求不冲突，分开处理就好 */
+  return '<div class="section-header-row"><div class="section-label-wrap"><div class="section-label" style="flex:none;border-bottom:none;padding-bottom:0;margin:0">'+esc(sectionLabel)+'</div>'+(opts.addBtnHtml||"")+'</div><button class="gear-btn" onclick="manageModuleCategories(\''+moduleId+'\',\''+manageTitleEsc+'\')" title="管理分类">⚙</button></div>'+
     body;
 }
-function categoryBackBar(moduleId, onBackFn, manageTitle){
+/* addBtnHtml：紧贴分类名字本身摆的"+新增xx"按钮（小号、ghost 样式，跟碎碎念标签栏那个"+ 添加标签"一个风格）；
+   "⚙ 管理分类"位置不动，还是钉在整排最右边——两者用各自的 flex 容器分开处理，互不影响。 */
+function categoryBackBar(moduleId, onBackFn, manageTitle, addBtnHtml){
   var cats = getModuleCategories(moduleId);
-  var current = cats.filter(function(c){return c.key===moduleCatView[moduleId];})[0];
+  var curKey = moduleCatView[moduleId] || "";
+  var current = cats.filter(function(c){return c.key===curKey;})[0];
   var label = current ? current.label : uncategorizedLabel(moduleId);
-  return '<div class="cat-back-bar"><button class="btn ghost small" onclick="'+(onBackFn||("exitModuleCategory('"+moduleId+"')"))+'">‹ 返回</button><span class="cat-back-label">'+esc(label)+'</span>'+
+  return '<div class="cat-back-bar"><button class="btn ghost small" onclick="'+(onBackFn||("exitModuleCategory('"+moduleId+"')"))+'">‹ 返回</button>'+
+    '<span class="cat-back-label-wrap"><span class="cat-back-label">'+esc(label)+'</span>'+(addBtnHtml||"")+'</span>'+
     '<button class="gear-btn" onclick="manageModuleCategories(\''+moduleId+'\',\''+(manageTitle?manageTitle.replace(/'/g,""):"")+'\')" title="管理分类">⚙</button></div>';
 }
 
@@ -4327,6 +4461,7 @@ window.deleteTravelEntry = function(id){
   confirmDelete("确定删除这个地点吗？", function(){
     markRecordsDeleted("lifeTimeline", id);
     DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
+    if(travelTagEditingId===id) travelTagEditingId = null;
     var box = document.getElementById("travelTagFloat");
     if(box) box.style.display = "none";
     save(); render(); toast("已删除");
@@ -4334,10 +4469,15 @@ window.deleteTravelEntry = function(id){
 };
 var travelTagHideTimer = null;
 var travelTagAnchorEl = null;
+/* 编辑框一旦点开就"钉"在这个地点上：鼠标划过别的/同一个地点标签，都不再把它顶回只读视图、
+   也不再重新计算位置——以前编辑框会跟着每次悬浮重新摆位置，挨得又近的邻居标签稍微一划过
+   还会把编辑框整个重置回只读预览，导致框一直跳、很难点中里面的输入框。改成点开即钉住，
+   只有主动"完成"、删除、点框外面、或翻页才收起，跟碎碎念子主题、家庭树备注那两处同一个思路。 */
+var travelTagEditingId = null;
 function travelTagClearHide(){ clearTimeout(travelTagHideTimer); }
 function travelTagScheduleHide(){
+  if(travelTagEditingId) return;
   var box = document.getElementById("travelTagFloat");
-  if(box && box.querySelector(".travel-tag-edit-form")) return;
   clearTimeout(travelTagHideTimer);
   travelTagHideTimer = setTimeout(function(){ if(box) box.style.display = "none"; }, 200);
 }
@@ -4355,6 +4495,23 @@ function travelTagPositionNear(box, anchorEl){
   box.style.left = left+"px";
   box.style.top = top+"px";
 }
+/* 编辑框已经钉住之后，内容变化（比如加了一个字段变高）只在快超出屏幕边缘时轻微挪一下，
+   不整体按锚点重新摆放，避免手正对着输入框、框却挪到别处去了 */
+function travelTagClampToViewport(box){
+  var br = box.getBoundingClientRect();
+  var left = br.left, top = br.top;
+  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
+  if(left < 6) left = 6;
+  if(top + br.height > window.innerHeight - 6) top = window.innerHeight - br.height - 6;
+  if(top < 6) top = 6;
+  box.style.left = left+"px";
+  box.style.top = top+"px";
+}
+function travelTagCloseEdit(){
+  travelTagEditingId = null;
+  var box = document.getElementById("travelTagFloat");
+  if(box) box.style.display = "none";
+}
 function travelTagFieldsFormHtml(t, id){
   return (t.fields||[]).map(function(f){
     return '<div class="travel-tag-field-row">'+
@@ -4368,21 +4525,26 @@ window.travelTagRenderEdit = function(id){
   var box = document.getElementById("travelTagFloat");
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
   if(!box || !t) return;
+  var wasEditingSame = (travelTagEditingId===id);
+  travelTagEditingId = id;
   travelTagClearHide();
   box.innerHTML = '<div class="travel-tag-edit-form">'+
     '<input type="text" class="asset-inline-input" value="'+esc(t.keyword||"")+'" placeholder="地名" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelKeyword(\''+id+'\',this.value)">'+
     '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelDate(\''+id+'\',this.value)">'+
     '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
     '<div class="travel-tag-edit-actions">'+
+      '<button type="button" class="btn small ghost" onclick="travelTagCloseEdit()" title="关闭编辑框">✓ 完成</button>'+
       '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
       '<button type="button" class="btn small ghost" onclick="refreshTravelGeo(\''+id+'\')" title="老数据可能定位信息不全（比如缺市/区县/镇这几级），点这个重新定位一次补全">🔄 重新定位</button>'+
       '<button type="button" class="mini-del" onclick="deleteTravelEntry(\''+id+'\')" title="删除">✕</button>'+
     '</div>'+
   '</div>';
   box.style.display = "block";
-  if(travelTagAnchorEl) travelTagPositionNear(box, travelTagAnchorEl);
+  if(!wasEditingSame && travelTagAnchorEl) travelTagPositionNear(box, travelTagAnchorEl);
+  else travelTagClampToViewport(box);
 };
 window.travelTagShow = function(id, anchorEl){
+  if(travelTagEditingId) return; /* 编辑框钉住的时候，划过别的/同一个标签不再把它顶回只读预览 */
   travelTagClearHide();
   travelTagAnchorEl = anchorEl;
   var box = document.getElementById("travelTagFloat");
@@ -4402,6 +4564,16 @@ document.addEventListener("mouseover", function(e){
 document.addEventListener("mouseout", function(e){
   var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
   if(el) travelTagScheduleHide();
+});
+/* 编辑框钉住的时候，点框外面（不是这个标签本身、也不是框自己）就当作"点完了"，自动收起，
+   不用非得记得去点"完成"按钮 */
+document.addEventListener("mousedown", function(e){
+  if(!travelTagEditingId) return;
+  var box = document.getElementById("travelTagFloat");
+  if(box && box.contains(e.target)) return;
+  var tag = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  if(tag && tag.getAttribute("data-travel-id")===travelTagEditingId) return;
+  travelTagCloseEdit();
 });
 (function(){
   var box = document.getElementById("travelTagFloat");
@@ -6139,11 +6311,12 @@ function renderSuisuinianTagView(topicId, allMsgs){
       : col.color
         ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'" ondblclick="startRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\')" title="双击改标签名">'+esc(col.label)+'</div>'
         : '<div class="ssn-tag-col-head">'+esc(col.label)+'</div>';
-    var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+'</div>';
-    /* 加内容的"+"挪到这一列泡泡的最下面，不再摆在标题栏那一行；"未标记"这一栏本身不能手动加内容
-       （加内容要选具体标签，去别的栏加），只用来看老内容 */
-    var addBtn = col.key ? '<button type="button" class="btn small ghost ssn-tag-col-add" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+ 添加内容</button>' : '';
-    return '<div class="ssn-tag-col">'+headRow+itemsHtml+addBtn+'</div>';
+    /* 加内容的"+"紧贴标签小标题摆在同一行（就一个"+"，不写"添加内容"四个字），颜色跟标签胶囊
+       同色——内容多了要往下滑很远才能加一条，这样不用滑到最下面。"未标记"这一栏本身不能手动
+       加内容（加内容要选具体标签，去别的栏加），只用来看老内容，所以没有这个按钮。 */
+    var addBtnHtml = col.key ? '<button type="button" class="ssn-tag-col-addbtn" style="background:'+col.color.strong+'" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+</button>' : '';
+    var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+addBtnHtml+'</div>';
+    return '<div class="ssn-tag-col">'+headRow+itemsHtml+'</div>';
   }).join('');
   /* 加标签的"+"挪到最上面，跟 ⚙ 管理按钮摆一起 */
   var addTagHtml = suisuinianAddingTagFor===topicId
@@ -6541,15 +6714,16 @@ function renderPasswords(){
     scoped.forEach(function(r){ var s=passwordSiteKey(r); counts[s]=(counts[s]||0)+1; });
     var siteNames = Object.keys(counts).sort();
     var rows = siteNames.map(function(s){
-      return '<div class="cat-folder-row" onclick="enterPasswordSite(\''+esc(s)+'\')"><span class="cflabel">'+esc(s)+'</span><span class="cfcount">'+counts[s]+'</span></div>';
+      var labelHtml = dblEditLabel("pwsite:"+s, s, "renamePasswordSiteInline('"+jsStrAttr(s)+"', this.value)", {cls:"cflabel"});
+      return '<div class="cat-folder-row" onclick="enterPasswordSite(\''+esc(s)+'\')">'+labelHtml+'<span class="cfcount">'+counts[s]+'</span></div>';
     }).join('');
-    var addRow = '<div class="book-toc-add">'+
-      '<input type="text" id="newPwSiteName" placeholder="新网站/应用名称，比如「淘宝」" onkeydown="if(event.key===\'Enter\'){addPasswordSiteInline();}">'+
-      '<button type="button" class="btn small ghost" onclick="addPasswordSiteInline()">+ 添加网站</button>'+
-    '</div>';
+    /* 加网站的"+"紧贴在"⚙ 管理分类"旁边，点了原地变输入框，不再单独占一整条 */
+    var addSiteBtnHtml = passwordsAddingSite
+      ? '<input type="text" class="ssn-tag-col-add-input" placeholder="网站/应用名称，回车创建" autofocus onkeydown="cancelAddPasswordSiteInlineKey(event)" onblur="commitAddPasswordSiteInline(this.value)">'
+      : '<button type="button" class="add-circle-btn" onclick="startAddPasswordSiteInline()" title="新建网站/应用">+</button>';
     return moduleShell("passwords","🔐","passwords","这个分类下有哪些网站/应用，一个网站可以注册多个账号，点进去看具体账号。",
       "",
-      categoryBackBar("passwords","exitPasswordCategory()") + (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🔐","这里还没有网站/应用","在下面添加一个")) + addRow
+      categoryBackBar("passwords","exitPasswordCategory()",null,addSiteBtnHtml) + (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🔐","这里还没有网站/应用","点击上方「+ 添加网站」"))
     );
   }
 
@@ -6567,7 +6741,8 @@ function renderPasswords(){
       '<td class="row-actions"><button class="mini-del" onclick="deletePassword(\''+r.id+'\')" title="删除">✕</button></td></tr>';
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
-    '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改"></div>';
+    '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改">'+
+    '<button class="add-circle-btn" onclick="createPasswordAccountInline()" title="新增账号">+</button></div>';
   var colLabels = DATA.settings.passwordColumnLabels;
   /* "密码"这一列名字固定住，不给改；账号/备注还是可以改。显示/隐藏按钮就挂在"密码"这个字旁边，
      不要放去页面最上面的大标题栏——离密码列太远，一眼看不出是控制哪个的 */
@@ -6579,13 +6754,13 @@ function renderPasswords(){
   ];
   var pwColgroupHtml = '<colgroup>'+pwColWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)">'+colResizeHandle("password","","username")+'</th>'+
-    '<th class="col-resizable">密码 <button type="button" class="reveal-btn-header" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"🙈":"👁")+'</button>'+colResizeHandle("password","","password")+'</th>'+
+    '<th class="col-resizable">密码 <button type="button" class="reveal-btn-header kaomoji" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"(-_-)":"(o_o)")+'</button>'+colResizeHandle("password","","password")+'</th>'+
     '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)">'+colResizeHandle("password","","note")+'</th>'+
     '<th></th>';
   return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字，列头右边缘可以拖动调整列宽。",
-    '<button class="btn solid" onclick="createPasswordAccountInline()">+ 新增账号</button>',
-    backBar + (siteScoped.length ? ('<div class="card-panel"><table class="data">'+pwColgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
-      : emptyState("🔐","这个网站下还没有账号","点击右上角「新增账号」添加"))
+    "",
+    backBar + (siteScoped.length ? ('<div class="card-panel data-table-wrap"><table class="data">'+pwColgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
+      : emptyState("🔐","这个网站下还没有账号","点击上方「+ 新增账号」添加"))
   );
 }
 var passwordsRevealAll = false; /* 显示/隐藏放在大标题这一层统一控制一次，不用每一行自己点 */
@@ -6595,14 +6770,25 @@ window.updatePasswordField = function(id, key, value){
   var r = DATA.passwords.filter(function(x){return x.id===id;})[0]; if(!r) return;
   r[key] = value; save(); render();
 };
-window.addPasswordSiteInline = function(){
-  var input = document.getElementById("newPwSiteName");
-  var value = (input.value||"").trim();
-  if(!value) return;
+var passwordsAddingSite = false;
+var __pwSiteAddEscaped = false;
+window.startAddPasswordSiteInline = function(){
+  passwordsAddingSite = true;
+  render();
+};
+window.commitAddPasswordSiteInline = function(value){
+  if(__pwSiteAddEscaped){ __pwSiteAddEscaped = false; passwordsAddingSite = false; render(); return; }
+  value = (value||"").trim();
+  passwordsAddingSite = false;
+  if(!value){ render(); return; }
   DATA.passwords.push({id:uid(), site:value, username:"", password:"", note:"", category:moduleCatView.passwords||""});
   save();
   moduleCatView.passwords_site = value;
   render();
+};
+window.cancelAddPasswordSiteInlineKey = function(e){
+  if(e.key==="Escape"){ __pwSiteAddEscaped = true; e.target.blur(); }
+  else if(e.key==="Enter"){ e.target.blur(); }
 };
 window.createPasswordAccountInline = function(){
   DATA.passwords.push({id:uid(), site:moduleCatView.passwords_site, username:"", password:"", note:"", category:moduleCatView.passwords||""});
@@ -6613,6 +6799,14 @@ window.renamePasswordSite = function(oldName, newName){
   if(!newName || newName===oldName){ render(); return; }
   DATA.passwords.forEach(function(r){ if(passwordSiteKey(r)===oldName) r.site = newName; });
   moduleCatView.passwords_site = newName;
+  save(); render();
+};
+/* 在"网站/应用"列表里双击改名用这个：只改名字，不像 renamePasswordSite 那样顺带跳进这个
+   网站的账号表——不然本来只是想在列表里连着改几个名字，改一个就被带跑到别的页面去了 */
+window.renamePasswordSiteInline = function(oldName, newName){
+  newName = (newName||"").trim();
+  if(!newName || newName===oldName){ render(); return; }
+  DATA.passwords.forEach(function(r){ if(passwordSiteKey(r)===oldName) r.site = newName; });
   save(); render();
 };
 /* 账号/密码/备注这三列的列头名字整个密码管理模块通用（不分分类/网站），跟资产那边"只在当前表里生效"不一样，
@@ -6699,6 +6893,53 @@ window.renameAssetTypeColumnLabel = function(newLabel){
   DATA.settings.assetTypeColumnLabel = newLabel;
   save(); render();
 };
+/* "账户类型/账号/密码"这三列都是固定字段（不是自己起名的动态字段），但跟"名称"这个必须
+   一直在的字段不一样，这三列允许按"分类"（地点）整表关掉——比如不动产那张表就用不上账号/
+   密码。关掉只是这张表不显示，数据还留着，右上角"+"旁边随时能一键加回来，不会真的丢。 */
+function assetHiddenFixedCols(scopeKey){ return (DATA.settings.assetFixedColsHidden||{})[scopeKey] || []; }
+window.hideAssetFixedCol = function(scopeKey, key){
+  DATA.settings.assetFixedColsHidden = DATA.settings.assetFixedColsHidden || {};
+  var arr = assetHiddenFixedCols(scopeKey);
+  if(arr.indexOf(key)===-1){ DATA.settings.assetFixedColsHidden[scopeKey] = arr.concat([key]); save(); }
+  render();
+};
+window.showAssetFixedCol = function(scopeKey, key){
+  DATA.settings.assetFixedColsHidden = DATA.settings.assetFixedColsHidden || {};
+  DATA.settings.assetFixedColsHidden[scopeKey] = assetHiddenFixedCols(scopeKey).filter(function(k){return k!==key;});
+  save(); render();
+};
+/* 这三个固定字段的显示/隐藏勾选框是塞进 manageModuleCategories 弹窗（"⚙ 管理分类"）里的
+   一段（见该函数里的 assetFieldsSection），没有单独开一个弹窗——不然⚙旁边再摆一颗⚙，
+   两颗齿轮挤在一起分不清谁是谁。勾完了重新打开的还是同一个 manageModuleCategories 弹窗，
+   跟改分类名之后的"重新打开弹窗"是同一个套路。 */
+window.toggleAssetFixedColInManage = function(scopeKey, key, checked, moduleId, titleOverride){
+  if(checked) showAssetFixedCol(scopeKey, key); else hideAssetFixedCol(scopeKey, key);
+  manageModuleCategories(moduleId, titleOverride);
+};
+window.renameAssetAccountColumnLabel = function(newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel){ render(); return; }
+  DATA.settings.assetAccountColumnLabel = newLabel;
+  save(); render();
+};
+window.renameAssetPasswordColumnLabel = function(newLabel){
+  newLabel = (newLabel||"").trim();
+  if(!newLabel){ render(); return; }
+  DATA.settings.assetPasswordColumnLabel = newLabel;
+  save(); render();
+};
+/* 密码这一列要跟密码管理那边的加密（遮挡）行为完全一致：默认显示 ●●●● 掩码，点表头的
+   显示/隐藏一次性切换整张表，跟 passwordsRevealAll/togglePasswordsRevealAll 同一个思路，
+   只是分开一份状态，不跟密码管理模块的显示状态互相影响 */
+var assetsPasswordRevealAll = false;
+window.toggleAssetsPasswordRevealAll = function(){ assetsPasswordRevealAll = !assetsPasswordRevealAll; render(); };
+/* 详情页里单条资产的密码显示/隐藏复用密码管理详情页同一套 revealed/togglePw——两边的 id
+   互不重叠，公用无风险，行为也完全一致 */
+function assetPasswordCellHtml(a){
+  return assetsPasswordRevealAll
+    ? '<input type="text" class="asset-inline-input mono" value="'+esc(a.password||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'password\',this.value)">'
+    : '<span class="pw-mask">••••••••••</span>';
+}
 
 /* 资产表格/密码表格列宽可拖拽调整，宽度存进 settings 里持久化，跟着这张表（资产按地点+类型区分，密码全局共用）走。
    实际列宽用 <colgroup><col> 控制（比直接设 th 宽度在 table-layout:fixed 下更可靠），拖拽手柄挂在每个可调整的 th 右边缘。 */
@@ -6767,6 +7008,12 @@ function assetAutoColWidth(values){
 var assetTypeColRenaming = false;
 window.startRenameAssetTypeCol = function(){ assetTypeColRenaming = true; render(); };
 window.commitRenameAssetTypeCol = function(value){ assetTypeColRenaming = false; renameAssetTypeColumnLabel(value); };
+var assetAccountColRenaming = false;
+window.startRenameAssetAccountCol = function(){ assetAccountColRenaming = true; render(); };
+window.commitRenameAssetAccountCol = function(value){ assetAccountColRenaming = false; renameAssetAccountColumnLabel(value); };
+var assetPasswordColRenaming = false;
+window.startRenameAssetPasswordCol = function(){ assetPasswordColRenaming = true; render(); };
+window.commitRenameAssetPasswordCol = function(value){ assetPasswordColRenaming = false; renameAssetPasswordColumnLabel(value); };
 /* 之前手动拖拽存下来的列宽优先级比"按内容自动算"更高（不然每次都会把手动调过的又弹回去），
    但这也导致老用户手滑拖过一次留下的很宽的列宽会一直卡住、按内容算的新默认值用不上。
    加个"重置列宽"清掉这张表存的宽度，清完就会重新走自动计算 */
@@ -6787,24 +7034,37 @@ function renderAssets(){
     );
   }
 
-  // 第二层（表格）：这个分类下所有资产，账户内容/账户类型是固定字段（类型是下拉选，可按类型筛选），
+  // 第二层（表格）：这个分类下所有资产，账户内容是必有的固定字段；账户类型/账号/密码也是固定字段
+  // （不是自己起名的动态字段），但这三个可以按这张表整体关掉不显示——不是每类资产都用得上账号/
+  // 密码，关掉只是这张表不显示，数据还在，右上角能一键加回来。密码这一列的显示/隐藏（加密）
+  // 跟密码管理模块完全一致：默认掩码，点显示/隐藏图标整张表一起切换。
   // 其余列头按实际出现过的字段名动态生成；名称/字段格子和列头名字都直接在表格上改，不跳编辑框
   var scopedAll = DATA.assets.filter(function(a){ return (a.location||"")===locKey; });
   var typeFilter = moduleCatView.assets_type_filter || "";
   var scoped = typeFilter ? scopedAll.filter(function(a){ return (a.assetType||"")===typeFilter; }) : scopedAll;
+  var assetScopeKey = locKey;
+  var hiddenFixed = assetHiddenFixedCols(assetScopeKey);
+  var showType = hiddenFixed.indexOf("type")===-1;
+  var showAccount = hiddenFixed.indexOf("account")===-1;
+  var showPassword = hiddenFixed.indexOf("password")===-1;
   var columns = [];
   scopedAll.forEach(function(a){
     (a.fields||[]).forEach(function(f){
       if(columns.indexOf(f.label)===-1){ columns.push(f.label); }
     });
   });
-  var assetScopeKey = locKey;
   /* 默认列宽不再用同一个数字死套所有列，改成按这一列实际内容的长短估算一个合适的宽度——
      "账号"这种短内容的列默认就窄一点，"备注"这种长内容的列默认就宽一点，不会都挤成一样大小
      显得空空荡荡或者反而不够看。拖拽调整过的列还是优先用调整过的宽度。 */
   var nameColW = getAssetColWidth(assetScopeKey,"__title__") || assetAutoColWidth(scopedAll.map(function(a){return a.title;}));
   var typeColW = getAssetColWidth(assetScopeKey,"__type__") || 130;
-  var colWidths = [nameColW, typeColW].concat(columns.map(function(c){
+  var accountColW = getAssetColWidth(assetScopeKey,"__account__") || assetAutoColWidth(scopedAll.map(function(a){return a.account;}));
+  var passwordColW = getAssetColWidth(assetScopeKey,"__password__") || 130;
+  var colWidths = [nameColW];
+  if(showType) colWidths.push(typeColW);
+  if(showAccount) colWidths.push(accountColW);
+  if(showPassword) colWidths.push(passwordColW);
+  colWidths = colWidths.concat(columns.map(function(c){
     var vals = scopedAll.map(function(a){ var f=(a.fields||[]).filter(function(x){return x.label===c;})[0]; return f?f.value:""; });
     return getAssetColWidth(assetScopeKey,c) || assetAutoColWidth(vals);
   })).concat([50]);
@@ -6819,9 +7079,23 @@ function renderAssets(){
     '</select>';
   var typeHeaderInner = assetTypeColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetTypeCol(this.value)">'
-    : '<div class="asset-th-row">'+typeFilterSelect+'<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetTypeCol()" title="改列名">✎</button></div>';
+    : '<div class="asset-th-row">'+typeFilterSelect+'<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetTypeCol()" title="改列名">✎</button>'+
+        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'type\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
+  var accountHeaderInner = assetAccountColRenaming
+    ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetAccountCol(this.value)">'
+    : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</span>'+
+        '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetAccountCol()" title="改列名">✎</button>'+
+        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'account\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
+  var passwordHeaderInner = assetPasswordColRenaming
+    ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetPasswordCol(this.value)">'
+    : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</span>'+
+        '<button type="button" class="reveal-btn-header kaomoji" onclick="toggleAssetsPasswordRevealAll()" title="显示/隐藏这张表里所有密码">'+(assetsPasswordRevealAll?"(-_-)":"(o_o)")+'</button>'+
+        '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetPasswordCol()" title="改列名">✎</button>'+
+        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'password\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+
-    '<th class="col-resizable">'+typeHeaderInner+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>'+
+    (showType ? ('<th class="col-resizable">'+typeHeaderInner+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>') : '') +
+    (showAccount ? ('<th class="col-resizable">'+accountHeaderInner+colResizeHandle("asset",assetScopeKey,"__account__")+'</th>') : '') +
+    (showPassword ? ('<th class="col-resizable">'+passwordHeaderInner+colResizeHandle("asset",assetScopeKey,"__password__")+'</th>') : '') +
     columns.map(function(c){
       var cEsc2 = c.replace(/'/g,"\\'");
       return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del asset-col-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
@@ -6832,7 +7106,9 @@ function renderAssets(){
     /* 整行删除的✕挪到首列格子左上角（首列是冻结的，随时看得见、够得着），
        不用像以前那样滚到最右边才找得到；平时藏着，鼠标移到这一行才显 */
     var cells = '<td><button type="button" class="mini-del asset-row-del" onclick="deleteAsset(\''+a.id+'\')" title="删除这条">✕</button>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
-      '<td>'+assetTypeSelectHtml(a)+'</td>'+
+      (showType ? ('<td>'+assetTypeSelectHtml(a)+'</td>') : '') +
+      (showAccount ? ('<td>'+assetCellHtml(a.id+"::__account__", a.account, "账号", "updateAssetBasicField('"+a.id+"','account',this.value)")+'</td>') : '') +
+      (showPassword ? ('<td>'+assetPasswordCellHtml(a)+'</td>') : '') +
       columns.map(function(c){
         var v = fieldMap[c]!==undefined?fieldMap[c]:"";
         var cEsc = c.replace(/'/g,"\\'");
@@ -6840,13 +7116,15 @@ function renderAssets(){
       }).join('')+
       '<td></td>';
     return '<tr>'+cells+'</tr>';
-  }).join('') || (scopedAll.length ? '<tr><td colspan="'+(columns.length+3)+'" class="sub" style="text-align:center;padding:16px">没有匹配这个类型的资产</td></tr>' : '');
+  }).join('');
+  var fixedShownCount = 1 + (showType?1:0) + (showAccount?1:0) + (showPassword?1:0);
+  if(!bodyRows) bodyRows = scopedAll.length ? ('<tr><td colspan="'+(columns.length+fixedShownCount+1)+'" class="sub" style="text-align:center;padding:16px">没有匹配这个类型的资产</td></tr>') : '';
   var tableHtml = '<div class="asset-table-wrap" id="assetTableScroll"><table class="asset-table">'+colgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+bodyRows+'</tbody></table></div>';
   return moduleShell("assets","💳","assets","资产/卡片/账户，表格形式展现，直接点格子改，列头名字也能改，列宽可拖，第一列冻结不跟着横向滚。",
-    '<button class="btn solid" onclick="createAssetInline()">+ 新增资产</button>'+
     (scopedAll.length ? '<button class="btn ghost" onclick="resetAssetColumnWidths(\''+assetScopeKey+'\')" title="之前手动拖拽调整过的列宽会被清掉，改用按内容自动算的默认宽度">↺ 重置列宽</button>' : ''),
-    categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 分类管理") +
-    (scopedAll.length ? tableHtml : emptyState("💳","这里还没有资产","点击右上角「新增资产」添加"))
+    categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 分类管理",
+      '<button class="add-circle-btn" onclick="createAssetInline()" title="新增资产">+</button>') +
+    (scopedAll.length ? tableHtml : emptyState("💳","这里还没有资产","点击上方「+ 新增资产」添加"))
   );
 }
 window.deleteAssetColumn = function(label){
@@ -6953,6 +7231,8 @@ function renderAssetDetailPage(id){
   }
   var locLabel = a.location ? ((getModuleCategories("assets_location").filter(function(c){return c.key===a.location;})[0]||{}).label||uncategorizedLabel("assets_location")) : uncategorizedLabel("assets_location");
   var typeLabel = a.assetType ? ((getModuleCategories("assets_type").filter(function(c){return c.key===a.assetType;})[0]||{}).label||uncategorizedLabel("assets_type")) : uncategorizedLabel("assets_type");
+  var hiddenFixed = assetHiddenFixedCols(a.location||"");
+  var show = revealed[a.id];
   var fieldRows = (a.fields||[]).map(function(f){
     return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
   }).join('');
@@ -6961,7 +7241,12 @@ function renderAssetDetailPage(id){
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>分类</th><td>'+esc(locLabel)+'</td></tr>'+
-      '<tr><th>'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'</th><td>'+assetTypeSelectHtml(a)+'</td></tr>'+
+      (hiddenFixed.indexOf("type")===-1 ? ('<tr><th>'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'</th><td>'+assetTypeSelectHtml(a)+'</td></tr>') : '') +
+      (hiddenFixed.indexOf("account")===-1 ? ('<tr><th>'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</th><td><input type="text" class="asset-inline-input mono" value="'+esc(a.account||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'account\',this.value)"></td></tr>') : '') +
+      (hiddenFixed.indexOf("password")===-1 ? ('<tr><th>'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</th><td>'+(show
+        ? '<input type="text" class="asset-inline-input mono" value="'+esc(a.password||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'password\',this.value)">'
+        : '<span class="pw-mask">••••••••••</span>')+
+        '<button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>') : '') +
       fieldRows+
     '</table></div>';
 }
@@ -7469,9 +7754,9 @@ function renderCustomBoardPage(boardId){
   }
   var cats = getModuleCategories(boardId);
   if(cats.length && !moduleCatView[boardId] && moduleCatView[boardId]!==""){
-    return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。",
-      '<button class="btn solid" onclick="editCustomBoardItem(\''+boardId+'\')">+ 新增</button>',
-      renderCategoryFolders(boardId, board.items, function(it){return it.category||"";})
+    return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。","",
+      renderCategoryFolders(boardId, board.items, function(it){return it.category||"";},
+        {addBtnHtml:'<button class="add-circle-btn" onclick="editCustomBoardItem(\''+boardId+'\')" title="新增">+</button>'})
     );
   }
   var scoped = cats.length ? board.items.filter(function(it){ return (it.category||"")===moduleCatView[boardId]; }) : board.items;
@@ -7482,10 +7767,11 @@ function renderCustomBoardPage(boardId){
       '<div class="row-actions"><button class="btn small ghost" onclick="editCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✎</button><button class="mini-del" onclick="deleteCustomBoardItem(\''+boardId+'\',\''+it.id+'\')">✕</button></div>'+
     '</div>';
   }).join('');
-  var backBar = cats.length ? categoryBackBar(boardId) : "";
+  var addBtnHtml = '<button class="add-circle-btn" onclick="editCustomBoardItem(\''+boardId+'\')" title="新增">+</button>';
+  var backBar = cats.length ? categoryBackBar(boardId, null, null, addBtnHtml) : "";
   return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。",
-    '<button class="btn solid" onclick="editCustomBoardItem(\''+boardId+'\')">+ 新增</button>',
-    backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容","点击右上角「新增」"))
+    cats.length ? "" : addBtnHtml,
+    backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容",cats.length?"点击上方「新增」":"点击右上角「新增」"))
   );
 }
 var __ciDrag = null;
@@ -7539,9 +7825,9 @@ function renderCustomItemDetailPage(boardId, itemId){
 function renderContacts(){
   var cats = getModuleCategories("contacts");
   if(cats.length && !moduleCatView.contacts && moduleCatView.contacts!==""){
-    return moduleShell("contacts","👥","contacts","重要联系人和关系备注。",
-      '<button class="btn solid" onclick="editContact()">+ 新增联系人</button>',
-      renderCategoryFolders("contacts", DATA.contacts, function(it){return it.category||"";})
+    return moduleShell("contacts","👥","contacts","重要联系人和关系备注。","",
+      renderCategoryFolders("contacts", DATA.contacts, function(it){return it.category||"";},
+        {addBtnHtml:'<button class="add-circle-btn" onclick="editContact()" title="新增联系人">+</button>'})
     );
   }
   var scoped = cats.length ? DATA.contacts.filter(function(c){ return (c.category||"")===moduleCatView.contacts; }) : DATA.contacts;
@@ -7554,10 +7840,11 @@ function renderContacts(){
       (c.note?('<div class="note">'+esc(c.note)+'</div>'):'')+
     '</div>';
   }).join('');
-  var backBar = cats.length ? categoryBackBar("contacts") : "";
+  var addContactBtnHtml = '<button class="add-circle-btn" onclick="editContact()" title="新增联系人">+</button>';
+  var backBar = cats.length ? categoryBackBar("contacts", null, null, addContactBtnHtml) : "";
   return moduleShell("contacts","👥","contacts","重要联系人和关系备注。",
-    '<button class="btn solid" onclick="editContact()">+ 新增联系人</button>',
-    backBar + (scoped.length ? ('<div class="contact-grid">'+cards+'</div>') : emptyState("👥","这里还没有联系人","点击右上角「新增联系人」"))
+    cats.length ? "" : addContactBtnHtml,
+    backBar + (scoped.length ? ('<div class="contact-grid">'+cards+'</div>') : emptyState("👥","这里还没有联系人",cats.length?"点击上方「新增联系人」":"点击右上角「新增联系人」"))
   );
 }
 window.editContact = function(id){
