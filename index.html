@@ -1007,6 +1007,7 @@ th.col-resizable .mini-del{margin-top:6px;}
 <div class="ssn-remark-float" id="ssnRemarkFloat" style="display:none;"></div>
 <div class="book-photo-float" id="bookPhotoFloat" style="display:none;"></div>
 <div class="ssn-remark-float" id="travelTagFloat" style="display:none;"></div>
+<div class="ssn-remark-float" id="ssnTagContentFloat" style="display:none;"></div>
 <script>
 /* ================= 数据层 ================= */
 /* 单页应用的本机持久化键。备份/恢复用于跨浏览器或清理缓存时迁移数据。 */
@@ -1048,7 +1049,7 @@ var DEFAULT_RESIDENCE_TAGS = [
 ];
 var DEFAULT_DATA = {
   profile:{ name:"yo", avatarUrl:"" },
-  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{}, assetTitleColumnLabel:"名称", assetAccountColumnLabel:"账号", assetPasswordColumnLabel:"密码", assetFixedColsHidden:{} },
+  settings:{ moduleView:"list", quickAccessIds:["basicinfo","passwords","assets","idphotos","album","contacts"], homeOrder:["quickaccess","timeline","suisuinian","journal"], timelineViewByFilter:{}, categoryViewMode:"list", familyShowSiblingLines:true, passwordColumnLabels:{username:"账号",password:"密码",note:"备注"}, passwordColumnWidths:{}, assetColumnWidths:{}, assetTitleColumnLabel:"名称", assetAccountColumnLabel:"账号", assetPasswordColumnLabel:"密码", assetFixedColsHidden:{}, assetEncryptedCols:{}, passwordEncryptedCols:["password"] },
   labels:{},
   timelineCategories: JSON.parse(JSON.stringify(DEFAULT_TL_CATEGORIES)),
   passwords:[
@@ -1209,6 +1210,12 @@ function normalizeData(d){
   d.settings.assetAccountColumnLabel = d.settings.assetAccountColumnLabel || "账号";
   d.settings.assetPasswordColumnLabel = d.settings.assetPasswordColumnLabel || "密码";
   d.settings.assetFixedColsHidden = d.settings.assetFixedColsHidden || {};
+  d.settings.assetEncryptedCols = d.settings.assetEncryptedCols || {}; /* 每个分类（地点）自己选哪些字段要加密——
+    账号/密码/自定义字段都算，"账户类型"是下拉选择不是文本，不参与。key 不存在时按老规矩默认密码列加密
+    （兼容这个功能上线之前就一直是"密码列固定掉码"的老数据），显式配置过（哪怕配成空数组）就不再套默认值 */
+  /* 密码管理表头名字（账号/密码/备注）本来就是全局共用、不分网站的，加密开关也一样不分网站——
+    默认密码列加密（跟老行为一致），账号/备注默认不加密，用户能自己在表头挑着开 */
+  if(d.settings.passwordEncryptedCols===undefined) d.settings.passwordEncryptedCols = ["password"];
   d.settings.suisuinianDisplayMode = d.settings.suisuinianDisplayMode || "axis";
   if(d.settings.suisuinianDisplayMode==="table") d.settings.suisuinianDisplayMode = "tag"; /* 旧版"表格"改成了"标签"，老用户的选择自动迁移过去 */
   /* 展现形式改成各个子主题各自记各自的，不再全局共用一个开关——不然选了一个子主题的展现形式，
@@ -2157,7 +2164,7 @@ function destinationById(id){
    mouseleave，收起的计时器也就永远不会触发——悬浮框会一直飘在空中出不去。所以只要检测到"真的换了地方"
    （VIEW 或当前标签页变了，不是原地刷新），就强制把所有悬浮框都收起来一次，兜底修掉这个问题。 */
 function hideAllFloats(){
-  ["ssnRemarkFloat","travelTagFloat","bookPhotoFloat","tlTooltip"].forEach(function(id){
+  ["ssnRemarkFloat","travelTagFloat","bookPhotoFloat","tlTooltip","ssnTagContentFloat"].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = "none";
   });
@@ -3399,9 +3406,11 @@ window.manageModuleCategories = function(moduleId, titleOverride){
   /* 资产信息这张表还有"账户类型/账号/密码"这三个固定字段的显示设置——本来想单独摆一颗⚙，
      结果跟这里"管理分类"的⚙挤在一起显得重复，所以就塞进同一个弹窗里，当前正看着哪个分类
      （地点）就管哪个分类的字段显示，在分类文件夹最外层（还没进任何分类）看不出该管谁，
-     就不显示这一段。 */
+     就不显示这一段。注意"未分类"这个默认分组的 key 是空字符串""，不能用 if(moduleCatView.assets_location)
+     这种真值判断——""是假值，会导致刚好停在"未分类"（哪怕它被改名成"日本"这种正常名字）
+     时，这一段整个不显示，之前这里就是这么漏掉的。 */
   var assetFieldsSection = "";
-  if(moduleId==="assets_location" && moduleCatView.assets_location){
+  if(moduleId==="assets_location" && moduleCatView.assets_location!==null && moduleCatView.assets_location!==undefined){
     var scopeKey = moduleCatView.assets_location;
     var hiddenFixed2 = assetHiddenFixedCols(scopeKey);
     var fieldItems = [
@@ -3418,6 +3427,26 @@ window.manageModuleCategories = function(moduleId, titleOverride){
     }).join('');
     assetFieldsSection = '<div class="sub" style="margin:18px 0 10px">当前这张表要显示哪些固定字段（取消勾选只是不显示，数据还在）</div>'+
       '<div class="cat-manage-list">'+fieldRows+'</div>';
+    /* 字段加密勾选：账号/密码这两个固定字段 + 当前这张表用过的所有自定义字段名，"账户类型"是
+       下拉选择不是文本，没什么可加密的，不放进来。勾中的字段会在表头显示一个可以点开/收起的
+       小图标，默认掉码显示，跟密码列原来的行为一致。 */
+    var encryptedNow2 = assetEncryptedCols(scopeKey);
+    var scopedItemsForCols2 = DATA.assets.filter(function(a){ return (a.location||"")===scopeKey; });
+    var dynCols2 = [];
+    scopedItemsForCols2.forEach(function(a){ (a.fields||[]).forEach(function(f){ if(f.label && dynCols2.indexOf(f.label)===-1) dynCols2.push(f.label); }); });
+    var encItems2 = [
+      {id:"account", label:DATA.settings.assetAccountColumnLabel||"账号"},
+      {id:"password", label:DATA.settings.assetPasswordColumnLabel||"密码"}
+    ].concat(dynCols2.map(function(c){ return {id:c, label:c}; }));
+    var encRows2 = encItems2.map(function(it){
+      var checkedEnc = encryptedNow2.indexOf(it.id)!==-1;
+      return '<label class="cat-manage-row" style="cursor:pointer">'+
+        '<input type="checkbox" onchange="toggleAssetColEncryptedInManage(\''+scopeKey+'\',\''+it.id.replace(/'/g,"\\'")+'\',this.checked,\''+moduleId+'\',\''+(titleOverride?titleOverride.replace(/'/g,""):"")+'\')"'+(checkedEnc?' checked':'')+'>'+
+        '<span style="flex:1">'+esc(it.label)+'</span>'+
+      '</label>';
+    }).join('');
+    assetFieldsSection += '<div class="sub" style="margin:18px 0 10px">哪些字段要加密（勾选后默认掉码显示，点表头小图标才能看/编辑，跟以前密码列一样）</div>'+
+      '<div class="cat-manage-list">'+encRows2+'</div>';
   }
   root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
     '<h3>'+esc(titleOverride||(labelFor(moduleId)+" · 分类管理"))+'</h3>'+
@@ -5910,6 +5939,42 @@ document.addEventListener("mouseout", function(e){
     box.addEventListener("mouseleave", ssnRemarkScheduleHide);
   }
 })();
+/* 标签看板里气泡固定3行截断，篇幅长的看不全；鼠标移上去悬浮显示全文，不用点进编辑框才能看。
+   复用备忘录悬浮框同一套定位逻辑，单独开一个浮框实例，互不干扰。只有真的被截断了
+   （scrollHeight 比看得到的 clientHeight 高）才弹，内容本来就没几个字的不用多此一举。
+   这个框本身设成 pointer-events:none（鼠标穿透，不响应悬浮/点击）：框是悬浮在卡片上方的，
+   弹出的位置很容易挡住下面挨着的其他卡片，之前框自己还监听 mouseenter 来"钉住不收起"，
+   鼠标划过去正好经过框的地界，就被误判成"还在看"一直不收，导致框飘在别的地方也不消失。
+   改成穿透之后，鼠标划到哪、有没有真的还在原来那张卡片上，只看卡片自己的 mouseout，跟框
+   本身完全无关，收起延迟也缩短一点，不会显得赖着不走。 */
+var ssnTagContentHideTimer = null;
+function ssnTagContentClearHide(){ clearTimeout(ssnTagContentHideTimer); }
+function ssnTagContentScheduleHide(){
+  clearTimeout(ssnTagContentHideTimer);
+  ssnTagContentHideTimer = setTimeout(function(){
+    var box = document.getElementById("ssnTagContentFloat");
+    if(box) box.style.display = "none";
+  }, 80);
+}
+window.ssnTagContentShow = function(id, anchorEl){
+  ssnTagContentClearHide();
+  if(!anchorEl || anchorEl.scrollHeight <= anchorEl.clientHeight + 1) return;
+  var box = document.getElementById("ssnTagContentFloat");
+  var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
+  if(!box || !m) return;
+  box.style.pointerEvents = "none";
+  box.innerHTML = '<div class="ssn-remark-view" style="cursor:default;max-height:50vh;overflow-y:auto">'+esc(m.content||"")+'</div>';
+  box.style.display = "block";
+  ssnRemarkPositionNear(box, anchorEl);
+};
+document.addEventListener("mouseover", function(e){
+  var el = e.target.closest ? e.target.closest(".ssn-tag-clamp") : null;
+  if(el && el.getAttribute("data-entry-id")) ssnTagContentShow(el.getAttribute("data-entry-id"), el);
+});
+document.addEventListener("mouseout", function(e){
+  var el = e.target.closest ? e.target.closest(".ssn-tag-clamp") : null;
+  if(el) ssnTagContentScheduleHide();
+});
 window.deleteSuisuinianTopic = function(id){
   var n = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===id;}).length;
   confirmDelete("确定删除这个子主题吗？"+(n?("里面的 "+n+" 条留言会一起永久删除，"):"")+"不能撤销。", function(){
@@ -6219,7 +6284,7 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   if(editingThis){
     innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>';
   } else {
-    innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>'+
+    innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" data-entry-id="'+m.id+'" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑，悬停查看全部">'+esc(m.content||"（没有内容）")+'</div>'+
       '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   }
   /* 气泡固定大小：没在编辑的时候用固定高度+3行截断；点一下直接就地编辑内容，跟留言板其他
@@ -6731,21 +6796,21 @@ function renderPasswords(){
   var siteScoped = scoped.filter(function(r){ return passwordSiteKey(r)===siteKey; });
   var colLabelsForRows = DATA.settings.passwordColumnLabels;
   var rows = siteScoped.map(function(r){
-    var show = passwordsRevealAll;
     return '<tr>'+
-      '<td><input type="text" class="pw-inline-input mono" value="'+esc(r.username)+'" placeholder="'+esc(colLabelsForRows.username)+'" onchange="updatePasswordField(\''+r.id+'\',\'username\',this.value)"></td>'+
-      '<td>'+(show
-        ? '<input type="text" class="pw-inline-input mono" value="'+esc(r.password)+'" onchange="updatePasswordField(\''+r.id+'\',\'password\',this.value)">'
-        : '<span class="pw-mask">••••••••••</span>')+'</td>'+
-      '<td><input type="text" class="pw-inline-input" value="'+esc(r.note||"")+'" placeholder="'+esc(colLabelsForRows.note)+'" onchange="updatePasswordField(\''+r.id+'\',\'note\',this.value)"></td>'+
+      '<td>'+passwordCellHtml("username", r, "username", colLabelsForRows.username)+'</td>'+
+      '<td>'+passwordCellHtml("password", r, "password", "")+'</td>'+
+      '<td>'+passwordCellHtml("note", r, "note", colLabelsForRows.note)+'</td>'+
       '<td class="row-actions"><button class="mini-del" onclick="deletePassword(\''+r.id+'\')" title="删除">✕</button></td></tr>';
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitPasswordSite()">‹ 返回</button>'+
     '<input type="text" class="cat-back-label-input" value="'+esc(siteKey)+'" onchange="renamePasswordSite(\''+esc(siteKey)+'\', this.value)" title="这个网站/应用的名字，改了下面所有账号一起跟着改">'+
+    '<button class="gear-btn" onclick="managePasswordEncryption()" title="设置哪些字段要加密">⚙</button>'+
     '<button class="add-circle-btn" onclick="createPasswordAccountInline()" title="新增账号">+</button></div>';
   var colLabels = DATA.settings.passwordColumnLabels;
-  /* "密码"这一列名字固定住，不给改；账号/备注还是可以改。显示/隐藏按钮就挂在"密码"这个字旁边，
-     不要放去页面最上面的大标题栏——离密码列太远，一眼看不出是控制哪个的 */
+  /* "密码"这一列名字固定住，不给改；账号/备注还是可以改。哪些字段要加密改成在"⚙"弹窗里
+     统一勾选（跟资产信息"⚙ 管理分类"弹窗里的加密勾选是同一个思路），不在每个列头单独放
+     🔒/🔓——之前试过表头常驻锁形图标，用户反馈看着乱、还以为没勾的字段也被锁住了，
+     所以改成表头只在"这一列已经加密"时才出现 (o_o)/(-_-) 显示开关，没加密的列头干干净净。 */
   var pwColWidths = [
     getPasswordColWidth("username")||140,
     getPasswordColWidth("password")||150,
@@ -6753,9 +6818,9 @@ function renderPasswords(){
     56
   ];
   var pwColgroupHtml = '<colgroup>'+pwColWidths.map(function(w){ return '<col style="width:'+w+'px">'; }).join('')+'</colgroup>';
-  var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)">'+colResizeHandle("password","","username")+'</th>'+
-    '<th class="col-resizable">密码 <button type="button" class="reveal-btn-header kaomoji" onclick="togglePasswordsRevealAll()" title="显示/隐藏这张表里所有密码">'+(passwordsRevealAll?"(-_-)":"(o_o)")+'</button>'+colResizeHandle("password","","password")+'</th>'+
-    '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)">'+colResizeHandle("password","","note")+'</th>'+
+  var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.username)+'" onchange="renamePasswordColumn(\'username\',this.value)">'+passwordColHeaderBtns("username")+colResizeHandle("password","","username")+'</th>'+
+    '<th class="col-resizable">密码 '+passwordColHeaderBtns("password")+colResizeHandle("password","","password")+'</th>'+
+    '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(colLabels.note)+'" onchange="renamePasswordColumn(\'note\',this.value)">'+passwordColHeaderBtns("note")+colResizeHandle("password","","note")+'</th>'+
     '<th></th>';
   return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字，列头右边缘可以拖动调整列宽。",
     "",
@@ -6763,8 +6828,54 @@ function renderPasswords(){
       : emptyState("🔐","这个网站下还没有账号","点击上方「+ 新增账号」添加"))
   );
 }
-var passwordsRevealAll = false; /* 显示/隐藏放在大标题这一层统一控制一次，不用每一行自己点 */
-window.togglePasswordsRevealAll = function(){ passwordsRevealAll = !passwordsRevealAll; render(); };
+/* 账号/密码/备注这三列，加密是全局的（不分网站，跟 passwordColumnLabels 一个逻辑）——
+   🔒/🔓 图标点一下切换"这一列要不要加密"，只有加密的列才会多出一个 (o_o)/(-_-) 显示开关。
+   显示状态是当前页面会话内的，跟资产表格的 assetColRevealAll 一样，刷新会重新变回掉码。 */
+function passwordColEncrypted(colId){ return (DATA.settings.passwordEncryptedCols||[]).indexOf(colId)!==-1; }
+window.togglePasswordColEncryptConfig = function(colId){
+  DATA.settings.passwordEncryptedCols = DATA.settings.passwordEncryptedCols || [];
+  var idx = DATA.settings.passwordEncryptedCols.indexOf(colId);
+  if(idx===-1) DATA.settings.passwordEncryptedCols.push(colId); else DATA.settings.passwordEncryptedCols.splice(idx,1);
+  save(); render(); managePasswordEncryption();
+};
+var passwordColRevealAll = {};
+function passwordColRevealed(colId){ return !!passwordColRevealAll[colId]; }
+window.togglePasswordColReveal = function(colId){ passwordColRevealAll[colId] = !passwordColRevealAll[colId]; render(); };
+function passwordColHeaderBtns(colId){
+  var enc = passwordColEncrypted(colId);
+  if(!enc) return '';
+  return '<button type="button" class="reveal-btn-header kaomoji" onclick="togglePasswordColReveal(\''+colId+'\')" title="显示/隐藏这一列">'+(passwordColRevealed(colId)?"(-_-)":"(o_o)")+'</button>';
+}
+/* "⚙ 设置哪些字段要加密"弹窗：跟资产信息"⚙ 管理分类"弹窗里加密那段是同一个勾选样式，
+   勾完照旧重新打开同一个弹窗，方便连续勾好几个 */
+window.managePasswordEncryption = function(){
+  var root=document.getElementById("modalRoot");
+  var items = [
+    {id:"username", label:DATA.settings.passwordColumnLabels.username||"账号"},
+    {id:"password", label:"密码"},
+    {id:"note", label:DATA.settings.passwordColumnLabels.note||"备注"}
+  ];
+  var rows = items.map(function(it){
+    var checked = passwordColEncrypted(it.id);
+    return '<label class="cat-manage-row" style="cursor:pointer">'+
+      '<input type="checkbox" onchange="togglePasswordColEncryptConfig(\''+it.id+'\')"'+(checked?' checked':'')+'>'+
+      '<span style="flex:1">'+esc(it.label)+'</span>'+
+    '</label>';
+  }).join('');
+  root.innerHTML = '<div class="modal-mask" id="mmask"><div class="modal" style="max-width:380px">'+
+    '<h3>字段加密</h3>'+
+    '<div class="sub" style="margin-bottom:10px">哪些字段要加密（勾选后默认掉码显示，点表头小图标才能看/编辑）</div>'+
+    '<div class="cat-manage-list">'+rows+'</div>'+
+    '<div class="modal-actions"><button type="button" class="btn ghost" onclick="closeModal()">关闭</button></div>'+
+    '</div></div>';
+  document.getElementById("mmask").addEventListener("click", function(e){ if(e.target.id==="mmask") closeModal(); });
+};
+function passwordCellHtml(colId, r, key, placeholder){
+  if(passwordColEncrypted(colId) && !passwordColRevealed(colId)){
+    return '<span class="pw-mask">••••••••••</span>';
+  }
+  return '<input type="text" class="pw-inline-input'+(colId==="note"?"":" mono")+'" value="'+esc(r[key]||"")+'"'+(placeholder?(' placeholder="'+esc(placeholder)+'"'):'')+' onchange="updatePasswordField(\''+r.id+'\',\''+key+'\',this.value)">';
+}
 window.togglePw = function(id){ revealed[id]=!revealed[id]; render(); };
 window.updatePasswordField = function(id, key, value){
   var r = DATA.passwords.filter(function(x){return x.id===id;})[0]; if(!r) return;
@@ -6928,17 +7039,59 @@ window.renameAssetPasswordColumnLabel = function(newLabel){
   DATA.settings.assetPasswordColumnLabel = newLabel;
   save(); render();
 };
-/* 密码这一列要跟密码管理那边的加密（遮挡）行为完全一致：默认显示 ●●●● 掩码，点表头的
-   显示/隐藏一次性切换整张表，跟 passwordsRevealAll/togglePasswordsRevealAll 同一个思路，
-   只是分开一份状态，不跟密码管理模块的显示状态互相影响 */
-var assetsPasswordRevealAll = false;
-window.toggleAssetsPasswordRevealAll = function(){ assetsPasswordRevealAll = !assetsPasswordRevealAll; render(); };
-/* 详情页里单条资产的密码显示/隐藏复用密码管理详情页同一套 revealed/togglePw——两边的 id
-   互不重叠，公用无风险，行为也完全一致 */
-function assetPasswordCellHtml(a){
-  return assetsPasswordRevealAll
-    ? '<input type="text" class="asset-inline-input mono" value="'+esc(a.password||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'password\',this.value)">'
-    : '<span class="pw-mask">••••••••••</span>';
+/* 字段加密：账号/密码/自定义字段现在都能自己选要不要加密（勾选放在"⚙ 管理分类"弹窗里，
+   见 assetFieldsSection），不再是"密码列写死加密、其它都不能"。colId 对固定字段是
+   "account"/"password"，动态字段就用字段名本身当 id。
+   scopeKey 不存在于 assetEncryptedCols 里时，按老规矩默认密码加密（兼容这个功能上线前
+   "密码列一直是掉码"的老数据/老习惯），用户只要在弹窗里勾选/取消过一次，就变成显式配置，
+   哪怕配成空数组也不再套这个默认值。 */
+function assetEncryptedCols(scopeKey){
+  var m = DATA.settings.assetEncryptedCols || {};
+  if(!Object.prototype.hasOwnProperty.call(m, scopeKey)) return ["password"];
+  return m[scopeKey] || [];
+}
+window.setAssetColEncrypted = function(scopeKey, colId, checked){
+  DATA.settings.assetEncryptedCols = DATA.settings.assetEncryptedCols || {};
+  var arr = assetEncryptedCols(scopeKey);
+  if(checked){
+    if(arr.indexOf(colId)===-1) DATA.settings.assetEncryptedCols[scopeKey] = arr.concat([colId]);
+  } else {
+    DATA.settings.assetEncryptedCols[scopeKey] = arr.filter(function(k){return k!==colId;});
+  }
+  save();
+};
+/* 加密开关放进"⚙ 管理分类"弹窗，勾完照旧重新打开同一个弹窗，跟字段显示/隐藏那组勾选框
+   同一个套路，不用另外开窗口 */
+window.toggleAssetColEncryptedInManage = function(scopeKey, colId, checked, moduleId, titleOverride){
+  setAssetColEncrypted(scopeKey, colId, checked);
+  render();
+  manageModuleCategories(moduleId, titleOverride);
+};
+/* 哪一列当前是掉码还是显示出来——只在这一次打开页面期间记着，不存进云端数据，
+   跟密码管理原本的 passwordsRevealAll 一个道理，刷新/换设备都会重新变回掉码 */
+var assetColRevealAll = {};
+function assetColRevealed(scopeKey, colId){ return !!assetColRevealAll[scopeKey+"::"+colId]; }
+window.toggleAssetColReveal = function(scopeKey, colId){
+  var k = scopeKey+"::"+colId;
+  assetColRevealAll[k] = !assetColRevealAll[k];
+  render();
+};
+/* 表头那个跟密码管理一样的颜文字显示/隐藏图标，只有这一列被勾选加密了才出现；
+   没加密的列照旧就是普通可编辑格子，不多这颗图标 */
+function assetRevealBtnHtml(scopeKey, colId){
+  if(assetEncryptedCols(scopeKey).indexOf(colId)===-1) return '';
+  var revealed2 = assetColRevealed(scopeKey, colId);
+  var colIdEsc = colId.replace(/'/g,"\\'");
+  return '<button type="button" class="reveal-btn-header kaomoji" onclick="toggleAssetColReveal(\''+scopeKey+'\',\''+colIdEsc+'\')" title="显示/隐藏这一列">'+(revealed2?"(-_-)":"(o_o)")+'</button>';
+}
+/* 账号/密码/自定义字段的格子：这一列没加密，或者加密了但当前已经点开显示，就走原来的
+   点格子直接编辑（assetCellHtml）；加密了又还没点开显示，就只露掩码，不能点，要看/改
+   内容先去表头点显示/隐藏 */
+function assetFieldCellHtml(scopeKey, colId, cellKey, value, placeholder, updateCall){
+  if(assetEncryptedCols(scopeKey).indexOf(colId)!==-1 && !assetColRevealed(scopeKey, colId)){
+    return '<div class="asset-cell-view" style="cursor:default">'+(value?'<span class="pw-mask">••••••••••</span>':'')+'</div>';
+  }
+  return assetCellHtml(cellKey, value, placeholder, updateCall);
 }
 
 /* 资产表格/密码表格列宽可拖拽调整，宽度存进 settings 里持久化，跟着这张表（资产按地点+类型区分，密码全局共用）走。
@@ -7084,12 +7237,13 @@ function renderAssets(){
   var accountHeaderInner = assetAccountColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetAccountCol(this.value)">'
     : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</span>'+
+        assetRevealBtnHtml(assetScopeKey,"account")+
         '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetAccountCol()" title="改列名">✎</button>'+
         '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'account\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var passwordHeaderInner = assetPasswordColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetPasswordCol(this.value)">'
     : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</span>'+
-        '<button type="button" class="reveal-btn-header kaomoji" onclick="toggleAssetsPasswordRevealAll()" title="显示/隐藏这张表里所有密码">'+(assetsPasswordRevealAll?"(-_-)":"(o_o)")+'</button>'+
+        assetRevealBtnHtml(assetScopeKey,"password")+
         '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetPasswordCol()" title="改列名">✎</button>'+
         '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'password\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+
@@ -7098,7 +7252,7 @@ function renderAssets(){
     (showPassword ? ('<th class="col-resizable">'+passwordHeaderInner+colResizeHandle("asset",assetScopeKey,"__password__")+'</th>') : '') +
     columns.map(function(c){
       var cEsc2 = c.replace(/'/g,"\\'");
-      return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)"><button type="button" class="mini-del asset-col-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
+      return '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(c)+'" placeholder="字段名" onchange="renameAssetColumn(\''+esc(c)+'\',this.value)">'+assetRevealBtnHtml(assetScopeKey,c)+'<button type="button" class="mini-del asset-col-del" onclick="deleteAssetColumn(\''+cEsc2+'\')" title="删除这一列">✕</button>'+colResizeHandle("asset",assetScopeKey,c)+'</th>';
     }).join('')+'<th><button type="button" class="btn small ghost" onclick="addAssetColumnInline()" title="给这张表加一列字段">+</button></th>';
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
@@ -7107,12 +7261,12 @@ function renderAssets(){
        不用像以前那样滚到最右边才找得到；平时藏着，鼠标移到这一行才显 */
     var cells = '<td><button type="button" class="mini-del asset-row-del" onclick="deleteAsset(\''+a.id+'\')" title="删除这条">✕</button>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
       (showType ? ('<td>'+assetTypeSelectHtml(a)+'</td>') : '') +
-      (showAccount ? ('<td>'+assetCellHtml(a.id+"::__account__", a.account, "账号", "updateAssetBasicField('"+a.id+"','account',this.value)")+'</td>') : '') +
-      (showPassword ? ('<td>'+assetPasswordCellHtml(a)+'</td>') : '') +
+      (showAccount ? ('<td>'+assetFieldCellHtml(assetScopeKey,"account",a.id+"::__account__", a.account, "账号", "updateAssetBasicField('"+a.id+"','account',this.value)")+'</td>') : '') +
+      (showPassword ? ('<td>'+assetFieldCellHtml(assetScopeKey,"password",a.id+"::__password__", a.password, "密码", "updateAssetBasicField('"+a.id+"','password',this.value)")+'</td>') : '') +
       columns.map(function(c){
         var v = fieldMap[c]!==undefined?fieldMap[c]:"";
         var cEsc = c.replace(/'/g,"\\'");
-        return '<td>'+assetCellHtml(a.id+"::"+c, v, "内容", "updateAssetFieldValue('"+a.id+"','"+cEsc+"',this.value)")+'</td>';
+        return '<td>'+assetFieldCellHtml(assetScopeKey,c,a.id+"::"+c, v, "内容", "updateAssetFieldValue('"+a.id+"','"+cEsc+"',this.value)")+'</td>';
       }).join('')+
       '<td></td>';
     return '<tr>'+cells+'</tr>';
@@ -7233,20 +7387,32 @@ function renderAssetDetailPage(id){
   var typeLabel = a.assetType ? ((getModuleCategories("assets_type").filter(function(c){return c.key===a.assetType;})[0]||{}).label||uncategorizedLabel("assets_type")) : uncategorizedLabel("assets_type");
   var hiddenFixed = assetHiddenFixedCols(a.location||"");
   var show = revealed[a.id];
+  /* 详情页里"账号"和自定义字段要不要掉码，跟表格那边共用同一份 assetEncryptedCols 配置；
+     显示/隐藏也直接复用密码原来那颗 togglePw(a.id) 开关，一个开关管这条记录里所有勾了加密的
+     字段，不用给每个字段各摆一颗，省得页面太乱。 */
+  var encCols = assetEncryptedCols(a.location||"");
   var fieldRows = (a.fields||[]).map(function(f){
-    return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td><input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)"></td></tr>';
+    var fEncrypted = f.label && encCols.indexOf(f.label)!==-1;
+    var fValCell = (fEncrypted && !show)
+      ? '<span class="pw-mask">••••••••••</span><button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">显示</button>'
+      : '<input type="text" class="asset-inline-input" value="'+esc(f.value||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetFieldValue(\''+a.id+'\',\''+esc(f.label||"")+'\',this.value)">'+(fEncrypted?'<button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">隐藏</button>':'');
+    return '<tr><th>'+esc(f.label||"（未命名字段）")+'</th><td>'+fValCell+'</td></tr>';
   }).join('');
+  var accountEncrypted = encCols.indexOf("account")!==-1;
   return '<div class="module-head"><div><h2>'+esc(a.title||"未命名")+'</h2><div class="sub">'+esc(locLabel)+' · '+esc(typeLabel)+'，直接改，失焦自动保存。</div></div>'+
     '<div class="row-actions"><button class="mini-del" onclick="deleteAsset(\''+a.id+'\')" title="删除">✕</button></div></div>'+
     '<div class="hz-detail"><table class="hz-detail-table">'+
       '<tr><th>'+esc(DATA.settings.assetTitleColumnLabel)+'</th><td><input type="text" class="asset-inline-input" value="'+esc(a.title||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'title\',this.value)"></td></tr>'+
       '<tr><th>分类</th><td>'+esc(locLabel)+'</td></tr>'+
       (hiddenFixed.indexOf("type")===-1 ? ('<tr><th>'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'</th><td>'+assetTypeSelectHtml(a)+'</td></tr>') : '') +
-      (hiddenFixed.indexOf("account")===-1 ? ('<tr><th>'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</th><td><input type="text" class="asset-inline-input mono" value="'+esc(a.account||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'account\',this.value)"></td></tr>') : '') +
-      (hiddenFixed.indexOf("password")===-1 ? ('<tr><th>'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</th><td>'+(show
-        ? '<input type="text" class="asset-inline-input mono" value="'+esc(a.password||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'password\',this.value)">'
-        : '<span class="pw-mask">••••••••••</span>')+
-        '<button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">'+(show?"隐藏":"显示")+'</button></td></tr>') : '') +
+      (hiddenFixed.indexOf("account")===-1 ? ('<tr><th>'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</th><td>'+((accountEncrypted && !show)
+        ? '<span class="pw-mask">••••••••••</span><button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">显示</button>'
+        : '<input type="text" class="asset-inline-input mono" value="'+esc(a.account||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateAssetBasicField(\''+a.id+'\',\'account\',this.value)">'+(accountEncrypted?'<button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">隐藏</button>':''))+
+        '</td></tr>') : '') +
+      (hiddenFixed.indexOf("password")===-1 ? ('<tr><th>'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</th><td>'+((encCols.indexOf("password")!==-1 && !show)
+        ? '<span class="pw-mask">••••••••••</span><button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">显示</button>'
+        : '<input type="text" class="asset-inline-input mono" value="'+esc(a.password||"")+'" onchange="updateAssetBasicField(\''+a.id+'\',\'password\',this.value)">'+(encCols.indexOf("password")!==-1?'<button class="reveal-btn" onclick="togglePw(\''+a.id+'\')">隐藏</button>':''))+
+        '</td></tr>') : '') +
       fieldRows+
     '</table></div>';
 }
