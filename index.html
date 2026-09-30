@@ -503,6 +503,10 @@ table.data tr:hover{background:var(--surface-2)}
 .mini-del{border:none; background:none; color:var(--text-faint); font-size:13px; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; cursor:pointer; padding:0; flex:none; transition:.12s;}
 th.col-resizable .mini-del{margin-top:6px;}
 .mini-del:hover{background:var(--danger-soft); color:var(--danger);}
+/* 编辑碎碎念/备忘录这类文本框时，光靠"点别处失焦"或者要记 Ctrl/Cmd+回车都不够直观，
+   配一个一直看得见、点得到的"✓ 完成"小按钮，颜色跟"发送"按钮呼应，一眼就知道点它能退出编辑 */
+.ssn-edit-done{border:none; background:var(--accent); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; cursor:pointer; flex:none; line-height:1.4; transition:.12s;}
+.ssn-edit-done:hover{opacity:.85;}
 .mini-del:disabled{opacity:.35; cursor:not-allowed;}
 .travel-tag-del{position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-dim); opacity:0; transition:.12s; cursor:pointer;}
 .travel-tag:hover .travel-tag-del{opacity:1;}
@@ -834,6 +838,14 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-del, .ssn-axis-item:hover .ssn-bubble-del{opacity:1;}
 .ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
+/* 简洁泡泡/时间轴里留言的删除、加照片这两个按钮，实际用的是 .mini-del 类（上面
+   .ssn-bubble-del 是早前重构时留下的孤儿样式，已经没有标签在用它了），平时一直露着
+   显得很杂，改成跟标签看板一样悬浮才显示；"发送"按钮用的是单独的 .ssn-edit-done 类，
+   不受这条影响，编辑的时候还是一直看得见 */
+.ssn-bubble .mini-del, .ssn-axis-item .mini-del,
+.ssn-bubble .ssn-bubble-addimg, .ssn-axis-item .ssn-bubble-addimg{opacity:0; transition:.12s;}
+.ssn-bubble:hover .mini-del, .ssn-axis-item:hover .mini-del,
+.ssn-bubble:hover .ssn-bubble-addimg, .ssn-axis-item:hover .ssn-bubble-addimg{opacity:1;}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
 /* 小标题和内容合成一个框：外层一个共用的边框/圆角，里面两个输入各自去掉自己的边框，中间一条细线分隔 */
@@ -878,10 +890,14 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-addimg{opacity:0; transition:.12s;}
 .ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
 /* 标签展现形式：标签做成一颗颗小泡泡，不用 <select> 那种老式下拉框。
-   留言按标签分栏摆成看板，一个标签一列，列宽固定住，气泡自然就不会铺得很宽；
+   留言按标签分栏摆成看板，一个标签一列；列宽不再写死 220px——改成 flex-grow，标签数量少
+   （比如就2个）的时候每一栏会自动变宽把横向空间摊满，看着不会一大截空白；标签多到一行放不下
+   时，每栏不会被越挤越窄，还是保持 220px 起步，超出的部分交给横向滚动（.ssn-tag-board 本来
+   就有 overflow-x:auto）。max-width 封顶一下，不然屏幕特别宽、又只有一两个标签时，字会被拉得
+   一行特别长，反而不好读。
    气泡本身是白底+细描边，跟"简洁泡泡"模式的大块灰底区分开 */
 .ssn-tag-board{display:flex; gap:14px; overflow-x:auto; padding:2px 16px 16px;}
-.ssn-tag-col{flex:0 0 220px; width:220px; display:flex; flex-direction:column; gap:10px;}
+.ssn-tag-col{flex:1 0 220px; max-width:480px; display:flex; flex-direction:column; gap:10px;}
 .ssn-tag-col-headrow{display:flex; align-items:center; gap:5px;}
 .ssn-tag-col-head{font-size:11px; font-weight:700; color:var(--text-dim);}
 .ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
@@ -907,12 +923,14 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
 .ssn-tag-row .mini-del{opacity:0; transition:.12s;}
 .ssn-tag-row:hover .mini-del{opacity:1;}
-.ssn-tag-item{position:relative; width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; height:106px; overflow:hidden;}
+.ssn-tag-item-del.ssn-edit-done{opacity:1;} /* "完成"按钮是编辑时的主要出口，不能跟删除键一样只有
+  鼠标悬浮才显示——手机上没有悬浮这回事，藏起来就等于找不到退出编辑的按钮了 */
+.ssn-tag-item{position:relative; width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; height:150px; overflow:hidden;} /* 卡片高度得跟着下面 .ssn-tag-clamp 的截断行数一起改，不然行数改了、外框高度没跟着变，还是照样被裁掉看不出差别 */
 .ssn-tag-item .ssn-bubble-content{line-height:1.35;}
 .ssn-tag-item-del{position:absolute; top:5px; right:5px; opacity:0; transition:.12s;}
 .ssn-tag-row:hover .ssn-tag-item-del{opacity:1;}
 .ssn-tag-item.expanded{height:auto; overflow:visible;}
-.ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+.ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden;} /* 原来3行，改成5行，能露出来的字更多，配合上面卡片加高 */
 .ssn-tag-item-date{font-size:10.5px; color:var(--text-faint); opacity:.65; margin-top:7px;}
 .ssn-tag-pillrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 .ssn-composer-col{flex:1; display:flex; flex-direction:column; gap:8px;}
@@ -5442,6 +5460,34 @@ function renderWorldMapPage(){
 /* 按容器 id 记地图实例/标记，这样"世界版图"整页那个地图跟旅游标签顶上嵌的小地图可以各管各的，互不冲突 */
 var __leafletMapInstances = {};
 var __leafletMarkerLayersByEl = {};
+/* 地图瓦片这东西已经踩坑两次了：先是官方 tile.openstreetmap.org 被 OSM 按"使用政策"整个封掉
+   （一堆第三方网页都遭殃），换成 CARTO 免费瓦片之后 CARTO 又改规矩要求注册 API Key，不注册
+   就是打了水印的"API KEY REQUIRED"占位图——说明"选一个免费瓦片源写死"这件事本身就不牢靠，
+   谁也不知道哪天规则又变了。改成一份候选列表，一个不出图（连续好几块瓦片都 403/加载失败）
+   就自动切下一个，不用等用户发截图过来才知道又挂了 */
+var MAP_TILE_SOURCES = [
+  {url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+   opts:{maxZoom:19, attribution:'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>'}},
+  {url:"https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+   opts:{maxZoom:19, subdomains:"abc", attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, 瓦片由 OpenStreetMap France 提供'}},
+  {url:"https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png",
+   opts:{maxZoom:19, subdomains:"abc", attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'}}
+];
+function addResilientTileLayer(map){
+  var idx = 0, errCount = 0, layer = null;
+  function tryNext(){
+    if(layer){ try{ map.removeLayer(layer); }catch(e){} }
+    if(idx>=MAP_TILE_SOURCES.length) return; /* 候选都试完了，地图就先空着底图，标记点还在能用 */
+    var src = MAP_TILE_SOURCES[idx];
+    errCount = 0;
+    layer = L.tileLayer(src.url, src.opts).addTo(map);
+    layer.on("tileerror", function(){
+      errCount++;
+      if(errCount>=4 && idx<MAP_TILE_SOURCES.length-1){ idx++; tryNext(); }
+    });
+  }
+  tryNext();
+}
 function setupLeafletMap(elId, autoFit){
   elId = elId || "leafletMap";
   var el = document.getElementById(elId);
@@ -5464,10 +5510,7 @@ function setupLeafletMap(elId, autoFit){
   });
   /* 初始固定为世界全览（最小缩放），只有手动缩放/双指才会放大，不自动对着标记点放大 */
   var map = L.map(elId, {scrollWheelZoom:true, minZoom:2}).setView([20,10], 2);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  addResilientTileLayer(map);
   __leafletMapInstances[elId] = map;
   __leafletMarkerLayersByEl[elId] = {};
 
@@ -5904,10 +5947,20 @@ window.openBookMemoEditor = function(kind, id){
     save(); render();
   });
 };
-/* 全局约定：文本框回车直接提交/失焦保存，shift+回车才换行——不用再点别处才生效 */
+/* 全局约定：原来是回车直接提交/失焦保存，shift+回车才换行，跟聊天软件一个手感——
+   但这些框大多是写备忘录/日志/时间线备注这种整段内容的场景，经常想多敲几行、或者敲完回车
+   看看有没有打错字，结果内容还没写完就被直接存掉/收起来了，用起来很别扭。改成回车就是
+   普通换行，Ctrl（Mac 是 Cmd）+回车才真的提交/失焦保存，不想等就点别处失焦一样能保存 */
 function enterSubmitKeydown(e, el){
-  if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); el.blur(); }
+  if(e.key==="Enter" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); el.blur(); }
 }
+/* Ctrl/Cmd+回车这种快捷键没人会记得住，光靠它提交不够——给这几个"编辑到一半"的文本框
+   都配一个看得见、点得到的"✓ 完成"按钮，点一下就手动触发失焦，走原来 onblur 里已经写好的
+   保存逻辑，不用另外重复一遍保存代码 */
+window.blurElementById = function(id){
+  var el = document.getElementById(id);
+  if(el) el.blur();
+};
 /* 日志/碎碎念正文这两个编辑框不设死高度，写多少长多少：聚焦（刚打开已有内容）和输入的时候都
    按内容实际高度撑开，短文章就矮、长文章就一直往下长，不会平白留一大截空白，也不会显得挤 */
 function autoGrowBookTextarea(el){
@@ -6125,17 +6178,22 @@ window.openSuisuinianDisplaySettings = function(topicId){
 };
 function renderSuisuinianBubbleList(msgs){
   var bubbles = msgs.map(function(m){
-    var contentHtml = suisuinianEditingMessage===m.id
-      ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+    var editingThisMsg = suisuinianEditingMessage===m.id;
+    var contentHtml = editingThisMsg
+      ? '<textarea class="ssn-bubble-edit" id="ssnBubbleEdit_'+m.id+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+    /* 正在编辑的时候，光靠"点别处失焦"或者要记住 Ctrl/Cmd+回车都不够直观，加一个看得见的
+       "✓ 完成"按钮，点一下直接触发失焦，走已有的 onblur 保存逻辑 */
+    var doneBtn = editingThisMsg ? '<button type="button" class="ssn-edit-done" onclick="blurElementById(\'ssnBubbleEdit_'+m.id+'\')" title="发送">发送</button>' : '';
     return '<div class="ssn-bubble">'+
       contentHtml+
       '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
       bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
       '</span>'+
       '<span class="ssn-bubble-meta-actions">'+
-        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
         '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+        doneBtn+
       '</span></div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
@@ -6155,12 +6213,15 @@ function renderSuisuinianAxis(msgs, searchQ){
       '</div>';
     var body = '';
     if(expanded){
-      var contentHtml = suisuinianEditingMessage===m.id
-        ? '<textarea class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+      var editingThisMsg = suisuinianEditingMessage===m.id;
+      var contentHtml = editingThisMsg
+        ? '<textarea class="ssn-bubble-edit" id="ssnBubbleEdit_'+m.id+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
         : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
+      var doneBtn = editingThisMsg ? '<button type="button" class="ssn-edit-done" onclick="blurElementById(\'ssnBubbleEdit_'+m.id+'\')" title="发送">发送</button>' : '';
       body = '<div class="ssn-axis-body"><div class="ssn-bubble">'+contentHtml+
         '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
         '<span class="ssn-bubble-meta-actions">'+
+          doneBtn+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
           '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
         '</span></div>'+
@@ -6184,6 +6245,8 @@ window.startEditSuisuinianTagEntry = function(id){
   render();
 };
 window.commitEditSuisuinianTagEntry = function(id, value){
+  if(suisuinianTagEditingId!==id) return; /* 已经被别的路径（比如下面点外面关闭）提交过一次了，
+    原生的 onblur 事件才姗姗来迟，不用再重复存一遍，不然会有两次 save() 多推一次云端同步 */
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
   value = (value||"").trim();
   if(m){
@@ -6199,6 +6262,21 @@ window.commitEditSuisuinianTagEntry = function(id, value){
   suisuinianTagEditingId = null;
   render();
 };
+/* 点击卡片外面想退出编辑，手机上单靠输入框的原生 onblur 经常要点两下才生效——第一下往往
+   只是先收起软键盘，并不会真的把这次点击算成"点在了外面"，得再点一下才关得掉，体验上很怪。
+   改成自己在最外层监听 touchstart/mousedown（用捕获阶段，抢在原生收键盘的行为前面），
+   只要点的地方不在正在编辑的这个输入框里，就直接手动提交+退出编辑，不用等浏览器自己那套
+   有时候要两次才生效的 blur 流程 */
+document.addEventListener("touchstart", function(e){
+  if(suisuinianTagEditingId===null) return;
+  var ta = document.getElementById("ssnTagEdit_"+suisuinianTagEditingId);
+  if(ta && !ta.contains(e.target)) commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
+}, true);
+document.addEventListener("mousedown", function(e){
+  if(suisuinianTagEditingId===null) return;
+  var ta = document.getElementById("ssnTagEdit_"+suisuinianTagEditingId);
+  if(ta && !ta.contains(e.target)) commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
+}, true);
 /* 果冻色系：每个标签固定分到一个颜色（新建时按当前已有标签数量顺位分配，存在 colorIdx 里，
    不会因为增删其他标签而跟着变）。列头用饱和一点的"果冻实心"，气泡用同色系的浅底 */
 var SSN_JELLY_COLORS = [
@@ -6292,15 +6370,19 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
   var innerHtml;
   if(editingThis){
-    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>';
+    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>';
   } else {
     innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" data-entry-id="'+m.id+'" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑，悬停查看全部">'+esc(m.content||"（没有内容）")+'</div>'+
       '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
   }
   /* 气泡固定大小：没在编辑的时候用固定高度+3行截断；点一下直接就地编辑内容，跟留言板其他
      展现形式一个手感，不弹编辑框。标签只在写的时候选一次，写完不能再改，编辑框里不再带
-     标签选项，保持跟别的展现形式一样干净。删除键嵌进气泡卡片右上角，不单独占一行 */
-  var delBtn = editingThis ? '' : '<button type="button" class="mini-del ssn-tag-item-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
+     标签选项，保持跟别的展现形式一样干净。删除键嵌进气泡卡片右上角，不单独占一行；
+     编辑的时候删除键换成"✓ 完成"，同一个位置，点一下手动触发失焦保存退出，不用非得记
+     Ctrl/Cmd+回车或者去点卡片外面 */
+  var delBtn = editingThis
+    ? '<button type="button" class="ssn-edit-done ssn-tag-item-del" onclick="blurElementById(\'ssnTagEdit_'+m.id+'\')" title="发送">发送</button>'
+    : '<button type="button" class="mini-del ssn-tag-item-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
   /* 没打过标签的老内容（比如从留言板/时间轴切过来的），在"未标记"栏里给一个小下拉，
      直接选个标签把它归类过去，选完这条就自动搬进对应的标签列了 */
   var pickHtml = (!m.tag && !editingThis) ? suisuinianUntaggedPickHtml(topicId, m.id) : '';
@@ -6441,7 +6523,11 @@ function renderSuisuinianTopicBoard(topicId){
         suisuinianComposerImageGalleryHtml()+
         '<div class="ssn-composer-box">'+
           (mode==="axis" ? '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">' : '')+
-          '<textarea id="suisuinianComposer" placeholder="写点什么，回车发送…" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+          /* 原来是"回车就发送"，跟聊天软件一个手感，但这里是写完整段内容再发的场景，
+             经常想按个回车换行、或者敲完回车确认一下有没有打错字，结果内容没写完就被整段
+             发出去了。改成回车就是正常换行，敲 Ctrl（Mac 是 Cmd）+回车才真的发送，
+             真要发还是点下面那颗"发送"按钮最保险 */
+          '<textarea id="suisuinianComposer" placeholder="写点什么，Ctrl/⌘+回车发送，或者点下面的「发送」按钮…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
         '</div>'+
       '</div>'+
       '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
