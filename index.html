@@ -5956,6 +5956,15 @@ function ssnTagContentScheduleHide(){
     if(box) box.style.display = "none";
   }, 80);
 }
+/* 点悬浮的卡片进入编辑态时，那张卡片（.ssn-tag-clamp）会被 render() 整个换成输入框，
+   元素从 DOM 里直接消失，浏览器不会给一个正在被替换掉的元素补发 mouseout，
+   所以只靠 mouseout 那套延迟隐藏逻辑永远等不到触发，悬浮框就一直挡在那——点进去编辑
+   之前先立刻把它关掉，不用等 80ms 那套延迟 */
+function ssnTagContentHideNow(){
+  clearTimeout(ssnTagContentHideTimer);
+  var box = document.getElementById("ssnTagContentFloat");
+  if(box) box.style.display = "none";
+}
 window.ssnTagContentShow = function(id, anchorEl){
   ssnTagContentClearHide();
   if(!anchorEl || anchorEl.scrollHeight <= anchorEl.clientHeight + 1) return;
@@ -6170,6 +6179,7 @@ function renderSuisuinianAxis(msgs, searchQ){
    跟资产的"账户类型列表"是同一套通用分类管理器，不用另外做一套，只是展示成泡泡而已。 */
 var suisuinianTagEditingId = null; /* 当前正在就地编辑内容的留言 id（标签只在写的时候选一次，写完不能再改） */
 window.startEditSuisuinianTagEntry = function(id){
+  ssnTagContentHideNow();
   suisuinianTagEditingId = id;
   render();
 };
