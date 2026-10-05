@@ -794,6 +794,10 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
 .book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:140px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent; overflow:hidden;}
 .book-chapter-content:focus{outline:none; background:var(--surface-2); border-radius:6px;}
+/* 删除、加照片这两个按钮跟碎碎念一个规矩：平时不露，悬浮到这个板块上才显示；
+   "发送"按钮始终露着（板块文本框本来就一直是编辑态，没有"点进去才算编辑"这一步） */
+.book-chapter .mini-del, .book-chapter .book-img-add-icon{opacity:0; transition:.12s;}
+.book-chapter:hover .mini-del, .book-chapter:hover .book-img-add-icon{opacity:1;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
 .book-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
@@ -1441,6 +1445,7 @@ function sbPushData(dataObj){
       toast("云端同步失败："+(res.error.message||"未知错误")+"，这次改动暂时只存在本机", 6000);
     } else {
       lastCloudSync = {ok:true, time:new Date().toISOString(), error:null};
+      toast("✓ 已同步到云端", 1500);
     }
   }).catch(function(e){
     lastCloudSync = {ok:false, time:new Date().toISOString(), error:(e&&e.message)||String(e)};
@@ -5967,9 +5972,57 @@ function autoGrowBookTextarea(el){
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
 }
+/* 文本框自己不滚动（overflow:hidden，交给整页滚），浏览器也就不会在长文章越写越长的时候
+   自动帮你把光标滚回可见区域——写到后面每换一行，光标就悄悄跑到视口下方看不见了。
+   这里用一个同宽同字体、隐藏在屏幕外的"镜子" div，把光标前的文字原样排一遍（含自动换行），
+   量出光标大概落在第几行、对应屏幕上的Y坐标，跑出可视范围就把页面滚一点点，让光标和刚打的字
+   一直露在看得见的地方。 */
+var _caretMirrorEl = null;
+function scrollCaretIntoView(el){
+  try{
+    if(typeof el.selectionEnd !== "number") return;
+    if(!_caretMirrorEl){
+      _caretMirrorEl = document.createElement("div");
+      _caretMirrorEl.style.position = "absolute";
+      _caretMirrorEl.style.visibility = "hidden";
+      _caretMirrorEl.style.left = "-9999px";
+      _caretMirrorEl.style.top = "0";
+      _caretMirrorEl.style.whiteSpace = "pre-wrap";
+      _caretMirrorEl.style.wordWrap = "break-word";
+      _caretMirrorEl.style.wordBreak = "break-word";
+      document.body.appendChild(_caretMirrorEl);
+    }
+    var mirror = _caretMirrorEl;
+    var cs = getComputedStyle(el);
+    ["boxSizing","width","paddingTop","paddingRight","paddingBottom","paddingLeft",
+     "borderTopWidth","borderLeftWidth","borderRightWidth",
+     "fontFamily","fontSize","fontWeight","fontStyle","lineHeight","letterSpacing"].forEach(function(p){
+      mirror.style[p] = cs[p];
+    });
+    var caretPos = el.selectionEnd;
+    mirror.textContent = el.value.substring(0, caretPos);
+    var marker = document.createElement("span");
+    marker.textContent = el.value.substring(caretPos) || ".";
+    mirror.appendChild(marker);
+    var rect = el.getBoundingClientRect();
+    var borderTop = parseFloat(cs.borderTopWidth) || 0;
+    var paddingTop = parseFloat(cs.paddingTop) || 0;
+    var lh = parseFloat(cs.lineHeight);
+    if(!lh || isNaN(lh)) lh = (parseFloat(cs.fontSize) || 14) * 1.4;
+    var caretY = rect.top + borderTop + paddingTop + marker.offsetTop;
+    var viewH = window.innerHeight || document.documentElement.clientHeight;
+    var margin = 90;
+    if(caretY + lh > viewH - margin){
+      window.scrollBy(0, (caretY + lh) - (viewH - margin));
+    } else if(caretY < margin){
+      window.scrollBy(0, caretY - margin);
+    }
+  }catch(err){ /* 算不出来就算了，至少别报错 */ }
+}
 document.addEventListener("input", function(e){
   if(e.target.classList && (e.target.classList.contains("book-content-edit") || e.target.classList.contains("book-chapter-content"))){
     autoGrowBookTextarea(e.target);
+    scrollCaretIntoView(e.target);
   }
 });
 document.addEventListener("focus", function(e){
@@ -6713,6 +6766,7 @@ function renderJournalChapters(entryId){
   });
   if(bookFilterHasImage[sortKey]) chapters = chapters.filter(function(c){ return c.images && c.images.length; });
   var blocks = chapters.map(function(ch){
+    var taId = "bookChapterEdit_"+entryId+"_"+ch.id;
     return '<div class="book-chapter">'+
       '<div class="book-chapter-head">'+
         '<span class="ssn-bubble-meta-actions"><span class="muted" style="font-size:11px">'+esc(suisuinianTimeLabel(ch.createdAt))+'</span>'+
@@ -6720,10 +6774,13 @@ function renderJournalChapters(entryId){
         '</span>'+
         '<span class="ssn-bubble-meta-actions">'+
           bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id)+
-          '<button type="button" class="ssn-bubble-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
+          '<button type="button" class="mini-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
         '</span>'+
       '</div>'+
-      '<textarea class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+      '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+      '<div class="row-actions" style="margin-top:6px; justify-content:flex-end;">'+
+        '<button type="button" class="ssn-edit-done" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+      '</div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点右下角「+」加第一个板块</div>';
   var filterBtn = '<button class="btn small '+(bookFilterHasImage[sortKey]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+sortKey+'\')">'+(bookFilterHasImage[sortKey]?"✓ 只看有图":"筛选：只看有图")+'</button>';
