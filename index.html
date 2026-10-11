@@ -2209,7 +2209,7 @@ function render(){
   if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey) hideAllFloats();
   var __scrollState = [];
   if(__sameView){
-    ["hzTimeline","tlMatrixScroll","assetTableScroll"].forEach(function(id){
+    ["hzTimeline","tlMatrixScroll","assetTableScroll","ssnTagBoard"].forEach(function(id){
       var el = document.getElementById(id);
       if(el) __scrollState.push({id:id, left:el.scrollLeft, top:el.scrollTop});
     });
@@ -6533,7 +6533,7 @@ function renderSuisuinianTagView(topicId, allMsgs){
     ? '<input type="text" class="ssn-tag-col-add-input" placeholder="标签名称，回车创建" autofocus onkeydown="cancelAddSuisuinianTagInlineKey(event)" onblur="commitAddSuisuinianTagInline(\''+topicId+'\',this.value)">'
     : '<button type="button" class="btn small ghost ssn-tag-col-newbtn" onclick="startAddSuisuinianTagInline(\''+topicId+'\')" title="新建标签">+ 添加标签</button>';
   return '<div class="ssn-tag-pillrow" style="margin-bottom:10px">'+suisuinianTagManageBtnHtml(topicId)+addTagHtml+(cats.length?'':'<span class="sub">还没有标签，点旁边的 + 新建一个吧</span>')+'</div>'+
-    '<div class="ssn-tag-board">'+colsHtml+'</div>';
+    '<div class="ssn-tag-board" id="ssnTagBoard">'+colsHtml+'</div>';
 }
 function renderSuisuinianTopicBoard(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
