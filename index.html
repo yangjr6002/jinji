@@ -318,14 +318,11 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 /* 注意：这里不能写 position:relative——会盖掉上面表头的 position:sticky（同权重、后者生效），
    首行就冻结不住了。sticky 本身也是"定位元素"，够给下面的拖拽手柄当定位参照，不用再 relative */
 .col-resize-handle{position:absolute; top:0; right:0; width:7px; height:100%; cursor:col-resize; z-index:6; touch-action:none;}
-/* 字段列表头那个删除✕默认藏起来，鼠标移到这一列表头上才显出来，不然一整排✕挺碍眼 */
-/* ✕ 绝对定位，不占正常文档流——不然它虽然透明了还是撑出一行高度，字段列表头比首列表头高，
-   一整排对不齐。放在表头格子右上角，躲开右边缘那条拖拽手柄 */
-.asset-col-del{position:absolute; top:3px; right:9px; opacity:0; transition:.12s;}
-.asset-table th:hover .asset-col-del, .asset-table th:focus-within .asset-col-del{opacity:1;}
-/* 整行删除✕：钉在首列格子左上角，平时藏着，鼠标移到这一行才显 */
-.asset-row-del{position:absolute; top:2px; left:2px; z-index:5; opacity:0; transition:.12s;}
-.asset-table tr:hover .asset-row-del{opacity:1;}
+/* 字段列表头、整行这两个删除✕都跟全站删除按钮统一成一直显示（原来是鼠标移上去才显，
+   跟卡片视图删资产不是一个手感）。✕ 绝对定位，不占正常文档流——不然即使只是跟着
+   列表头/整行走，也会撑出一行高度，跟首列对不齐。 */
+.asset-col-del{position:absolute; top:3px; right:9px;}
+.asset-row-del{position:absolute; top:2px; left:2px; z-index:5;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:max-content; max-width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
 /* 这张表专用的外层容器：让白色卡片背景跟着表格实际宽度收窄，字段少的时候不留一大截空白；
@@ -499,7 +496,11 @@ table.data tr:hover{background:var(--surface-2)}
 .travel-tag:hover{border-color:var(--accent); box-shadow:var(--shadow);}
 .travel-tag .tl-tip-wrap{cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;}
 .travel-tag-folder-label{display:block; cursor:pointer;}
-/* 全局统一的"小叉"删除按钮：没有边框/背景那种大按钮的存在感，就是个小×，悬浮才提示是危险操作 */
+/* 全局统一的"小叉"删除按钮：没有边框/背景那种大按钮的存在感，就是个小×，悬浮才提示是危险操作。
+   以前好几处（基本信息表格、日志/碎碎念分类目录、看板列删除）各自另外定义了一套长得几乎一样
+   的样式（.bi-del-btn/.book-toc-del/.book-board-col-del），现在统一改成都用这一个 .mini-del，
+   少维护好几份重复代码。默认一直显示，不用悬浮；碎碎念简洁泡泡/时间轴那几处例外，见上面
+   .ssn-bubble 的说明，是密集小卡片信息流里特意做的悬浮才显示 */
 .mini-del{border:none; background:none; color:var(--text-faint); font-size:13px; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; cursor:pointer; padding:0; flex:none; transition:.12s;}
 th.col-resizable .mini-del{margin-top:6px;}
 .mini-del:hover{background:var(--danger-soft); color:var(--danger);}
@@ -630,12 +631,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .bi-input.bi-label:hover{background:var(--surface-2);}
 .bi-input:focus{outline:none; border-color:var(--accent); background:#fff;}
 .bi-del{width:22px; padding:0 !important;}
-.bi-del-btn{
-  width:20px; height:20px; border:none; background:transparent; color:var(--text-faint);
-  border-radius:5px; font-size:10px; opacity:0; transition:.12s;
-}
-.bi-row:hover .bi-del-btn{opacity:1;}
-.bi-del-btn:hover{background:var(--danger-soft); color:var(--danger);}
 .bi-add-row td{padding:8px 4px 2px; border-bottom:none;}
 
 /* family tree: Cytoscape + Dagre 自动分层布局，关联已有成员用的小面板样式 */
@@ -794,10 +789,11 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
 .book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:140px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent; overflow:hidden;}
 .book-chapter-content:focus{outline:none; background:var(--surface-2); border-radius:6px;}
-/* 删除、加照片这两个按钮跟碎碎念一个规矩：平时不露，悬浮到这个板块上才显示；
-   "发送"按钮始终露着（板块文本框本来就一直是编辑态，没有"点进去才算编辑"这一步） */
-.book-chapter .mini-del, .book-chapter .book-img-add-icon{opacity:0; transition:.12s;}
-.book-chapter:hover .mini-del, .book-chapter:hover .book-img-add-icon{opacity:1;}
+/* 删除键跟碎碎念一个规矩：平时不露，悬浮到这个板块上才显示。加照片、发送这两个按钮
+   挪进编辑框内部（.ssn-addimg-corner/.ssn-send-corner）之后始终露着，板块文本框本来就
+   一直是编辑态，没有"点进去才算编辑"这一步 */
+.book-chapter .mini-del{opacity:0; transition:.12s;}
+.book-chapter:hover .mini-del{opacity:1;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
 .book-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
@@ -812,9 +808,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-toc-title:focus{outline:none; border-color:var(--accent); background:var(--surface-2);}
 .book-toc-enter{font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap; padding:4px 2px;}
 .book-toc-enter:hover{color:var(--accent);}
-.book-toc-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:5px 7px; border-radius:5px; opacity:0; cursor:pointer; transition:.12s;}
-.book-toc-item:hover .book-toc-del{opacity:1;}
-.book-toc-del:hover{background:var(--danger-soft); color:var(--danger);}
 .book-toc-add{display:flex; gap:8px; padding:16px 0 4px;}
 .book-toc-add input{flex:1; padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); font-size:13px; color:var(--text);}
 /* 碎碎念第一层：分类看板，横排成一列列竖框，点整栏进入第二层的子主题列表页（栏里只放预览，不直接展开） */
@@ -824,9 +817,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-board-col-head{display:flex; align-items:center; justify-content:space-between; gap:6px;}
 .book-board-col-title{font-family:'Fraunces',serif; font-weight:600; font-size:15px; color:var(--text); cursor:text; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .book-board-col-title-input{font-family:'Fraunces',serif; font-weight:600; font-size:15px; border:1px solid var(--accent); border-radius:5px; padding:2px 5px; background:var(--surface); width:100%;}
-.book-board-col-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:3px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s; flex:none;}
-.book-board-col:hover .book-board-col-del{opacity:1;}
-.book-board-col-del:hover{background:var(--danger-soft); color:var(--danger);}
 .book-board-col-preview{margin-top:8px; font-size:12px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;}
 .book-board-col-preview-item{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 0; border-bottom:1px solid var(--border-soft);}
 .book-board-col-preview-item:last-child{border-bottom:none;}
@@ -839,13 +829,11 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-content{font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word; cursor:text;}
 .ssn-bubble-edit{width:100%; box-sizing:border-box; border:1px solid var(--accent); border-radius:8px; background:var(--surface); font-size:13.5px; line-height:1.6; color:var(--text); font-family:inherit; padding:6px 8px; resize:vertical; min-height:140px;}
 .ssn-bubble-meta{display:flex; align-items:center; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint);}
-.ssn-bubble-del{border:none; background:none; color:var(--text-faint); font-size:11px; padding:2px 6px; border-radius:5px; cursor:pointer; opacity:0; transition:.12s;}
-.ssn-bubble:hover .ssn-bubble-del, .ssn-axis-item:hover .ssn-bubble-del{opacity:1;}
-.ssn-bubble-del:hover{background:var(--danger-soft); color:var(--danger);}
-/* 简洁泡泡/时间轴里留言的删除、加照片这两个按钮，实际用的是 .mini-del 类（上面
-   .ssn-bubble-del 是早前重构时留下的孤儿样式，已经没有标签在用它了），平时一直露着
+/* 简洁泡泡/时间轴里留言的删除、加照片这两个按钮用的是 .mini-del 类，平时一直露着
    显得很杂，改成跟标签看板一样悬浮才显示；"发送"按钮用的是单独的 .ssn-edit-done 类，
-   不受这条影响，编辑的时候还是一直看得见 */
+   不受这条影响，编辑的时候还是一直看得见（这一组是全站里唯一刻意做成"悬浮才显示"的
+   删除按钮，因为这几处是密集的小卡片信息流；其余模块的删除按钮统一改成一直显示，
+   见下面 .mini-del 的说明） */
 .ssn-bubble .mini-del, .ssn-axis-item .mini-del,
 .ssn-bubble .ssn-bubble-addimg, .ssn-axis-item .ssn-bubble-addimg{opacity:0; transition:.12s;}
 .ssn-bubble:hover .mini-del, .ssn-axis-item:hover .mini-del,
@@ -857,6 +845,12 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-composer-box .ssn-composer-title{width:100%; box-sizing:border-box; padding:7px 12px; border:none; border-bottom:1px solid var(--border-soft); border-radius:0; background:transparent; font-size:12px; color:var(--text); font-family:inherit;}
 .ssn-composer-box textarea{width:100%; box-sizing:border-box; border:none; border-radius:0; background:transparent;}
 .ssn-composer-title:focus, .ssn-composer-box textarea:focus{outline:none;}
+/* 统一编辑框：发送、加照片这两个按钮不再摆在文本框外面另起一排/一列，统一嵌进编辑框内部的角上——
+   跟标签看板那颗"发送"一个手感（.ssn-editbox 包住文本框本身，按钮绝对定位叠在它的角上）。
+   删除键不在这次调整范围内，还是维持各处原来的位置、原来的悬浮规则。 */
+.ssn-editbox{position:relative;}
+.ssn-send-corner{position:absolute; top:6px; right:6px; z-index:2;}
+.ssn-addimg-corner{position:absolute; left:6px; bottom:6px; z-index:2;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
 .ssn-axis-search-item{margin-bottom:6px;}
 .ssn-axis-search-input{border:none; background:transparent; font-size:11px; color:var(--text-dim); padding:4px 0; width:140px; font-family:inherit;}
@@ -1436,6 +1430,25 @@ async function sbFetchCloudData(){
 /* 同步状态记成看得见的东西（不只是转瞬即逝的 toast），备份弹窗里随时能翻出来看，
    不用非得会开控制台才能帮着排查 */
 var lastCloudSync = {ok:null, time:null, error:null};
+/* 每次打开网页，开屏先拿本机缓存马上显示，"去云端核对、按 id 并集合并"这一步是在背后异步跑的
+   （syncCloudInBackground），网络慢的时候可能要一两秒才跑完。这期间如果手一快，随手改了点什么
+   （哪怕是完全不相关的模块），save() 照样会在 1.2 秒后把这份"还没来得及补上云端独有内容"的
+   旧快照直接推上云端——推送这一步是整份覆盖，不像拉取合并那样按 id 取并集，于是云端其它设备
+   独有、这台设备还没来得及拉下来的内容就被这次推送连人带影覆盖掉了，两边都看不出任何报错，
+   还都以为"同步成功"。这正是"明明写了，但其中一部分内容在别的设备上同步没了"的真正原因之一。
+   用这个开关把"推云端"这一步拦到"这次开屏的首次核对"真正跑完以后：没跑完之前照常马上存
+   本机（不影响看到自己刚写的内容），只是先不着急推云端；核对跑完、本机已经把云端独有的内容
+   补齐了，再把（已经补齐过的）最新内容推上去，这样就不会用一份不完整的旧快照覆盖掉云端。 */
+var __initialCloudSyncDone = false;
+var __pendingCloudPushAfterSync = false;
+function markInitialCloudSyncDone(){
+  if(__initialCloudSyncDone) return;
+  __initialCloudSyncDone = true;
+  if(__pendingCloudPushAfterSync){
+    __pendingCloudPushAfterSync = false;
+    sbPushDataDebounced(JSON.parse(JSON.stringify(DATA)));
+  }
+}
 function sbPushData(dataObj){
   if(!sbClient || !sbSession) return;
   sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}, {onConflict:"user_id"}).then(function(res){
@@ -1598,15 +1611,17 @@ var SYNC_MERGE_LIST_FIELDS = [
   {field:"residenceTags", key:"key"}
 ];
 async function syncCloudInBackground(localData){
-  if(!sbClient || !sbSession) return;
+  if(!sbClient || !sbSession){ markInitialCloudSyncDone(); return; }
   var cloudRes = await sbFetchCloudData();
   if(!cloudRes.ok){
     lastCloudFetch = {ok:false, time:new Date().toISOString(), error:cloudRes.error||"查询云端失败", gotNewer:false};
+    markInitialCloudSyncDone();
     return;
   }
   if(!cloudRes.data){
     lastCloudFetch = {ok:true, time:new Date().toISOString(), error:null, gotNewer:false};
     sbPushData(localData || DATA); /* 云端还没建过行，第一次登录，把本地推上去 */
+    markInitialCloudSyncDone();
     return;
   }
   var cloudData = cloudRes.data;
@@ -1683,6 +1698,7 @@ async function syncCloudInBackground(localData){
     sbPushData(DATA); /* 合并结果跟云端存的不一样（比如补回了云端缺的内容），推回去让云端也补齐，
                           这样另一台设备下次同步就能拿到完整的合并结果 */
   }
+  markInitialCloudSyncDone();
 }
 /* 撤销/重做：每次 save() 都跟上一次保存的快照比一下，不一样就把"上一次"的快照推进撤销栈，
    当前这份变成新的"上一次"；撤销/重做本身移动这两个栈，但不再往栈里重复推入新记录 */
@@ -1714,6 +1730,12 @@ function persistToStorage(payload){
 var sbPushDebounceTimer = null;
 var sbPushPendingData = null;
 function sbPushDataDebounced(dataObj, delayMs){
+  if(!__initialCloudSyncDone){
+    /* 这次开屏的首次云端核对还没跑完，先别急着推，记一笔"核对完了要补推"，等核对跑完
+       （markInitialCloudSyncDone 里）会用那时候最新的本机数据自动补推一次 */
+    __pendingCloudPushAfterSync = true;
+    return;
+  }
   sbPushPendingData = dataObj;
   if(sbPushDebounceTimer) clearTimeout(sbPushDebounceTimer);
   sbPushDebounceTimer = setTimeout(function(){
@@ -2358,7 +2380,7 @@ function renderBasicInfoPage(){
       '<td class="bi-handle-cell"><span class="drag-handle-sm" draggable="true" ondragstart="biDragStart(event,\''+f.id+'\')" ondragend="biDragEnd(event)" title="拖动排序">⠿</span></td>'+
       '<th><input type="text" class="bi-input bi-label" value="'+esc(f.label)+'" placeholder="字段名" onchange="inlineUpdateBasicInfo(\''+f.id+'\',\'label\',this.value)"></th>'+
       '<td><input type="text" class="bi-input bi-value" value="'+esc(f.value)+'" onchange="inlineUpdateBasicInfo(\''+f.id+'\',\'value\',this.value)"></td>'+
-      '<td class="bi-del"><button class="bi-del-btn" onclick="inlineRemoveBasicInfo(\''+f.id+'\')" title="删除这一行">✕</button></td>'+
+      '<td class="bi-del"><button class="mini-del" onclick="inlineRemoveBasicInfo(\''+f.id+'\')" title="删除这一行">✕</button></td>'+
     '</tr>';
   }).join('');
   var addRow = '<tr class="bi-add-row"><td></td><td colspan="3"><button class="btn small ghost" onclick="inlineAddBasicInfo()">+ 添加字段</button></td></tr>';
@@ -3194,8 +3216,10 @@ window.uploadBgImage = function(input){
   });
 };
 window.removeBgImage = function(){
-  if(DATA.settings){ delete DATA.settings.bgImage; }
-  save(); applyBackgroundImage(); closeModal(); toast("已移除背景图");
+  confirmDelete("确定移除当前背景图吗？", function(){
+    if(DATA.settings){ delete DATA.settings.bgImage; }
+    save(); applyBackgroundImage(); toast("已移除背景图");
+  });
 };
 window.previewBgOpacity = function(val){
   var layer = document.getElementById("bgImageLayer");
@@ -3297,8 +3321,10 @@ window.createCustomBoard = function(){
   save(); render(); openViewSettings(); toast("已新建「"+name+"」");
 };
 window.removeQuickAccess = function(id){
-  DATA.settings.quickAccessIds = DATA.settings.quickAccessIds.filter(function(x){return x!==id;});
-  save(); render(); openViewSettings();
+  confirmDelete("确定从快捷访问里移除吗？", function(){
+    DATA.settings.quickAccessIds = DATA.settings.quickAccessIds.filter(function(x){return x!==id;});
+    save(); render(); openViewSettings();
+  });
 };
 window.addQuickAccess = function(){
   var sel = document.getElementById("qaAddSelect");
@@ -4505,9 +4531,12 @@ window.updateTravelFieldValue = function(id, fieldId, value){
   f.value = value; save(); render();
 };
 window.deleteTravelField = function(id, fieldId){
-  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
-  t.fields = (t.fields||[]).filter(function(x){return x.id!==fieldId;});
-  save(); render();
+  confirmDelete("确定删除这个备注字段吗？", function(){
+    var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
+    t.fields = (t.fields||[]).filter(function(x){return x.id!==fieldId;});
+    save(); render();
+    travelTagRenderEdit(id);
+  });
 };
 window.deleteTravelEntry = function(id){
   confirmDelete("确定删除这个地点吗？", function(){
@@ -4569,7 +4598,7 @@ function travelTagFieldsFormHtml(t, id){
     return '<div class="travel-tag-field-row">'+
       '<input type="text" class="asset-inline-input" value="'+esc(f.label)+'" placeholder="字段名" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelFieldLabel(\''+id+'\',\''+f.id+'\',this.value)">'+
       '<input type="text" class="asset-inline-input" value="'+esc(f.value)+'" placeholder="内容" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelFieldValue(\''+id+'\',\''+f.id+'\',this.value)">'+
-      '<button type="button" class="mini-del" onclick="deleteTravelField(\''+id+'\',\''+f.id+'\');travelTagRenderEdit(\''+id+'\')">✕</button>'+
+      '<button type="button" class="mini-del" onclick="deleteTravelField(\''+id+'\',\''+f.id+'\')">✕</button>'+
     '</div>';
   }).join('');
 }
@@ -4585,7 +4614,7 @@ window.travelTagRenderEdit = function(id){
     '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelDate(\''+id+'\',this.value)">'+
     '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
     '<div class="travel-tag-edit-actions">'+
-      '<button type="button" class="btn small ghost" onclick="travelTagCloseEdit()" title="关闭编辑框">✓ 完成</button>'+
+      '<button type="button" class="btn small ghost" onclick="travelTagCloseEdit()" title="每项改完都已自动保存，这颗按钮只是收起编辑框">收起</button>'+
       '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
       '<button type="button" class="btn small ghost" onclick="refreshTravelGeo(\''+id+'\')" title="老数据可能定位信息不全（比如缺市/区县/镇这几级），点这个重新定位一次补全">🔄 重新定位</button>'+
       '<button type="button" class="mini-del" onclick="deleteTravelEntry(\''+id+'\')" title="删除">✕</button>'+
@@ -5658,7 +5687,7 @@ function renderBookCategoryList(moduleId){
       '<span class="drag-handle-sm" draggable="true" ondragstart="genericDragStart(event,\'modCat:'+moduleId+'\',\''+c.key+'\')" ondragend="genericDragEnd()" title="拖动排序">⠿</span>'+
       titleHtml+
       '<span class="book-toc-enter" onclick="openBookCategoryTab(\''+moduleId+'\',\''+c.key+'\')">'+(counts[c.key]||0)+' '+unit+' ›</span>'+
-      '<button type="button" class="book-toc-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
+      '<button type="button" class="mini-del" onclick="deleteBookCategory(\''+moduleId+'\',\''+c.key+'\')" title="删除分类">✕</button>'+
     '</div>';
   }).join('');
   var uncatCount = counts[""]||0;
@@ -5666,7 +5695,7 @@ function renderBookCategoryList(moduleId){
   var uncatRow = uncatCount ? ('<div class="book-toc-item">'+
     '<span class="book-toc-title book-toc-title-fixed">'+esc(uncategorizedLabel(moduleId))+'</span>'+
     '<span class="book-toc-enter" onclick="openBookCategoryTab(\''+moduleId+'\',\'\')">'+uncatCount+' '+unit+' ›</span>'+
-    '<button type="button" class="book-toc-del" onclick="'+uncatDelFn+'(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
+    '<button type="button" class="mini-del" onclick="'+uncatDelFn+'(\''+moduleId+'\')" title="删除这些内容">✕</button>'+
   '</div>') : '';
   return '<div class="card-panel book-toc">'+rows+uncatRow+
     '<div class="book-toc-add">'+
@@ -5802,7 +5831,7 @@ function renderSuisuinianCategoryBoard(){
         ? '<input type="text" class="book-board-col-title-input" value="'+esc(label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameBookCategory(\''+moduleId+'\',\''+key+'\', this.value)" onclick="event.stopPropagation()">'
         : '<span class="book-board-col-title" ondblclick="event.stopPropagation();startRenameBookCategory(\''+moduleId+'\',\''+key+'\')" title="双击改名">'+esc(label)+'</span>');
     var delFn = isFixed ? "deleteSuisuinianUncategorized()" : "deleteBookCategory('"+moduleId+"','"+key+"')";
-    var delBtn = '<button type="button" class="book-board-col-del" onclick="event.stopPropagation();'+delFn+'" title="删除">✕</button>';
+    var delBtn = '<button type="button" class="mini-del" onclick="event.stopPropagation();'+delFn+'" title="删除">✕</button>';
     /* 栏里预览最多3个子主题的标题（纯预览，点哪都进第二层，不单独可点） */
     var topics = suisuinianTopics(key);
     var previewItems = topics.slice(0,3).map(function(t){ return '<div class="book-board-col-preview-item">'+esc(t.label)+'</div>'; }).join('');
@@ -6232,12 +6261,17 @@ window.openSuisuinianDisplaySettings = function(topicId){
 function renderSuisuinianBubbleList(msgs){
   var bubbles = msgs.map(function(m){
     var editingThisMsg = suisuinianEditingMessage===m.id;
+    var taId = "ssnBubbleEdit_"+m.id;
+    /* 正在编辑的时候，发送、加照片这两个按钮直接嵌进编辑框内部的角上（.ssn-editbox），
+       不再摆在文本框外面的那排小字图标旁边；光靠"点别处失焦"或者要记住 Ctrl/Cmd+回车
+       都不够直观，"发送"点一下直接触发失焦，走已有的 onblur 保存逻辑 */
     var contentHtml = editingThisMsg
-      ? '<textarea class="ssn-bubble-edit" id="ssnBubbleEdit_'+m.id+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+      ? '<div class="ssn-editbox">'+
+          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+          bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
+        '</div>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-    /* 正在编辑的时候，光靠"点别处失焦"或者要记住 Ctrl/Cmd+回车都不够直观，加一个看得见的
-       "✓ 完成"按钮，点一下直接触发失焦，走已有的 onblur 保存逻辑 */
-    var doneBtn = editingThisMsg ? '<button type="button" class="ssn-edit-done" onclick="blurElementById(\'ssnBubbleEdit_'+m.id+'\')" title="发送">发送</button>' : '';
     return '<div class="ssn-bubble">'+
       contentHtml+
       '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
@@ -6245,8 +6279,7 @@ function renderSuisuinianBubbleList(msgs){
       '</span>'+
       '<span class="ssn-bubble-meta-actions">'+
         '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-        bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
-        doneBtn+
+        (editingThisMsg ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
       '</span></div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
@@ -6267,15 +6300,18 @@ function renderSuisuinianAxis(msgs, searchQ){
     var body = '';
     if(expanded){
       var editingThisMsg = suisuinianEditingMessage===m.id;
+      var taId = "ssnBubbleEdit_"+m.id;
       var contentHtml = editingThisMsg
-        ? '<textarea class="ssn-bubble-edit" id="ssnBubbleEdit_'+m.id+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'
+        ? '<div class="ssn-editbox">'+
+            '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+            '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+            bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
+          '</div>'
         : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-      var doneBtn = editingThisMsg ? '<button type="button" class="ssn-edit-done" onclick="blurElementById(\'ssnBubbleEdit_'+m.id+'\')" title="发送">发送</button>' : '';
       body = '<div class="ssn-axis-body"><div class="ssn-bubble">'+contentHtml+
         '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
         '<span class="ssn-bubble-meta-actions">'+
-          doneBtn+
-          bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+          (editingThisMsg ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
           '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
         '</span></div>'+
       '</div></div>';
@@ -6354,6 +6390,14 @@ function suisuinianShortTimeLabel(iso){
   return pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
 }
 function suisuinianTagCatKey(topicId){ return "suisuinian_tag_"+topicId; }
+/* 留言的 tag 字段是个标签 key，但标签本身可能已经被删掉了（删标签的确认框说"里面的内容会
+   变成未分类"，但实际只是删了标签定义，留言的 tag 字段没跟着清空）——这种"孤儿标签"的
+   留言，不能再当成"有效标签"去匹配某一栏，不然哪栏都匹配不上，直接从看板上消失，内容
+   其实还在，只是找不到了。统一用这个函数判断：没打标签 or 标签已经不存在了，都算未标记 */
+function suisuinianEntryIsUnfiled(topicId, m){
+  if(!m.tag) return true;
+  return !getModuleCategories(suisuinianTagCatKey(topicId)).some(function(c){ return c.key===m.tag; });
+}
 function suisuinianTagManageTitle(topicId){
   var topic = (DATA.suisuinianTopics||[]).filter(function(t){return t.id===topicId;})[0];
   return (topic?topic.label:"碎碎念")+" · 标签管理";
@@ -6423,7 +6467,9 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   var itemStyle = color ? ' style="background:'+color.bg+';border-color:'+color.bg+'"' : '';
   var innerHtml;
   if(editingThis){
-    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>';
+    /* 加照片按钮也跟"发送"一样嵌进卡片内部（左下角），不用再去下面那排小图标里找 */
+    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+      bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner");
   } else {
     innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" data-entry-id="'+m.id+'" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑，悬停查看全部">'+esc(m.content||"（没有内容）")+'</div>'+
       '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
@@ -6438,7 +6484,7 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
     : '<button type="button" class="mini-del ssn-tag-item-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
   /* 没打过标签的老内容（比如从留言板/时间轴切过来的），在"未标记"栏里给一个小下拉，
      直接选个标签把它归类过去，选完这条就自动搬进对应的标签列了 */
-  var pickHtml = (!m.tag && !editingThis) ? suisuinianUntaggedPickHtml(topicId, m.id) : '';
+  var pickHtml = (suisuinianEntryIsUnfiled(topicId, m) && !editingThis) ? suisuinianUntaggedPickHtml(topicId, m.id) : '';
   return '<div class="ssn-tag-row">'+
     '<div class="ssn-tag-item'+(editingThis?' expanded':'')+'"'+itemStyle+'>'+innerHtml+delBtn+'</div>'+
     '<div class="ssn-bubble-meta" style="align-self:stretch"><span class="ssn-bubble-meta-actions">'+
@@ -6446,7 +6492,7 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
     '</span>'+
     '<span class="ssn-bubble-meta-actions">'+
       pickHtml+
-      bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+      (editingThis ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
     '</span></div>'+
   '</div>';
 }
@@ -6506,12 +6552,15 @@ function renderSuisuinianTagView(topicId, allMsgs){
   var columns = cats.map(function(c,i){
     return {key:c.key, label:c.label, color:suisuinianTagColor(c,i)};
   });
-  /* "未标记"这一栏只在真的有还没打标签的留言时才出现（比如从留言板/时间轴模式切过来的老内容，
-     本来就没有标签），都打完标签之后这一栏自己消失，不会像之前那样一直空着占地方 */
-  var hasUntagged = allMsgs.some(function(m){ return !m.tag; });
+  /* "未标记"这一栏除了真没打过标签的留言（比如从留言板/时间轴模式切过来的老内容），还要兜住
+     "孤儿标签"留言——tag 字段指向一个已经被删掉的标签，哪栏都匹配不上，本来会直接从看板消失，
+     内容其实还在，只是找不到了，统一都丢进"未标记"，都处理完这一栏自己消失，不会一直占地方 */
+  var hasUntagged = allMsgs.some(function(m){ return suisuinianEntryIsUnfiled(topicId, m); });
   if(hasUntagged) columns = [{key:"", label:"未标记", color:null}].concat(columns);
   var colsHtml = columns.map(function(col){
-    var msgs = allMsgs.filter(function(m){ return (m.tag||"")===col.key; });
+    var msgs = col.key
+      ? allMsgs.filter(function(m){ return m.tag===col.key; })
+      : allMsgs.filter(function(m){ return suisuinianEntryIsUnfiled(topicId, m); });
     var itemsHtml = msgs.map(function(m){ return suisuinianTagEntryRowHtml(topicId, m, col.color); }).join('')
       || '<div class="sub" style="padding:2px 2px;font-size:11.5px">还没有</div>';
     var countHtml = msgs.length ? '<span class="ssn-tag-col-count">'+msgs.length+'</span>' : '';
@@ -6570,8 +6619,9 @@ function renderSuisuinianTopicBoard(topicId){
     suisuinianModeSwitchHtml(topicId)+
     '</div></div>'+
     (mode==="tag" ? '' :
+    /* 发送、加照片这两个按钮以前一个在框左边、一个在框右边，跟编辑态的留言不是一个手感；
+       现在统一嵌进编辑框内部的角上（.ssn-editbox），跟泡泡/标签编辑时的位置、样式一致 */
     '<div class="ssn-composer">'+
-      '<label class="book-img-add-icon" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
       '<div class="ssn-composer-col">'+
         suisuinianComposerImageGalleryHtml()+
         '<div class="ssn-composer-box">'+
@@ -6579,11 +6629,14 @@ function renderSuisuinianTopicBoard(topicId){
           /* 原来是"回车就发送"，跟聊天软件一个手感，但这里是写完整段内容再发的场景，
              经常想按个回车换行、或者敲完回车确认一下有没有打错字，结果内容没写完就被整段
              发出去了。改成回车就是正常换行，敲 Ctrl（Mac 是 Cmd）+回车才真的发送，
-             真要发还是点下面那颗"发送"按钮最保险 */
-          '<textarea id="suisuinianComposer" placeholder="写点什么，Ctrl/⌘+回车发送，或者点下面的「发送」按钮…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+             真要发还是点编辑框里那颗"发送"按钮最保险 */
+          '<div class="ssn-editbox">'+
+            '<textarea id="suisuinianComposer" placeholder="写点什么，Ctrl/⌘+回车发送，或者点右上角「发送」…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+            '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
+            '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
+          '</div>'+
         '</div>'+
       '</div>'+
-      '<button class="btn solid" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
     '</div>')+
     bodyHtml;
 }
@@ -6767,19 +6820,21 @@ function renderJournalChapters(entryId){
   if(bookFilterHasImage[sortKey]) chapters = chapters.filter(function(c){ return c.images && c.images.length; });
   var blocks = chapters.map(function(ch){
     var taId = "bookChapterEdit_"+entryId+"_"+ch.id;
+    /* 加照片、发送这两个按钮统一嵌进编辑框内部的角上（.ssn-editbox），跟碎碎念各个
+       展现形式的编辑态保持一致；删除键不受影响，还是摆在上面这行、悬浮才显示 */
     return '<div class="book-chapter">'+
       '<div class="book-chapter-head">'+
         '<span class="ssn-bubble-meta-actions"><span class="muted" style="font-size:11px">'+esc(suisuinianTimeLabel(ch.createdAt))+'</span>'+
         bookPhotoBadgeHtml("journalChapter", entryId+"::"+ch.id, ch.images)+
         '</span>'+
         '<span class="ssn-bubble-meta-actions">'+
-          bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id)+
           '<button type="button" class="mini-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
         '</span>'+
       '</div>'+
-      '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
-      '<div class="row-actions" style="margin-top:6px; justify-content:flex-end;">'+
-        '<button type="button" class="ssn-edit-done" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+      '<div class="ssn-editbox">'+
+        '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+        '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+        bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id, "ssn-addimg-corner")+
       '</div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点右下角「+」加第一个板块</div>';
@@ -8258,6 +8313,7 @@ async function bootAfterAuth(){
   } else {
     save();
   }
+  markInitialCloudSyncDone();
   __lastSnapshot = JSON.stringify(DATA);
   render();
   applyBackgroundImage();
