@@ -197,6 +197,14 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
   color:var(--text-dim); display:flex; align-items:center; justify-content:center; font-size:12px; transition:.15s; flex:none;
 }
 .bg-settings-btn:hover{border-color:var(--accent); color:var(--accent);}
+/* 云端同步失败的常驻小红点：之前同步失败只有一个 6 秒就消失的 toast，没留意看就错过了，
+   容易让人以为"同步成功"其实没有。改成在顶栏常驻一个小红点，没恢复成功之前一直在，
+   点一下能看到具体失败原因，"备份与恢复"里原来那份更详细的同步状态照旧留着 */
+.sync-status-dot{
+  width:9px; height:9px; border-radius:50%; background:var(--danger); flex:none; cursor:pointer;
+  box-shadow:0 0 0 3px var(--danger-soft); animation:syncDotPulse 1.6s ease-in-out infinite;
+}
+@keyframes syncDotPulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
 .bg-image-layer{
   position:fixed; inset:0; z-index:-1; background-size:cover; background-position:center; background-repeat:no-repeat;
   pointer-events:none; opacity:0;
@@ -1011,6 +1019,7 @@ th.col-resizable .mini-del{margin-top:6px;}
     <button class="gear-btn" onclick="openMemoModal()" title="备忘录"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></button>
     <button class="gear-btn" onclick="forceRefreshApp()" title="强制刷新（手机主屏幕快捷方式加载的是旧版本时用这个，比重新删加快捷方式方便）"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></button>
     <button class="gear-btn" onclick="openBackupModal()" title="备份与恢复"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
+    <span class="sync-status-dot" id="syncStatusDot" style="display:none" onclick="openBackupModal()" title="云端同步失败，正在自动重试，点开看详情"></span>
     <button class="gear-btn" id="logoutTopBtn" onclick="confirmSignOut()" title="退出登录" style="display:none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg></button>
   </div>
 </div>
@@ -1449,21 +1458,57 @@ function markInitialCloudSyncDone(){
     sbPushDataDebounced(JSON.parse(JSON.stringify(DATA)));
   }
 }
+/* 推送失败以前只是弹个 6 秒的 toast，没看到就等于没提示，很容易让人以为"反正会自动同步"，
+   其实这次改动一直卡在本机没推上去——如果后面刚好没再碰这个设备（比如出门前写了点什么就
+   锁屏了），下次真正推上去可能是很久以后，这期间万一别的设备又覆盖了一次云端，就可能把
+   这些"一直没推成功"的内容带丢。现在失败了会自动隔一段时间重试（5秒、10秒、20秒...，
+   封顶 60 秒，不会越等越久），网络一恢复（online 事件）也会立刻重试一次；顶栏常驻一个
+   小红点，只要还没成功就不消失（不像以前的 toast 过几秒就看不见了），点一下能打开
+   "备份与恢复"看具体失败原因，同步成功后红点自己消失 */
+var sbPushRetryTimer = null;
+var sbPushRetryDelayMs = 5000;
+var SB_PUSH_RETRY_MAX_MS = 60000;
+function updateSyncStatusIndicator(){
+  var el = document.getElementById("syncStatusDot");
+  if(!el) return;
+  el.style.display = (sbClient && sbSession && lastCloudSync.ok===false) ? "" : "none";
+}
+function scheduleSbPushRetry(){
+  if(sbPushRetryTimer) clearTimeout(sbPushRetryTimer);
+  sbPushRetryTimer = setTimeout(function(){
+    sbPushRetryTimer = null;
+    if(sbClient && sbSession) sbPushData(JSON.parse(JSON.stringify(DATA))); /* 用重试这一刻最新的本机数据推，不是用失败那一刻的旧快照 */
+  }, sbPushRetryDelayMs);
+  sbPushRetryDelayMs = Math.min(sbPushRetryDelayMs*2, SB_PUSH_RETRY_MAX_MS);
+}
+window.addEventListener("online", function(){
+  if(sbClient && sbSession && lastCloudSync.ok===false){
+    if(sbPushRetryTimer){ clearTimeout(sbPushRetryTimer); sbPushRetryTimer=null; }
+    sbPushRetryDelayMs = 5000;
+    sbPushData(JSON.parse(JSON.stringify(DATA)));
+  }
+});
 function sbPushData(dataObj){
   if(!sbClient || !sbSession) return;
   sbClient.from("app_data").upsert({user_id: sbSession.user.id, data: dataObj, updated_at: new Date().toISOString()}, {onConflict:"user_id"}).then(function(res){
     if(res && res.error){
       lastCloudSync = {ok:false, time:new Date().toISOString(), error:res.error.message||JSON.stringify(res.error)};
       console.error("[云端同步失败]", res.error);
-      toast("云端同步失败："+(res.error.message||"未知错误")+"，这次改动暂时只存在本机", 6000);
+      toast("云端同步失败："+(res.error.message||"未知错误")+"，这次改动暂时只存在本机，会自动重试", 6000);
+      scheduleSbPushRetry();
     } else {
       lastCloudSync = {ok:true, time:new Date().toISOString(), error:null};
       toast("✓ 已同步到云端", 1500);
+      sbPushRetryDelayMs = 5000;
+      if(sbPushRetryTimer){ clearTimeout(sbPushRetryTimer); sbPushRetryTimer=null; }
     }
+    updateSyncStatusIndicator();
   }).catch(function(e){
     lastCloudSync = {ok:false, time:new Date().toISOString(), error:(e&&e.message)||String(e)};
     console.error("[云端同步失败]", e);
-    toast("云端同步失败（网络问题？），这次改动暂时只存在本机", 6000);
+    toast("云端同步失败（网络问题？），这次改动暂时只存在本机，会自动重试", 6000);
+    scheduleSbPushRetry();
+    updateSyncStatusIndicator();
   });
 }
 /* 只读本地缓存，不碰网络——开屏第一次渲染就靠这个，先把本机已经有的东西马上显示出来，
@@ -8289,6 +8334,7 @@ function fieldSelect(name,label,options,value){
 async function bootAfterAuth(){
   var logoutBtn = document.getElementById("logoutTopBtn");
   if(logoutBtn) logoutBtn.style.display = sbSession ? "" : "none";
+  updateSyncStatusIndicator();
   var localData = await loadLocalDataOnly();
   if(localData){
     /* 本机已经有缓存：先拿这份马上显示出来，不用干等云端那次网络请求，云端核对放后台去跑，
