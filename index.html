@@ -906,7 +906,8 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-tag-col{flex:1 0 220px; max-width:480px; display:flex; flex-direction:column; gap:10px;}
 .ssn-tag-col-headrow{display:flex; align-items:center; gap:5px;}
 .ssn-tag-col-head{font-size:11px; font-weight:700; color:var(--text-dim);}
-.ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content;}
+.ssn-tag-col-head-pill{display:inline-flex; align-items:center; padding:3px 11px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; width:fit-content; cursor:grab;}
+.ssn-tag-col-head-pill:active{cursor:grabbing;}
 .ssn-tag-col-count{font-size:10px; color:var(--text-faint);}
 .ssn-tag-col-add{align-self:flex-start; margin-top:2px;}
 .ssn-tag-col-addbtn{
@@ -6610,17 +6611,28 @@ function renderSuisuinianTagView(topicId, allMsgs){
       || '<div class="sub" style="padding:2px 2px;font-size:11.5px">还没有</div>';
     var countHtml = msgs.length ? '<span class="ssn-tag-col-count">'+msgs.length+'</span>' : '';
     var renamingThis = col.color && suisuinianRenamingTagKey===(topicId+"::"+col.key);
+    /* 拖动排序的抓手直接放在标签名胶囊本身上（不再单独摆一个 ⠿ 小图标）——抓哪儿拖不明显，
+       标签名胶囊本身又大又显眼，抓起来更直观；title 提示悬浮一下就能看到"拖动换列"，
+       跟双击改名两个手势不冲突（拖动是按住拖，双击是连点两下，浏览器分得清）。
+       正在改名（变成输入框）的时候不能拖，那会儿是要打字，不是要拖 */
     var labelHtml = renamingThis
       ? '<input type="text" class="ssn-tag-col-rename-input" style="background:'+col.color.strong+'" value="'+esc(col.label)+'" autofocus onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\',this.value)">'
       : col.color
-        ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'" ondblclick="startRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\')" title="双击改标签名">'+esc(col.label)+'</div>'
+        ? '<div class="ssn-tag-col-head-pill" style="background:'+col.color.strong+'" draggable="true" ondragstart="genericDragStart(event,\'modCat:'+suisuinianTagCatKey(topicId)+'\',\''+col.key+'\')" ondragend="genericDragEnd()" ondblclick="startRenameSuisuinianTagOnBoard(\''+topicId+'\',\''+col.key+'\')" title="拖动可调整标签列顺序，双击改名">'+esc(col.label)+'</div>'
         : '<div class="ssn-tag-col-head">'+esc(col.label)+'</div>';
     /* 加内容的"+"紧贴标签小标题摆在同一行（就一个"+"，不写"添加内容"四个字），颜色跟标签胶囊
        同色——内容多了要往下滑很远才能加一条，这样不用滑到最下面。"未标记"这一栏本身不能手动
        加内容（加内容要选具体标签，去别的栏加），只用来看老内容，所以没有这个按钮。 */
     var addBtnHtml = col.key ? '<button type="button" class="ssn-tag-col-addbtn" style="background:'+col.color.strong+'" onclick="addSuisuinianQuickMessage(\''+topicId+'\',\''+col.key+'\')" title="在这里加一条">+</button>' : '';
+    /* 标签列顺序能拖动调整，跟日志/碎碎念分类目录、分类看板那几处"拖动排序"是同一套通用
+       机制（genericDragStart/Drop，按 modCat:标签所在的 moduleId 这个 scope 去重排
+       DATA.moduleCategories），标签列本身存的就是 moduleCategories，直接复用不用另写一遍。
+       拖动的抓手在上面标签名胶囊（labelHtml）那儿，不是整列都能拖——列里全是可以点开
+       编辑、选文字的留言，整列可拖反而会跟点击/选字冲突。放下的目标还是整列，方便松手时
+       不用精确对准那颗小胶囊。"未标记"这一栏不是真标签，不参与拖动排序 */
+    var colDragAttrs = col.key ? ' ondragover="genericDragOver(event)" ondrop="genericDrop(event,\'modCat:'+suisuinianTagCatKey(topicId)+'\',\''+col.key+'\')"' : '';
     var headRow = '<div class="ssn-tag-col-headrow">'+labelHtml+countHtml+addBtnHtml+'</div>';
-    return '<div class="ssn-tag-col">'+headRow+itemsHtml+'</div>';
+    return '<div class="ssn-tag-col"'+colDragAttrs+'>'+headRow+itemsHtml+'</div>';
   }).join('');
   /* 加标签的"+"挪到最上面，跟 ⚙ 管理按钮摆一起 */
   var addTagHtml = suisuinianAddingTagFor===topicId
