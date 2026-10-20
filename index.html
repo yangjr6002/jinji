@@ -858,6 +858,8 @@ th.col-resizable .mini-del{margin-top:6px;}
    删除键不在这次调整范围内，还是维持各处原来的位置、原来的悬浮规则。 */
 .ssn-editbox{position:relative;}
 .ssn-send-corner{position:absolute; top:6px; right:6px; z-index:2;}
+.ssn-cancel-corner{position:absolute; top:6px; right:56px; z-index:2; background:var(--surface); color:var(--text-dim); border:1px solid var(--border);}
+.ssn-bubble-plus{width:28px; height:28px; font-size:18px; margin-left:0;}
 .ssn-addimg-corner{position:absolute; left:6px; bottom:6px; z-index:2;}
 /* 留言板底层改成竖轴：轴线+每条一个小圆点，标题特别小，点了才展开看内容 */
 .ssn-axis-search-item{margin-bottom:6px;}
@@ -2290,7 +2292,7 @@ function render(){
   var app=document.getElementById("app");
   /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
   var __sameView = (__lastRenderedView === VIEW);
-  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey) hideAllFloats();
+  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; }
   var __scrollState = [];
   if(__sameView){
     ["hzTimeline","tlMatrixScroll","assetTableScroll","ssnTagBoard"].forEach(function(id){
@@ -6231,6 +6233,7 @@ window.addSuisuinianMessage = function(topicId){
   var id = uid();
   DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(), title:title, content:value, images:suisuinianComposerImages.slice(), fields:[]});
   suisuinianComposerImages = [];
+  suisuinianComposerOpen = null; /* 发送后收回成"+" */
   suisuinianAxisExpanded[id] = true; /* 新写的这条默认展开，能立刻看到自己写的内容 */
   save(); render();
 };
@@ -6285,6 +6288,32 @@ function suisuinianTimeLabel(iso){
   return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+" "+weekdays[d.getDay()];
 }
 var suisuinianComposerTopicId = null;
+/* 留言泡泡形式：新增入口改成一个"+"，点了才展开编辑框（跟标签看板的"+"一个手感）；
+   这里记的是当前展开着编辑框的 topicId，没展开就是 null */
+var suisuinianComposerOpen = null;
+window.openSuisuinianComposer = function(topicId){
+  window.__ssnPicking = false;
+  suisuinianComposerOpen = topicId;
+  render();
+  setTimeout(function(){ var t = document.getElementById("suisuinianComposer"); if(t) t.focus(); }, 30);
+};
+window.__ssnPicking = false; /* 正在选照片（点了📷）的时候别因为输入框失焦就把编辑框收掉 */
+window.ssnComposerBlur = function(){
+  setTimeout(function(){
+    if(window.__ssnPicking) return;
+    var t = document.getElementById("suisuinianComposer");
+    if(!t || document.activeElement===t) return;
+    if((t.value||"").trim()==="" && !suisuinianComposerImages.length){
+      suisuinianComposerOpen = null;
+      render();
+    }
+  }, 250);
+};
+window.closeSuisuinianComposer = function(){
+  suisuinianComposerOpen = null;
+  suisuinianComposerImages = [];
+  render();
+};
 var suisuinianFilterHasImage = false;
 window.toggleSuisuinianImageFilter = function(){
   suisuinianFilterHasImage = !suisuinianFilterHasImage;
@@ -6664,7 +6693,7 @@ function renderSuisuinianTopicBoard(topicId){
     return '<div class="module-head"><div><h2>没找到这个子主题</h2><div class="sub">它可能已经被删除了。</div></div></div>'+
       '<button class="btn ghost" onclick="go(\'home\')">‹ 返回首页</button>';
   }
-  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; }
+  if(suisuinianComposerTopicId !== topicId){ suisuinianComposerImages = []; suisuinianComposerTopicId = topicId; suisuinianComposerOpen = null; }
   DATA.settings.bookSortAsc = DATA.settings.bookSortAsc || {};
   var sortAsc = !!DATA.settings.bookSortAsc.suisuinian;
   var allMsgs = (DATA.suisuinianEntries||[]).filter(function(e){return e.topic===topicId;})
@@ -6693,6 +6722,8 @@ function renderSuisuinianTopicBoard(topicId){
     suisuinianModeSwitchHtml(topicId)+
     '</div></div>'+
     (mode==="tag" ? '' :
+    (mode==="bubble" && suisuinianComposerOpen!==topic.id)
+      ? '<div style="margin:10px 0 14px; display:flex; justify-content:flex-end"><button type="button" class="ssn-tag-col-addbtn ssn-bubble-plus" style="background:var(--accent)" onclick="openSuisuinianComposer(\''+topic.id+'\')" title="新增一条留言">+</button></div>' :
     /* 发送、加照片这两个按钮以前一个在框左边、一个在框右边，跟编辑态的留言不是一个手感；
        现在统一嵌进编辑框内部的角上（.ssn-editbox），跟泡泡/标签编辑时的位置、样式一致 */
     '<div class="ssn-composer">'+
@@ -6705,9 +6736,10 @@ function renderSuisuinianTopicBoard(topicId){
              发出去了。改成回车就是正常换行，敲 Ctrl（Mac 是 Cmd）+回车才真的发送，
              真要发还是点编辑框里那颗"发送"按钮最保险 */
           '<div class="ssn-editbox">'+
-            '<textarea id="suisuinianComposer" placeholder="写点什么，Ctrl/⌘+回车发送，或者点右上角「发送」…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+            '<textarea id="suisuinianComposer"'+(mode==="bubble" ? ' onblur="ssnComposerBlur()" onfocus="window.__ssnPicking=false"' : '')+' placeholder="写点什么，Ctrl/⌘+回车发送，或者点右上角「发送」…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+            (mode==="bubble" ? '<button type="button" class="ssn-edit-done ssn-cancel-corner" onclick="closeSuisuinianComposer()">取消</button>' : '')+
             '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
-            '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
+            '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片" onmousedown="window.__ssnPicking=true" ontouchstart="window.__ssnPicking=true">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
           '</div>'+
         '</div>'+
       '</div>'+
