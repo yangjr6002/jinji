@@ -810,6 +810,7 @@ th.col-resizable .mini-del{margin-top:6px;}
 .memo-edit-area:focus{outline:none; border-color:var(--accent);}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
+.book-created-at{cursor:pointer;} .book-created-at:hover{color:var(--accent);}
 .book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:24px;}
 .book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
@@ -5745,6 +5746,40 @@ function bookEntries(moduleId){
   DATA[key] = DATA[key] || [];
   return DATA[key];
 }
+/* 文章"第一次编辑的时间"：新建时记下的 createdAt。老文章/云端合并回来丢了这个字段的，
+   现推一个并固定到 j.createdAt 上（取最早板块的时间，没有就用日期当天零点，再按数组先后加几毫秒保持同天顺序）；
+   推得不准的，在列表里点时间可以手动改。 */
+function bookEntryCreatedAt(moduleId, j){
+  if(!j.createdAt){
+    var list = bookEntries(moduleId);
+    var idx = Math.max(0, list.indexOf(j));
+    var fc = (j.chapters||[]).map(function(c){ return c.createdAt||""; }).filter(Boolean).sort()[0];
+    var base = new Date(fc || (j.date ? j.date+"T00:00:00.000Z" : 0));
+    if(isNaN(base.getTime())) base = new Date(0);
+    j.createdAt = new Date(base.getTime()+idx).toISOString();
+  }
+  return j.createdAt;
+}
+function bookCreatedLabel(iso){
+  var d = new Date(iso);
+  if(isNaN(d.getTime())) return "—";
+  var pad = function(n){ return (n<10?"0":"")+n; };
+  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+window.editBookEntryCreatedAt = function(moduleId, id){
+  var j = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!j) return;
+  var d = new Date(bookEntryCreatedAt(moduleId, j));
+  var pad = function(n){ return (n<10?"0":"")+n; };
+  var local = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
+  openModal("第一次编辑的时间",
+    '<div class="field"><label>列表按这个时间排序，新的在前</label><input type="datetime-local" name="t" value="'+local+'"></div>',
+    function(data){
+      var nd = new Date(data.t);
+      if(!data.t || isNaN(nd.getTime())) { toast("时间格式不对"); return; }
+      j.createdAt = nd.toISOString();
+      save(); render();
+    });
+};
 function bookExcerpt(content){
   var flat = (content||"").replace(/\s+/g," ").trim();
   return flat.length>60 ? (flat.slice(0,60)+"…") : (flat||"（没有内容）");
@@ -5883,7 +5918,7 @@ function renderBookCategoryEntries(compoundId){
   var cats = getModuleCategories(moduleId);
   var entries = bookEntries(moduleId);
   var scoped = entries.filter(function(j){ return (j.category||"")===categoryKey; })
-    .slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||"") || (b.date||"").localeCompare(a.date||""); });
+    .slice().sort(function(a,b){ return bookEntryCreatedAt(moduleId,b).localeCompare(bookEntryCreatedAt(moduleId,a)) || (b.date||"").localeCompare(a.date||""); });
   var rows = scoped.map(function(j){
     var latestChapter = (j.chapters||[]).slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     var excerpt = latestChapter ? bookExcerpt(latestChapter.content) : bookExcerpt(j.content);
@@ -5894,6 +5929,7 @@ function renderBookCategoryEntries(compoundId){
         '<div class="book-row-line1">'+
           titleWrapHtml+
           '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
+          '<span class="book-meta muted book-created-at" onclick="editBookEntryCreatedAt(\''+moduleId+'\',\''+j.id+'\')" title="第一次编辑的时间，列表按它排序；点一下可以修改">🕐 '+esc(bookCreatedLabel(bookEntryCreatedAt(moduleId,j)))+'</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
