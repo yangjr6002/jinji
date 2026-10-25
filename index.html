@@ -295,9 +295,7 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
 .asset-th-rename-btn:hover{color:var(--accent);}
 /* "账户类型/账号/密码"这三个固定列表头上的✕（关掉这一列，跟字段列表头那个✕删除样子统一，
    只是这三个是"隐藏"不是真删除），跟改名✎同一行、同一套淡入淡出 */
-.asset-th-del-btn{flex:none; border:none; background:none; color:var(--text-faint); font-size:11px; width:16px; height:16px; line-height:16px; text-align:center; padding:0; cursor:pointer; opacity:0; transition:.12s;}
-.asset-th-row:hover .asset-th-del-btn{opacity:1;}
-.asset-th-del-btn:hover{color:var(--danger);}
+.mini-del.asset-th-del-btn{width:16px; height:16px; line-height:16px; font-size:11px;}
 .asset-th-label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .asset-type-filter-mini{width:100%; min-width:0; max-width:100%; text-overflow:ellipsis; box-sizing:border-box; font-size:10.5px; padding:3px 4px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text-dim); text-transform:none; font-family:'IBM Plex Sans',sans-serif; letter-spacing:normal;}
 .asset-table th{
@@ -330,7 +328,9 @@ tr:hover .drag-handle-sm, .row-open-link:hover ~ .drag-handle-sm{opacity:1;}
    跟卡片视图删资产不是一个手感）。✕ 绝对定位，不占正常文档流——不然即使只是跟着
    列表头/整行走，也会撑出一行高度，跟首列对不齐。 */
 .asset-col-del{position:absolute; top:3px; right:9px;}
-.asset-row-del{position:absolute; top:2px; left:2px; z-index:5;}
+/* 整行删除✕放在最后一列，居中；显示/隐藏统一走下面全局的 .mini-del 规则（鼠标移到这一行才浮现），最后一列不冻结 */
+.asset-row-del-cell{text-align:center;}
+.asset-row-del{display:block; margin:0 auto;}
 .col-resize-handle:hover, .col-resize-handle.active{background:var(--accent); opacity:.35;}
 table.data{width:max-content; max-width:100%; border-collapse:collapse; table-layout:fixed; font-size:13.5px;}
 /* 这张表专用的外层容器：让白色卡片背景跟着表格实际宽度收窄，字段少的时候不留一大截空白；
@@ -507,8 +507,8 @@ table.data tr:hover{background:var(--surface-2)}
 /* 全局统一的"小叉"删除按钮：没有边框/背景那种大按钮的存在感，就是个小×，悬浮才提示是危险操作。
    以前好几处（基本信息表格、日志/碎碎念分类目录、看板列删除）各自另外定义了一套长得几乎一样
    的样式（.bi-del-btn/.book-toc-del/.book-board-col-del），现在统一改成都用这一个 .mini-del，
-   少维护好几份重复代码。默认一直显示，不用悬浮；碎碎念简洁泡泡/时间轴那几处例外，见上面
-   .ssn-bubble 的说明，是密集小卡片信息流里特意做的悬浮才显示 */
+   少维护好几份重复代码。现在全站统一：平时透明，鼠标移到所在的行/卡片才浮现（见下面 @media (hover:hover) 那段），
+   手机等没有悬浮的设备保持可见 */
 .mini-del{border:none; background:none; color:var(--text-faint); font-size:13px; width:20px; height:20px; line-height:20px; text-align:center; border-radius:50%; cursor:pointer; padding:0; flex:none; transition:.12s;}
 th.col-resizable .mini-del{margin-top:6px;}
 .mini-del:hover{background:var(--danger-soft); color:var(--danger);}
@@ -517,9 +517,24 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-edit-done{border:none; background:var(--accent); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; cursor:pointer; flex:none; line-height:1.4; transition:.12s;}
 .ssn-edit-done:hover{opacity:.85;}
 .mini-del:disabled{opacity:.35; cursor:not-allowed;}
-.travel-tag-del{position:absolute; top:-6px; right:-6px; width:17px; height:17px; border-radius:50%; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9px; color:var(--text-dim); opacity:0; transition:.12s; cursor:pointer;}
-.travel-tag:hover .travel-tag-del{opacity:1;}
-.travel-tag-del:hover{background:var(--danger); color:#fff; border-color:var(--danger);}
+/* ===== 全局统一：删除✕（.mini-del）平时透明，鼠标移到它所在的那一行/卡片/表格行才浮现 =====
+   跟碎碎念里层留言那种手感一致，不再是外层各处死死摆在那里。
+   - 只在有鼠标悬浮能力的设备上生效（@media (hover:hover)）；手机/平板没有悬浮，保持一直可见，只是调淡一点；
+   - 鼠标直接移到✕那个位置、或键盘 Tab 聚焦到它，也会立刻浮现，所以透明状态下照样点得到；
+   - 新增的列表/卡片如果也想要这个效果，把它的外层 class 加进下面 :is(...) 这个清单就行。 */
+@media (hover:hover){
+  .mini-del, .mini-del:disabled{opacity:0;}
+  :is(.ssn-bubble, .ssn-axis-item, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del,
+  .modal:hover .modal-actions .mini-del,
+  .mini-del:hover, .mini-del:focus-visible{opacity:1;}
+  :is(.ssn-bubble, .ssn-axis-item, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del:disabled,
+  .modal:hover .modal-actions .mini-del:disabled{opacity:.35;}
+}
+@media (hover:none){
+  .mini-del{opacity:.55;}
+  .mini-del:disabled{opacity:.3;}
+}
+.travel-tag .mini-del.travel-tag-del{position:absolute; top:1px; right:1px;}
 /* 地点标签悬浮框里的编辑表单：地名、日期、备注字段，都不用弹窗，直接在悬浮框里改 */
 .travel-tag-edit-form{display:flex; flex-direction:column; gap:6px; min-width:200px;}
 .travel-tag-edit-form input{width:100%; box-sizing:border-box;}
@@ -763,6 +778,9 @@ th.col-resizable .mini-del{margin-top:6px;}
   background:#FFF6D6; color:#4a4530; border:1px solid #E3D48A; border-radius:6px;
   padding:8px 10px; font-size:12px; line-height:1.6; box-shadow:var(--shadow-lg); z-index:600; white-space:pre-wrap;}
 .ssn-remark-view{cursor:pointer;}
+/* 标签看板的内容悬浮框：宽度、高度由 JS 按文字长度动态设置，这里只管换行和溢出 */
+#ssnTagContentFloat{width:max-content; box-sizing:border-box; word-break:break-word; overflow-wrap:anywhere;}
+#ssnTagContentFloat .ssn-remark-view{white-space:pre-wrap;}
 .ssn-remark-view.placeholder{color:#a89a5c;}
 .ssn-remark-edit-pop{display:block; width:100%; min-width:200px; box-sizing:border-box; min-height:140px; font-size:12px; line-height:1.6; padding:0; border:none; background:transparent; color:inherit; font-family:inherit; resize:vertical; outline:none;}
 .book-content{padding:20px; white-space:pre-wrap; word-break:break-word; font-size:14px; line-height:1.8; color:var(--text);}
@@ -792,7 +810,7 @@ th.col-resizable .mini-del{margin-top:6px;}
 .memo-edit-area:focus{outline:none; border-color:var(--accent);}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
-.book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:80px;}
+.book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:24px;}
 .book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
 .book-chapter-content{width:100%; box-sizing:border-box; border:none; resize:vertical; min-height:140px; font-family:inherit; font-size:14px; line-height:1.7; color:var(--text); background:transparent; overflow:hidden;}
@@ -800,8 +818,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 /* 删除键跟碎碎念一个规矩：平时不露，悬浮到这个板块上才显示。加照片、发送这两个按钮
    挪进编辑框内部（.ssn-addimg-corner/.ssn-send-corner）之后始终露着，板块文本框本来就
    一直是编辑态，没有"点进去才算编辑"这一步 */
-.book-chapter .mini-del{opacity:0; transition:.12s;}
-.book-chapter:hover .mini-del{opacity:1;}
 /* 分类目录：像一本书的章节列表，都是同一级，不是"大分组套小分组" */
 .book-toc{display:flex; flex-direction:column; padding:4px 20px;}
 .book-toc-item{display:flex; align-items:center; gap:10px; padding:15px 0; border-bottom:1px solid var(--border-soft);}
@@ -837,14 +853,10 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-bubble-content{font-size:13.5px; line-height:1.6; color:var(--text); white-space:pre-wrap; word-break:break-word; cursor:text;}
 .ssn-bubble-edit{width:100%; box-sizing:border-box; border:1px solid var(--accent); border-radius:8px; background:var(--surface); font-size:13.5px; line-height:1.6; color:var(--text); font-family:inherit; padding:6px 8px; resize:vertical; min-height:140px;}
 .ssn-bubble-meta{display:flex; align-items:center; justify-content:space-between; margin-top:6px; font-size:11px; color:var(--text-faint);}
-/* 简洁泡泡/时间轴里留言的删除、加照片这两个按钮用的是 .mini-del 类，平时一直露着
-   显得很杂，改成跟标签看板一样悬浮才显示；"发送"按钮用的是单独的 .ssn-edit-done 类，
-   不受这条影响，编辑的时候还是一直看得见（这一组是全站里唯一刻意做成"悬浮才显示"的
-   删除按钮，因为这几处是密集的小卡片信息流；其余模块的删除按钮统一改成一直显示，
-   见下面 .mini-del 的说明） */
-.ssn-bubble .mini-del, .ssn-axis-item .mini-del,
+/* 简洁泡泡/时间轴里留言的加照片按钮平时淡出、悬浮才显示；删除✕（.mini-del）的显隐已经并入全站统一规则
+   （见 .mini-del 那一段的「统一约束」）；"发送"按钮用的是单独的 .ssn-edit-done 类，
+   不受影响，编辑的时候还是一直看得见 */
 .ssn-bubble .ssn-bubble-addimg, .ssn-axis-item .ssn-bubble-addimg{opacity:0; transition:.12s;}
-.ssn-bubble:hover .mini-del, .ssn-axis-item:hover .mini-del,
 .ssn-bubble:hover .ssn-bubble-addimg, .ssn-axis-item:hover .ssn-bubble-addimg{opacity:1;}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
@@ -892,7 +904,8 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-img-gallery{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
 .book-img-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-soft); flex:none;}
 .book-img-thumb img{width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in;}
-.book-img-del{position:absolute; top:2px; right:2px; width:16px; height:16px; line-height:16px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; font-size:10px; cursor:pointer;}
+.mini-del.book-img-del{position:absolute; top:2px; right:2px; width:16px; height:16px; line-height:16px; background:rgba(0,0,0,.55); color:#fff; font-size:10px;}
+.mini-del.book-img-del:hover{background:var(--danger); color:#fff;}
 /* 加照片是偶尔才用的动作，不用做成很显眼的大方块——一个小图标按钮就够，留言泡泡里的甚至平时藏起来，鼠标移上这条留言才露出来 */
 .book-img-add-icon{border:none; background:none; color:var(--text-faint); font-size:15px; padding:2px 6px; border-radius:5px; cursor:pointer; flex:none; line-height:1;}
 .book-img-add-icon:hover{background:var(--surface-2); color:var(--text);}
@@ -928,19 +941,37 @@ th.col-resizable .mini-del{margin-top:6px;}
   display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex:none; transition:.15s; cursor:pointer;
 }
 .add-circle-btn:hover{border-color:var(--accent); color:var(--accent);}
+
+/* ====================================================================================
+   全站「添加 / 删除」统一约束 —— 新增功能照下面选，别另外起炉灶；改外观只改这里。
+   【删除】只用 .mini-del（✕）：平时透明，鼠标移到它所在的行/卡片才浮现（容器清单在上面
+          @media (hover:hover) 那段 :is(...)）；触屏设备常显但调淡。每一处删除都必须走 confirmDelete
+          二次确认。整条记录/批量清空这类危险大操作才用 .btn.danger 文字按钮。
+   【添加】分三种，不要混用：
+     ① 往列表/卡片区里「新增一条」→ .add-circle-btn（圆形"+"），放在标题行右侧，或列表上方右对齐，
+        带 title 说明；有内联编辑框的（碎碎念留言、日志板块）点了在原位展开编辑框，
+        取消/发送/📷 都嵌在编辑框 .ssn-editbox 内部的角上，发送了才真正新建；没有内联编辑框的点了弹窗。
+     ② 往一条记录里加「小项」（字段/成员/标签等）→ .btn.small.ghost 的「+ 添加xx」文字按钮。
+     ③ 表单里真正提交的按钮 → .btn.solid「保存/添加」。
+   不再使用：屏幕右下角悬浮的 +（已删 .book-fab）、页面右上角的实心「+ 添加xx」大按钮。
+   "+" 的大小只由 --add-btn-size 这一个变量控制。 */
+:root{--add-btn-size:22px;}
+.add-circle-btn, .ssn-tag-col-addbtn.ssn-bubble-plus{
+  width:var(--add-btn-size); height:var(--add-btn-size); border-radius:50%; border:none; padding:0;
+  background:var(--accent); color:#fff; display:inline-flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:700; line-height:1; flex:none; align-self:center; cursor:pointer; opacity:.85; transition:.15s;
+}
+.add-circle-btn:hover, .ssn-tag-col-addbtn.ssn-bubble-plus:hover{opacity:1; transform:scale(1.08); border:none; color:#fff;}
 .ssn-tag-col-rename-input{border:none; border-radius:999px; padding:3px 11px; font-size:11px; font-weight:700; color:#fff; font-family:inherit; width:fit-content; max-width:100%;}
 .ssn-tag-col-add-input{width:130px; box-sizing:border-box; padding:5px 9px; border:1px solid var(--border); border-radius:6px; font-size:12px; font-family:inherit; background:var(--surface); color:var(--text);}
 .ssn-tag-col-add-input:focus{outline:none; border-color:var(--accent);}
 .ssn-untagged-pick{border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-size:10.5px; padding:2px 5px; border-radius:5px; font-family:inherit; max-width:96px;}
 .ssn-tag-row{display:flex; flex-direction:column; align-items:stretch; gap:4px; width:100%;}
-.ssn-tag-row .mini-del{opacity:0; transition:.12s;}
-.ssn-tag-row:hover .mini-del{opacity:1;}
 .ssn-tag-item-del.ssn-edit-done{opacity:1;} /* "完成"按钮是编辑时的主要出口，不能跟删除键一样只有
   鼠标悬浮才显示——手机上没有悬浮这回事，藏起来就等于找不到退出编辑的按钮了 */
 .ssn-tag-item{position:relative; width:100%; box-sizing:border-box; padding:8px 13px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; height:150px; overflow:hidden;} /* 卡片高度得跟着下面 .ssn-tag-clamp 的截断行数一起改，不然行数改了、外框高度没跟着变，还是照样被裁掉看不出差别 */
 .ssn-tag-item .ssn-bubble-content{line-height:1.35;}
-.ssn-tag-item-del{position:absolute; top:5px; right:5px; opacity:0; transition:.12s;}
-.ssn-tag-row:hover .ssn-tag-item-del{opacity:1;}
+.ssn-tag-item-del{position:absolute; top:5px; right:5px;}
 .ssn-tag-item.expanded{height:auto; overflow:visible;}
 .ssn-tag-clamp{display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden;} /* 原来3行，改成5行，能露出来的字更多，配合上面卡片加高 */
 .ssn-tag-item-date{font-size:10.5px; color:var(--text-faint); opacity:.65; margin-top:7px;}
@@ -952,9 +983,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .book-photo-badge{display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); border-radius:10px; padding:1px 7px; cursor:pointer; flex:none;}
 .book-photo-badge:hover{border-color:var(--accent); color:var(--accent);}
 .book-photo-float{display:none; position:fixed; z-index:600; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:var(--shadow-lg); flex-wrap:wrap; gap:6px; max-width:220px;}
-/* 日志这类"一篇一篇长文章"的列表，新增按钮放右下角悬浮圆按钮，跟着页面滚动一直在，不用滚回顶部去点 */
-.book-fab{position:fixed; right:24px; bottom:24px; width:52px; height:52px; border-radius:50%; background:var(--text); color:#fff; font-size:26px; line-height:1; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-lg); cursor:pointer; z-index:50; border:none; transition:.15s;}
-.book-fab:hover{background:#000; transform:translateY(-2px);}
 .declutter-list{display:flex; flex-direction:column; gap:8px;}
 .declutter-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow);}
 .declutter-row .dname{font-size:13.5px; font-weight:600;}
@@ -1009,7 +1037,7 @@ html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
   .asset-table-wrap, .data-table-wrap{width:100%; max-width:100%; max-height:none; cursor:auto;}
   .asset-table-wrap{overflow-x:auto; overflow-y:auto; max-height:75vh;}
   .asset-cell-copy{opacity:1;}
-  .asset-th-rename-btn, .asset-th-del-btn{opacity:1;}
+  .asset-th-rename-btn{opacity:1;}
 }
 </style>
 </head>
@@ -1294,6 +1322,16 @@ function normalizeData(d){
     if(!j.chapters){
       j.chapters = (j.content && j.content.trim()) ? [{id:uid(), content:j.content, images:j.images||[], createdAt:(j.date?j.date+"T00:00:00.000Z":new Date().toISOString())}] : [];
     }
+  });
+  /* 文章列表按"第一次编辑的时间"排序：新建文章时会记下 createdAt；之前建的老文章没有这个字段，补一次——
+     优先取它最早那个板块的时间，没有板块就用日期当天零点；再按它在数组里的先后顺序加上几毫秒，
+     这样同一天写的几篇老文章也能保持原来的先后，不会并列乱序。补上之后就固定了，不会再变 */
+  d.journalEntries.forEach(function(j, idx){
+    if(j.createdAt) return;
+    var firstChapter = (j.chapters||[]).map(function(c){ return c.createdAt||""; }).filter(Boolean).sort()[0];
+    var base = new Date(firstChapter || (j.date ? j.date+"T00:00:00.000Z" : 0));
+    if(isNaN(base.getTime())) base = new Date(0);
+    j.createdAt = new Date(base.getTime()+idx).toISOString();
   });
   d.suisuinianEntries = d.suisuinianEntries || [];
   d.suisuinianTopics = d.suisuinianTopics || [];
@@ -2294,7 +2332,7 @@ function render(){
   var app=document.getElementById("app");
   /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
   var __sameView = (__lastRenderedView === VIEW);
-  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; inlineAddOpen = null; suisuinianAddingTopic = false; }
+  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; journalComposerOpen = null; journalComposerImages = []; inlineAddOpen = null; suisuinianAddingTopic = false; }
   var __scrollState = [];
   if(__sameView){
     ["hzTimeline","tlMatrixScroll","assetTableScroll","ssnTagBoard"].forEach(function(id){
@@ -4355,7 +4393,7 @@ window.deleteTravelFolder = function(kind, segment, event){
 function travelFolderTileHtml(segment, count, kind, navClick, selfId){
   return '<div class="travel-tag travel-tag-folder"'+(selfId?' data-travel-id="'+selfId+'"':'')+'>'+
     '<span class="travel-tag-folder-label" onclick="'+navClick+'">'+esc(segment)+'<span class="book-meta muted">'+count+'</span></span>'+
-    '<button type="button" class="travel-tag-del" onclick="deleteTravelFolder(\''+kind+'\',\''+esc(segment).replace(/'/g,"\\'")+'\',event)" title="删除">✕</button>'+
+    '<button type="button" class="mini-del travel-tag-del" onclick="deleteTravelFolder(\''+kind+'\',\''+esc(segment).replace(/'/g,"\\'")+'\',event)" title="删除">✕</button>'+
   '</div>';
 }
 /* 文件夹标签第一次出现时，如果这条路径底下还没有一条记录正好就是"它本身"，就悄悄补一条——
@@ -4410,7 +4448,7 @@ function renderTravelMixedGrid(folderTiles, leafItems){
       html = '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
     } else {
       html = '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+
-        '<button type="button" class="travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
+        '<button type="button" class="mini-del travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
       '</div>';
     }
     return {html:html, count:1, orderKey:travelEntryOrderIndex(t)};
@@ -4749,7 +4787,7 @@ function renderTimelineSection(){
     '<div style="display:flex; gap:6px;">'+
     (timelineFilter==="travel" ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineGranularity()" title="切换年/月颗粒度（只影响当前筛选）">'+(granularity==="month"?"月":"年")+'</button>')+
     (isAll || timelineFilter==="travel" ? '' : '<button class="btn ghost small tl-orient-btn" onclick="toggleTimelineOrientation()" title="切换横向/竖向（只影响当前筛选）">'+(orientation==="vertical"?"↔":"↕")+'</button>')+
-    (isAll ? '' : '<button class="btn solid small" onclick="editTimelineEntry()">+</button>')+
+    (isAll ? '' : '<button type="button" class="add-circle-btn" onclick="editTimelineEntry()" title="添加经历">+</button>')+
     '</div>'+
   '</div>';
 
@@ -5845,7 +5883,7 @@ function renderBookCategoryEntries(compoundId){
   var cats = getModuleCategories(moduleId);
   var entries = bookEntries(moduleId);
   var scoped = entries.filter(function(j){ return (j.category||"")===categoryKey; })
-    .slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+    .slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||"") || (b.date||"").localeCompare(a.date||""); });
   var rows = scoped.map(function(j){
     var latestChapter = (j.chapters||[]).slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     var excerpt = latestChapter ? bookExcerpt(latestChapter.content) : bookExcerpt(j.content);
@@ -5862,12 +5900,12 @@ function renderBookCategoryEntries(compoundId){
       '<div class="row-actions"><button class="btn small ghost icon-only" onclick="openBookMemoEditor(\''+moduleId+'\',\''+j.id+'\')" title="备忘录">'+iconMemo()+'</button><button class="mini-del" onclick="deleteBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="删除">✕</button></div>'+
     '</div>';
   }).join('');
-  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角按钮添加");
+  var listHtml = scoped.length ? ('<div class="card-panel book-list">'+rows+'</div>') : emptyState("","这个分类下还没有内容","点击右上角的「+」添加");
   var curCat = cats.filter(function(c){return c.key===categoryKey;})[0];
   var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
-  var addBtn = '<button class="btn solid" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')">'+cfg.addLabel+'</button>';
+  var addBtn = '<button type="button" class="add-circle-btn" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')" title="'+esc(cfg.addLabel.replace(/^\+\s*/,""))+'">+</button>';
   return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表。</div></div>'+addBtn+'</div>'+
     backBar + listHtml;
 }
@@ -6157,7 +6195,7 @@ function ssnTagContentScheduleHide(){
   ssnTagContentHideTimer = setTimeout(function(){
     var box = document.getElementById("ssnTagContentFloat");
     if(box) box.style.display = "none";
-  }, 80);
+  }, 160);
 }
 /* 点悬浮的卡片进入编辑态时，那张卡片（.ssn-tag-clamp）会被 render() 整个换成输入框，
    元素从 DOM 里直接消失，浏览器不会给一个正在被替换掉的元素补发 mouseout，
@@ -6168,16 +6206,59 @@ function ssnTagContentHideNow(){
   var box = document.getElementById("ssnTagContentFloat");
   if(box) box.style.display = "none";
 }
+/* 标签悬浮框：要全部显示出来。
+   1) 宽度跟着文字长度走：短的窄一点，长的最宽到 640px（手机上不超过屏幕宽度）；
+   2) 高度最多用满整个可视区域（不再是只有半屏 50vh），先试着放到卡片下方/上方，
+      都放不下就在屏幕里上下居中贴紧，整段话尽量一次看全；
+   3) 真的超过一整屏的超长内容，框里会出现滚动条，这时才让框接收鼠标，
+      可以移进去滚动；鼠标离开框就收起。内容没超出时仍然保持"穿透"，不会挡住鼠标。 */
+function ssnTagContentPlace(box, anchorEl){
+  var M = 8; /* 离屏幕边缘的最小间距 */
+  var inner = box.firstChild;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  var r = anchorEl.getBoundingClientRect();
+  /* 先放到左上角，让浏览器按"不被旧坐标挤窄"的状态量出真实尺寸 */
+  box.style.left = "0px"; box.style.top = "0px";
+  inner.style.maxHeight = "none";
+  var maxH = vh - M*2 - 20; /* 20 = 框自己的上下 padding + 边框 */
+  var scrollable = false;
+  if(inner.scrollHeight > maxH){ inner.style.maxHeight = maxH + "px"; inner.style.overflowY = "auto"; scrollable = true; }
+  else { inner.style.overflowY = "visible"; }
+  var bw = box.offsetWidth, bh = box.offsetHeight;
+  var left = Math.min(Math.max(r.left, M), vw - bw - M);
+  if(left < M) left = M;
+  var spaceBelow = vh - r.bottom - M - 6, spaceAbove = r.top - M - 6;
+  var top;
+  if(bh <= spaceBelow) top = r.bottom + 6;
+  else if(bh <= spaceAbove) top = r.top - bh - 6;
+  else top = Math.min(Math.max(r.top, M), vh - bh - M); /* 上下都放不下：在屏幕内尽量完整地露出来 */
+  if(top < M) top = M;
+  box.style.left = left + "px";
+  box.style.top = top + "px";
+  return scrollable;
+}
 window.ssnTagContentShow = function(id, anchorEl){
   ssnTagContentClearHide();
   if(!anchorEl || anchorEl.scrollHeight <= anchorEl.clientHeight + 1) return;
   var box = document.getElementById("ssnTagContentFloat");
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
   if(!box || !m) return;
+  var text = m.content || "";
+  var maxW = text.length > 400 ? 640 : (text.length > 120 ? 460 : 300);
+  box.style.maxWidth = Math.min(maxW, window.innerWidth - 16) + "px";
+  box.style.fontSize = "12.5px";
+  box.innerHTML = '<div class="ssn-remark-view" style="cursor:default">'+esc(text)+'</div>';
   box.style.pointerEvents = "none";
-  box.innerHTML = '<div class="ssn-remark-view" style="cursor:default;max-height:50vh;overflow-y:auto">'+esc(m.content||"")+'</div>';
   box.style.display = "block";
-  ssnRemarkPositionNear(box, anchorEl);
+  var scrollable = ssnTagContentPlace(box, anchorEl);
+  if(scrollable){
+    box.style.pointerEvents = "auto";
+    box.onmouseenter = ssnTagContentClearHide;
+    box.onmouseleave = function(){ ssnTagContentScheduleHide(); };
+  } else {
+    box.onmouseenter = null;
+    box.onmouseleave = null;
+  }
 };
 document.addEventListener("mouseover", function(e){
   var el = e.target.closest ? e.target.closest(".ssn-tag-clamp") : null;
@@ -6203,7 +6284,7 @@ var suisuinianComposerImages = [];
 function suisuinianComposerImageGalleryHtml(){
   if(!suisuinianComposerImages.length) return "";
   var thumbs = suisuinianComposerImages.map(function(img, idx){
-    return '<div class="book-img-thumb"><img src="'+img+'"><button type="button" class="book-img-del" onclick="removeSuisuinianComposerImage('+idx+')" title="移除">✕</button></div>';
+    return '<div class="book-img-thumb"><img src="'+img+'"><button type="button" class="mini-del book-img-del" onclick="removeSuisuinianComposerImage('+idx+')" title="移除">✕</button></div>';
   }).join('');
   return '<div class="book-img-gallery">'+thumbs+'</div>';
 }
@@ -6791,7 +6872,7 @@ window.updateBookField = function(moduleId, id, key, value){
   save(); render();
 };
 window.createBookEntryInline = function(moduleId, categoryKey){
-  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), category:categoryKey||"", content:"", images:[], chapters:[]};
+  var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), createdAt:new Date().toISOString(), category:categoryKey||"", content:"", images:[], chapters:[]};
   bookEntries(moduleId).push(entry);
   save();
   openItemTab(moduleId, entry.id);
@@ -6848,7 +6929,7 @@ window.bookPhotoBadgeShow = function(moduleId, id, anchorEl){
   var item = resolveBookRecord(moduleId, id);
   if(!box || !item || !item.images || !item.images.length) return;
   box.innerHTML = item.images.map(function(img, idx){
-    return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
+    return '<div class="book-img-thumb"><img src="'+img+'" onclick="viewBookImage(this.src)"><button type="button" class="mini-del book-img-del" onclick="event.stopPropagation();deleteBookEntryImage(\''+moduleId+'\',\''+id+'\','+idx+')" title="删除">✕</button></div>';
   }).join('');
   box.style.display = "flex";
   bookPhotoPositionNear(box, anchorEl);
@@ -6926,6 +7007,84 @@ window.addJournalChapter = function(entryId){
   entry.chapters.push({id:uid(), content:"", images:[], createdAt:new Date().toISOString()});
   save(); render();
 };
+/* 日志板块的新增：跟碎碎念留言泡泡是同一套手感——默认只有一个"+"，点了在原位展开编辑框
+   （取消/发送/📷 都嵌在编辑框内部的角上），发送了才真正新建一个板块，不会再点一下就先冒出一个空板块。
+   journalComposerOpen 记的是当前展开着编辑框的日志 id，没展开就是 null */
+var journalComposerOpen = null;
+var journalComposerImages = [];
+window.openJournalComposer = function(entryId){
+  window.__ssnPicking = false;
+  journalComposerOpen = entryId;
+  render();
+  setTimeout(function(){ var t = document.getElementById("journalComposer"); if(t) t.focus(); }, 30);
+};
+window.closeJournalComposer = function(){
+  journalComposerOpen = null;
+  journalComposerImages = [];
+  render();
+};
+/* 空着、也没传图就点到外面，自动收回成"+"（跟碎碎念一致）；正在选照片时不收 */
+window.journalComposerBlur = function(){
+  setTimeout(function(){
+    if(window.__ssnPicking) return;
+    var t = document.getElementById("journalComposer");
+    if(!t || document.activeElement===t) return;
+    if((t.value||"").trim()==="" && !journalComposerImages.length){
+      journalComposerOpen = null;
+      render();
+    }
+  }, 250);
+};
+function journalComposerGalleryHtml(){
+  if(!journalComposerImages.length) return "";
+  var thumbs = journalComposerImages.map(function(img, idx){
+    return '<div class="book-img-thumb"><img src="'+img+'"><button type="button" class="mini-del book-img-del" onclick="removeJournalComposerImage('+idx+')" title="移除">✕</button></div>';
+  }).join('');
+  return '<div class="book-img-gallery">'+thumbs+'</div>';
+}
+function journalComposerKeepDraft(change){
+  var draft = document.getElementById("journalComposer");
+  var v = draft ? draft.value : "";
+  change();
+  render();
+  var nd = document.getElementById("journalComposer");
+  if(nd) nd.value = v;
+}
+window.uploadJournalComposerImage = function(input){
+  var file = input.files[0]; if(!file) return;
+  readImageFileAsDataUrl(file, function(dataUrl){
+    journalComposerKeepDraft(function(){ journalComposerImages.push(dataUrl); });
+  });
+};
+window.removeJournalComposerImage = function(idx){
+  journalComposerKeepDraft(function(){ journalComposerImages.splice(idx,1); });
+};
+window.addJournalChapterFromComposer = function(entryId){
+  var input = document.getElementById("journalComposer");
+  var value = input ? (input.value||"").trim() : "";
+  if(!value && !journalComposerImages.length) return;
+  var entry = bookEntries("journal").filter(function(x){return x.id===entryId;})[0]; if(!entry) return;
+  entry.chapters = entry.chapters || [];
+  entry.chapters.push({id:uid(), content:value, images:journalComposerImages.slice(), createdAt:new Date().toISOString()});
+  journalComposerImages = [];
+  journalComposerOpen = null; /* 发送后收回成"+" */
+  save(); render();
+};
+function journalComposerHtml(entryId){
+  return '<div class="ssn-composer">'+
+    '<div class="ssn-composer-col">'+
+      journalComposerGalleryHtml()+
+      '<div class="ssn-composer-box">'+
+        '<div class="ssn-editbox">'+
+          '<textarea id="journalComposer" placeholder="写这一段，Ctrl/⌘+回车发送，或者点右上角「发送」…" onblur="journalComposerBlur()" onfocus="window.__ssnPicking=false" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addJournalChapterFromComposer(\''+entryId+'\');}"></textarea>'+
+          '<button type="button" class="ssn-edit-done ssn-cancel-corner" onclick="closeJournalComposer()">取消</button>'+
+          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addJournalChapterFromComposer(\''+entryId+'\')">发送</button>'+
+          '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片" onmousedown="window.__ssnPicking=true" ontouchstart="window.__ssnPicking=true">📷<input type="file" accept="image/*" onchange="uploadJournalComposerImage(this)"></label>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
 window.updateJournalChapterContent = function(entryId, chapterId, value){
   var ch = resolveBookRecord("journalChapter", entryId+"::"+chapterId); if(!ch) return;
   ch.content = value; save(); render();
@@ -6968,12 +7127,15 @@ function renderJournalChapters(entryId){
         bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id, "ssn-addimg-corner")+
       '</div>'+
     '</div>';
-  }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点右下角「+」加第一个板块</div>';
+  }).join('') || '<div class="sub" style="padding:10px 2px">还没有内容，点上方的「+」写第一段</div>';
   var filterBtn = '<button class="btn small '+(bookFilterHasImage[sortKey]?"solid":"ghost")+'" onclick="toggleBookImageFilter(\''+sortKey+'\')">'+(bookFilterHasImage[sortKey]?"✓ 只看有图":"筛选：只看有图")+'</button>';
   var sortBtn = '<button class="btn small ghost" onclick="toggleBookSort(\''+sortKey+'\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>';
+  var addArea = (journalComposerOpen!==entryId)
+    ? '<div style="margin:10px 0 14px; display:flex; justify-content:flex-end"><button type="button" class="add-circle-btn" onclick="openJournalComposer(\''+entryId+'\')" title="新增一段">+</button></div>'
+    : journalComposerHtml(entryId);
   return '<div class="row-actions" style="margin-bottom:12px">'+filterBtn+sortBtn+'</div>'+
-    '<div class="book-chapters">'+blocks+'</div>'+
-    '<button type="button" class="book-fab" onclick="addJournalChapter(\''+entryId+'\')" title="+ 新增板块">+</button>';
+    addArea+
+    '<div class="book-chapters">'+blocks+'</div>';
 }
 function renderMemorialSection(){
   var items = DATA.memorialEvents;
@@ -6987,8 +7149,8 @@ function renderMemorialSection(){
   }).join('');
   return '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("memorial"))+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\'memorial\')" title="重命名">✎</button></div>'+
-    '<div class="sub">重要的日子和纪念日，自动计算倒计时 / 已过天数（框架，可继续扩展提醒等功能）。</div></div><button class="btn solid" onclick="editMemorial()">+ 添加纪念日</button></div>'+
-    (items.length ? ('<div class="memorial-grid">'+cards+'</div>') : emptyState("🎉","还没有添加纪念事件","点击右上角「添加纪念日」"));
+    '<div class="sub">重要的日子和纪念日，自动计算倒计时 / 已过天数（框架，可继续扩展提醒等功能）。</div></div><button type="button" class="add-circle-btn" onclick="editMemorial()" title="添加纪念日">+</button></div>'+
+    (items.length ? ('<div class="memorial-grid">'+cards+'</div>') : emptyState("🎉","还没有添加纪念事件","点击右上角的「+」添加纪念日"));
 }
 window.editMemorial = function(id){
   var item = id ? DATA.memorialEvents.filter(function(x){return x.id===id;})[0] : {name:"",date:"",repeatYearly:false,note:""};
@@ -7025,8 +7187,8 @@ function renderDeclutterSection(){
   }).join('');
   return '<div class="module-head"><div><div class="title-row"><h2>'+esc(labelFor("declutter"))+'</h2>'+
     '<button class="title-edit-btn" onclick="editSectionLabel(\'declutter\')" title="重命名">✎</button></div>'+
-    '<div class="sub">想放下的人、事、物，先搭个简单框架：点状态标签可循环切换进度，具体玩法之后再慢慢加。</div></div><button class="btn solid" onclick="editDeclutter()">+ 添加事项</button></div>'+
-    (items.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("🧹","还没有添加断舍离事项","点击右上角「添加事项」"));
+    '<div class="sub">想放下的人、事、物，先搭个简单框架：点状态标签可循环切换进度，具体玩法之后再慢慢加。</div></div><button type="button" class="add-circle-btn" onclick="editDeclutter()" title="添加事项">+</button></div>'+
+    (items.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("🧹","还没有添加断舍离事项","点击右上角的「+」添加事项"));
 }
 window.cycleDeclutter = function(id){
   var it = DATA.declutterItems.filter(function(x){return x.id===id;})[0]; if(!it) return;
@@ -7127,7 +7289,7 @@ function renderPasswords(){
       : '<button type="button" class="add-circle-btn" onclick="startAddPasswordSiteInline()" title="新建网站/应用">+</button>';
     return moduleShell("passwords","🔐","passwords","这个分类下有哪些网站/应用，一个网站可以注册多个账号，点进去看具体账号。",
       "",
-      categoryBackBar("passwords","exitPasswordCategory()",null,addSiteBtnHtml) + (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🔐","这里还没有网站/应用","点击上方「+ 添加网站」"))
+      categoryBackBar("passwords","exitPasswordCategory()",null,addSiteBtnHtml) + (rows?('<div class="cat-folder-list">'+rows+'</div>'):emptyState("🔐","这里还没有网站/应用","点击上方的「+」添加网站/应用"))
     );
   }
 
@@ -7164,7 +7326,7 @@ function renderPasswords(){
   return moduleShell("passwords","🔐","passwords","这个网站/应用下的账号，改完直接点别处就保存，账号/备注列头也能直接改名字，列头右边缘可以拖动调整列宽。",
     "",
     backBar + (siteScoped.length ? ('<div class="card-panel data-table-wrap"><table class="data">'+pwColgroupHtml+'<thead><tr>'+theadCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>')
-      : emptyState("🔐","这个网站下还没有账号","点击上方「+ 新增账号」添加"))
+      : emptyState("🔐","这个网站下还没有账号","点击上方的「+」新增账号"))
   );
 }
 /* 账号/密码/备注这三列，加密是全局的（不分网站，跟 passwordColumnLabels 一个逻辑）——
@@ -7572,19 +7734,19 @@ function renderAssets(){
   var typeHeaderInner = assetTypeColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTypeColumnLabel||"账户类型")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetTypeCol(this.value)">'
     : '<div class="asset-th-row">'+typeFilterSelect+'<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetTypeCol()" title="改列名">✎</button>'+
-        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'type\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
+        '<button type="button" class="mini-del asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'type\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var accountHeaderInner = assetAccountColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetAccountCol(this.value)">'
     : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetAccountColumnLabel||"账号")+'</span>'+
         assetRevealBtnHtml(assetScopeKey,"account")+
         '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetAccountCol()" title="改列名">✎</button>'+
-        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'account\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
+        '<button type="button" class="mini-del asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'account\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var passwordHeaderInner = assetPasswordColRenaming
     ? '<input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameAssetPasswordCol(this.value)">'
     : '<div class="asset-th-row"><span class="asset-th-label">'+esc(DATA.settings.assetPasswordColumnLabel||"密码")+'</span>'+
         assetRevealBtnHtml(assetScopeKey,"password")+
         '<button type="button" class="asset-th-rename-btn" onclick="startRenameAssetPasswordCol()" title="改列名">✎</button>'+
-        '<button type="button" class="asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'password\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
+        '<button type="button" class="mini-del asset-th-del-btn" onclick="hideAssetFixedCol(\''+assetScopeKey+'\',\'password\')" title="这张表不显示这一列（数据还在，右上角能加回来）">✕</button></div>';
   var theadCells = '<th class="col-resizable"><input type="text" class="asset-col-header-input" value="'+esc(DATA.settings.assetTitleColumnLabel)+'" onchange="renameAssetTitleColumn(this.value)">'+colResizeHandle("asset",assetScopeKey,"__title__")+'</th>'+
     (showType ? ('<th class="col-resizable">'+typeHeaderInner+colResizeHandle("asset",assetScopeKey,"__type__")+'</th>') : '') +
     (showAccount ? ('<th class="col-resizable">'+accountHeaderInner+colResizeHandle("asset",assetScopeKey,"__account__")+'</th>') : '') +
@@ -7596,9 +7758,9 @@ function renderAssets(){
   var bodyRows = scoped.map(function(a){
     var fieldMap = {};
     (a.fields||[]).forEach(function(f){ fieldMap[f.label]=f.value; });
-    /* 整行删除的✕挪到首列格子左上角（首列是冻结的，随时看得见、够得着），
-       不用像以前那样滚到最右边才找得到；平时藏着，鼠标移到这一行才显 */
-    var cells = '<td><button type="button" class="mini-del asset-row-del" onclick="deleteAsset(\''+a.id+'\')" title="删除这条">✕</button>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
+    /* 整行删除的✕放在最后一列（跟基本信息表、密码表一致），离首列的名称输入格远，不会点格子时误触；
+       平时透明，鼠标移到这一行才浮现（全局 .mini-del 规则），最后一列不冻结 */
+    var cells = '<td>'+assetCellHtml(a.id+"::__title__", a.title, "名称", "updateAssetBasicField('"+a.id+"','title',this.value)")+'</td>'+
       (showType ? ('<td>'+assetTypeSelectHtml(a)+'</td>') : '') +
       (showAccount ? ('<td>'+assetFieldCellHtml(assetScopeKey,"account",a.id+"::__account__", a.account, "账号", "updateAssetBasicField('"+a.id+"','account',this.value)")+'</td>') : '') +
       (showPassword ? ('<td>'+assetFieldCellHtml(assetScopeKey,"password",a.id+"::__password__", a.password, "密码", "updateAssetBasicField('"+a.id+"','password',this.value)")+'</td>') : '') +
@@ -7607,7 +7769,7 @@ function renderAssets(){
         var cEsc = c.replace(/'/g,"\\'");
         return '<td>'+assetFieldCellHtml(assetScopeKey,c,a.id+"::"+c, v, "内容", "updateAssetFieldValue('"+a.id+"','"+cEsc+"',this.value)")+'</td>';
       }).join('')+
-      '<td></td>';
+      '<td class="asset-row-del-cell"><button type="button" class="mini-del asset-row-del" onclick="deleteAsset(\''+a.id+'\')" title="删除这条">✕</button></td>';
     return '<tr>'+cells+'</tr>';
   }).join('');
   var fixedShownCount = 1 + (showType?1:0) + (showAccount?1:0) + (showPassword?1:0);
@@ -7617,7 +7779,7 @@ function renderAssets(){
     (scopedAll.length ? '<button class="btn ghost" onclick="resetAssetColumnWidths(\''+assetScopeKey+'\')" title="之前手动拖拽调整过的列宽会被清掉，改用按内容自动算的默认宽度">↺ 重置列宽</button>' : ''),
     categoryBackBar("assets_location","assetBackToLocations()","资产信息 · 分类管理",
       '<button class="add-circle-btn" onclick="createAssetInline()" title="新增资产">+</button>') +
-    (scopedAll.length ? tableHtml : emptyState("💳","这里还没有资产","点击上方「+ 新增资产」添加"))
+    (scopedAll.length ? tableHtml : emptyState("💳","这里还没有资产","点击上方的「+」新增资产"))
   );
 }
 window.deleteAssetColumn = function(label){
@@ -8006,8 +8168,8 @@ function renderIdOfficialDocList(branch,personId, catKey){
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idOfficialExitCategory(\''+catModuleId+'\')">‹ 返回</button><span class="cat-back-label">'+esc(label)+'</span></div>';
   return moduleShell("idphotos","🪪","idphotos",esc(branch.name)+" · "+esc(label)+"，按上传时间从新到旧排列，鼠标放在照片上可以看/编辑证件信息。",
-    '<button class="btn solid" onclick="createIdOfficialDoc(\''+branch.id+'\',\''+personId+'\',\''+catKey+'\')">+ 新增证件</button>',
-    backBar + (docs.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("🪪","这里还没有证件","点击右上角「新增证件」添加"))
+    '<button type="button" class="add-circle-btn" onclick="createIdOfficialDoc(\''+branch.id+'\',\''+personId+'\',\''+catKey+'\')" title="新增证件">+</button>',
+    backBar + (docs.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("🪪","这里还没有证件","点击右上角的「+」新增证件"))
   );
 }
 window.createIdOfficialDoc = function(branchId,personId, catKey){
@@ -8086,8 +8248,8 @@ function renderIdRegularPhotoList(branch,personId){
   }).join('');
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="idPhotosBackToPeople()">‹ 返回</button><span class="cat-back-label">'+esc(person?person.name:"")+'</span></div>';
   return moduleShell("idphotos","📸","idphotos",esc(branch.name)+" · "+esc(person?person.name:"")+"，按上传时间从新到旧排列，鼠标放在照片上可以看/编辑证件信息。",
-    '<button class="btn solid" onclick="createIdRegularPhoto(\''+branch.id+'\',\''+personId+'\')">+ 新增证件照</button>',
-    backBar + (photos.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("📸","这里还没有证件照","点击右上角「新增证件照」添加"))
+    '<button type="button" class="add-circle-btn" onclick="createIdRegularPhoto(\''+branch.id+'\',\''+personId+'\')" title="新增证件照">+</button>',
+    backBar + (photos.length ? ('<div class="photo-grid idph-grid">'+cards+'</div>') : emptyState("📸","这里还没有证件照","点击右上角的「+」新增证件照"))
   );
 }
 window.createIdRegularPhoto = function(branchId,personId){
@@ -8276,7 +8438,7 @@ function renderCustomBoardPage(boardId){
   var backBar = cats.length ? categoryBackBar(boardId, null, null, addBtnHtml) : "";
   return moduleShell(boardId,"📌",boardId,"自定义板块，随便记点什么。",
     cats.length ? "" : addBtnHtml,
-    backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容",cats.length?"点击上方「新增」":"点击右上角「新增」"))
+    backBar + (scoped.length ? ('<div class="declutter-list">'+rows+'</div>') : emptyState("📌","这里还没有内容",cats.length?"点击上方的「+」新增":"点击右上角的「+」新增"))
   );
 }
 var __ciDrag = null;
@@ -8349,7 +8511,7 @@ function renderContacts(){
   var backBar = cats.length ? categoryBackBar("contacts", null, null, addContactBtnHtml) : "";
   return moduleShell("contacts","👥","contacts","重要联系人和关系备注。",
     cats.length ? "" : addContactBtnHtml,
-    backBar + (scoped.length ? ('<div class="contact-grid">'+cards+'</div>') : emptyState("👥","这里还没有联系人",cats.length?"点击上方「新增联系人」":"点击右上角「新增联系人」"))
+    backBar + (scoped.length ? ('<div class="contact-grid">'+cards+'</div>') : emptyState("👥","这里还没有联系人",cats.length?"点击上方的「+」新增联系人":"点击右上角的「+」新增联系人"))
   );
 }
 window.editContact = function(id){
