@@ -810,7 +810,6 @@ th.col-resizable .mini-del{margin-top:6px;}
 .memo-edit-area:focus{outline:none; border-color:var(--accent);}
 .book-content-edit:focus{outline:none; background:var(--surface-2);}
 /* 日志一篇内部的"板块"：长段落，按时间一个个排列，不是留言泡泡那种短消息样式 */
-.book-created-at{cursor:pointer;} .book-created-at:hover{color:var(--accent);}
 .book-chapters{display:flex; flex-direction:column; gap:14px; margin-bottom:24px;}
 .book-chapter{background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); padding:14px 16px;}
 .book-chapter-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
@@ -1325,12 +1324,25 @@ function normalizeData(d){
     }
   });
   /* 文章列表按"第一次编辑的时间"排序：新建文章时会记下 createdAt；之前建的老文章没有这个字段，补一次——
-     优先取它最早那个板块的时间，没有板块就用日期当天零点；再按它在数组里的先后顺序加上几毫秒，
-     这样同一天写的几篇老文章也能保持原来的先后，不会并列乱序。补上之后就固定了，不会再变 */
+     用文章日期当天零点，再按它在数组里的先后顺序（也就是创建的先后）加上几毫秒，
+     这样同一天建的几篇文章保持创建的先后，不会并列乱序。不看板块时间——板块是后来随时可以加的，
+     不代表文章是什么时候建的。补上之后就固定了，不会再变 */
+  /* 一次性修复：上一版曾把"最早板块的创建时间"当成文章时间，结果谁点过旧版"+"生成了空板块，
+     谁就被排到最新。凡是时间跟自己某个板块的创建时间相差不到 1 秒的（说明是那样推出来的，
+     不是真正新建时记的），清掉重新推；手动改过的、新建时记下的不受影响 */
+  d.settings = d.settings || {};
+  if(!d.settings.journalCreatedAtFixV2){
+    d.journalEntries.forEach(function(j){
+      if(!j.createdAt) return;
+      var t = new Date(j.createdAt).getTime();
+      var polluted = (j.chapters||[]).some(function(c){ var ct = new Date(c.createdAt||"").getTime(); return !isNaN(ct) && Math.abs(ct-t) < 1000; });
+      if(polluted) delete j.createdAt;
+    });
+    d.settings.journalCreatedAtFixV2 = true;
+  }
   d.journalEntries.forEach(function(j, idx){
     if(j.createdAt) return;
-    var firstChapter = (j.chapters||[]).map(function(c){ return c.createdAt||""; }).filter(Boolean).sort()[0];
-    var base = new Date(firstChapter || (j.date ? j.date+"T00:00:00.000Z" : 0));
+    var base = new Date(j.date ? j.date+"T00:00:00.000Z" : 0);
     if(isNaN(base.getTime())) base = new Date(0);
     j.createdAt = new Date(base.getTime()+idx).toISOString();
   });
@@ -5747,39 +5759,17 @@ function bookEntries(moduleId){
   return DATA[key];
 }
 /* 文章"第一次编辑的时间"：新建时记下的 createdAt。老文章/云端合并回来丢了这个字段的，
-   现推一个并固定到 j.createdAt 上（取最早板块的时间，没有就用日期当天零点，再按数组先后加几毫秒保持同天顺序）；
-   推得不准的，在列表里点时间可以手动改。 */
+   现推一个并固定到 j.createdAt 上（用日期当天零点，再按数组先后加几毫秒保持同天的创建顺序，不看板块时间）； */
 function bookEntryCreatedAt(moduleId, j){
   if(!j.createdAt){
     var list = bookEntries(moduleId);
     var idx = Math.max(0, list.indexOf(j));
-    var fc = (j.chapters||[]).map(function(c){ return c.createdAt||""; }).filter(Boolean).sort()[0];
-    var base = new Date(fc || (j.date ? j.date+"T00:00:00.000Z" : 0));
+    var base = new Date(j.date ? j.date+"T00:00:00.000Z" : 0);
     if(isNaN(base.getTime())) base = new Date(0);
     j.createdAt = new Date(base.getTime()+idx).toISOString();
   }
   return j.createdAt;
 }
-function bookCreatedLabel(iso){
-  var d = new Date(iso);
-  if(isNaN(d.getTime())) return "—";
-  var pad = function(n){ return (n<10?"0":"")+n; };
-  return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes());
-}
-window.editBookEntryCreatedAt = function(moduleId, id){
-  var j = bookEntries(moduleId).filter(function(x){return x.id===id;})[0]; if(!j) return;
-  var d = new Date(bookEntryCreatedAt(moduleId, j));
-  var pad = function(n){ return (n<10?"0":"")+n; };
-  var local = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T"+pad(d.getHours())+":"+pad(d.getMinutes());
-  openModal("第一次编辑的时间",
-    '<div class="field"><label>列表按这个时间排序，新的在前</label><input type="datetime-local" name="t" value="'+local+'"></div>',
-    function(data){
-      var nd = new Date(data.t);
-      if(!data.t || isNaN(nd.getTime())) { toast("时间格式不对"); return; }
-      j.createdAt = nd.toISOString();
-      save(); render();
-    });
-};
 function bookExcerpt(content){
   var flat = (content||"").replace(/\s+/g," ").trim();
   return flat.length>60 ? (flat.slice(0,60)+"…") : (flat||"（没有内容）");
@@ -5929,7 +5919,6 @@ function renderBookCategoryEntries(compoundId){
         '<div class="book-row-line1">'+
           titleWrapHtml+
           '<span class="book-meta muted">'+esc(j.date||"—")+'</span>'+
-          '<span class="book-meta muted book-created-at" onclick="editBookEntryCreatedAt(\''+moduleId+'\',\''+j.id+'\')" title="第一次编辑的时间，列表按它排序；点一下可以修改">🕐 '+esc(bookCreatedLabel(bookEntryCreatedAt(moduleId,j)))+'</span>'+
         '</div>'+
         '<div class="book-excerpt muted">'+esc(excerpt)+'</div>'+
       '</div>'+
