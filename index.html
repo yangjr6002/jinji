@@ -2345,7 +2345,7 @@ function render(){
   var app=document.getElementById("app");
   /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
   var __sameView = (__lastRenderedView === VIEW);
-  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; journalComposerOpen = null; journalComposerImages = []; inlineAddOpen = null; suisuinianAddingTopic = false; }
+  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; journalComposerOpen = null; journalComposerImages = []; inlineAddOpen = null; bookRenamingEntry = null; suisuinianAddingTopic = false; }
   var __scrollState = [];
   if(__sameView){
     ["hzTimeline","tlMatrixScroll","assetTableScroll","ssnTagBoard"].forEach(function(id){
@@ -5913,7 +5913,9 @@ function renderBookCategoryEntries(compoundId){
     var latestChapter = (j.chapters||[]).slice().sort(function(a,b){ return (b.createdAt||"").localeCompare(a.createdAt||""); })[0];
     var excerpt = latestChapter ? bookExcerpt(latestChapter.content) : bookExcerpt(j.content);
     var hasRemark = !!(j.remark && j.remark.trim());
-    var titleWrapHtml = '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-kind="'+moduleId+'" data-remark-id="'+j.id+'"><span class="row-open-link book-title" onclick="openItemTab(\''+moduleId+'\',\''+j.id+'\')">'+esc(j.title||"未命名")+'</span></span>';
+    var titleWrapHtml = bookRenamingEntry===j.id
+      ? '<input type="text" class="book-toc-title" style="flex:none; width:220px; max-width:100%;" value="'+esc(j.title||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){bookRenamingEntry=null;render();}" onblur="commitRenameBookEntry(\''+moduleId+'\',\''+j.id+'\', this.value)">'
+      : '<span class="ssn-remark-wrap'+(hasRemark?' has-remark':'')+'" data-remark-kind="'+moduleId+'" data-remark-id="'+j.id+'"><span class="row-open-link book-title" onclick="bookEntrySingleClick(\''+moduleId+'\',\''+j.id+'\')" ondblclick="startRenameBookEntry(\''+moduleId+'\',\''+j.id+'\')" title="单击打开，双击改名">'+esc(j.title||"未命名")+'</span></span>';
     return '<div class="book-row">'+
       '<div style="flex:1; min-width:0;">'+
         '<div class="book-row-line1">'+
@@ -5930,8 +5932,10 @@ function renderBookCategoryEntries(compoundId){
   var titleLabel = curCat?curCat.label:uncategorizedLabel(moduleId);
   var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="closeItemTab(null,\'bookCategory:'+compoundId+'\')">‹ 返回</button>'+
     '<span class="cat-back-label">'+esc(titleLabel)+'</span></div>';
-  var addBtn = '<button type="button" class="add-circle-btn" onclick="createBookEntryInline(\''+moduleId+'\',\''+categoryKey+'\')" title="'+esc(cfg.addLabel.replace(/^\+\s*/,""))+'">+</button>';
-  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表。</div></div>'+addBtn+'</div>'+
+  /* 标题只在列表里起/改：点"+"在原位出现输入框，回车创建；双击标题改名（跟碎碎念标题一个手感）。详情页里的标题不再可编辑 */
+  var addBtn = '<div style="display:flex; align-items:center; gap:8px;">'+
+    inlineAddHtml("entry:"+moduleId+":"+categoryKey, "bookNewEntryTitle_"+moduleId, "文章标题", "addBookEntryInline(\'"+moduleId+"\',\'"+categoryKey+"\')", "添加", "新增一篇")+'</div>';
+  return '<div class="module-head"><div><h2>'+esc(titleLabel)+'</h2><div class="sub">这一分类下的列表，双击标题可以改名。</div></div>'+addBtn+'</div>'+
     backBar + listHtml;
 }
 /* ---- 碎碎念专属的三层结构：目录（分类，看板分栏样式）-> 标题（自己建的子主题，独立标签页）
@@ -6896,6 +6900,35 @@ window.updateBookField = function(moduleId, id, key, value){
   j[key] = value;
   save(); render();
 };
+var bookRenamingEntry = null;
+var bookEntryClickTimer = null;
+/* 单击打开、双击改名：单击稍等一下，确认不是双击的前半截再打开，免得改名时先弹开一个标签页 */
+window.bookEntrySingleClick = function(moduleId, id){
+  clearTimeout(bookEntryClickTimer);
+  bookEntryClickTimer = setTimeout(function(){ openItemTab(moduleId, id); }, 230);
+};
+window.startRenameBookEntry = function(moduleId, id){
+  clearTimeout(bookEntryClickTimer);
+  bookRenamingEntry = id;
+  render();
+  setTimeout(function(){ var el = document.querySelector("input.book-toc-title[onblur^='commitRenameBookEntry']"); if(el){ el.focus(); el.select(); } }, 30);
+};
+window.commitRenameBookEntry = function(moduleId, id, value){
+  if(bookRenamingEntry!==id) return; /* 按了 Esc 已经取消，别再保存 */
+  value = (value||"").trim();
+  var j = bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
+  if(j && value && value!==j.title){ j.title = value; save(); }
+  bookRenamingEntry = null;
+  render();
+};
+window.addBookEntryInline = function(moduleId, categoryKey){
+  var input = document.getElementById("bookNewEntryTitle_"+moduleId);
+  var value = input ? (input.value||"").trim() : "";
+  if(!value) return;
+  inlineAddOpen = null;
+  bookEntries(moduleId).push({id:uid(), title:value, date:new Date().toISOString().slice(0,10), createdAt:new Date().toISOString(), category:categoryKey||"", content:"", images:[], chapters:[]});
+  save(); render();
+};
 window.createBookEntryInline = function(moduleId, categoryKey){
   var entry = {id:uid(), title:"", date:new Date().toISOString().slice(0,10), createdAt:new Date().toISOString(), category:categoryKey||"", content:"", images:[], chapters:[]};
   bookEntries(moduleId).push(entry);
@@ -7008,11 +7041,16 @@ function renderBookDetailPage(moduleId, id){
     '</select>';
   /* 不用弹窗表单编辑，点进来就是标题/日期/分类/正文全部直接可编辑，跟写文档一样，失焦自动保存 */
   return '<div class="module-head"><div>'+
-    '<input type="text" class="book-detail-title" placeholder="标题" value="'+esc(sel.title||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'title\',this.value)">'+
-    '<div class="book-detail-meta">'+
-      '<input type="date" class="book-detail-date" value="'+esc(sel.date||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'date\',this.value)">'+
-      catSelect+
-    '</div>'+
+    (moduleId==="journal"
+      ? '<h2 title="标题在列表里双击修改">'+esc(sel.title||"未命名")+'</h2>'
+      : '<input type="text" class="book-detail-title" placeholder="标题" value="'+esc(sel.title||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'title\',this.value)">')+
+    /* 日志详情页不再显示日期、分类这两个白框（用不上；列表现在按第一次编辑的时间排序，日期不用手动改）；
+       碎碎念共用这个页面，保持原样 */
+    (moduleId==="journal" ? '' :
+      '<div class="book-detail-meta">'+
+        '<input type="date" class="book-detail-date" value="'+esc(sel.date||"")+'" onchange="updateBookField(\''+moduleId+'\',\''+sel.id+'\',\'date\',this.value)">'+
+        catSelect+
+      '</div>')+
     '</div><div class="row-actions">'+
     '<button class="mini-del" onclick="deleteBookEntry(\''+moduleId+'\',\''+sel.id+'\')" title="删除">✕</button>'+
     '</div></div>'+
