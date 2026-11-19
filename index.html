@@ -751,7 +751,8 @@ th.col-resizable .mini-del{margin-top:6px;}
 .map-fallback{padding:40px 20px; text-align:center; color:var(--text-faint); font-size:12.5px; border:1px dashed var(--border); border-radius:10px;}
 .map-legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
 .map-chip{font-size:11px; font-family:'IBM Plex Mono',monospace; padding:4px 10px; border-radius:20px; background:var(--accent-soft); color:var(--accent); cursor:pointer;}
-.map-chip.unmapped{background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); cursor:default;}
+.map-chip.unmapped{background:var(--surface-2); color:var(--text-dim); border:1px solid var(--border); cursor:pointer; font-family:'IBM Plex Mono',monospace;}
+.map-chip.unmapped:hover{border-color:var(--accent);color:var(--accent);}
 .map-note{font-size:11px; color:var(--text-faint); margin-top:12px; line-height:1.6;}
 .map-popup-btn{font-size:11.5px; color:var(--accent); text-decoration:underline; cursor:pointer; border:none; background:none; padding:0; font-family:'IBM Plex Sans',sans-serif;}
 
@@ -1059,6 +1060,176 @@ html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
   .asset-cell-copy{opacity:1;}
   .asset-th-rename-btn{opacity:1;}
 }
+
+/* ===== 旅游板块：简洁预览 + 独立旅行记录卡（只影响旅游） ===== */
+/* 旅行标签：占满可用宽度；按画面宽度自动换行，不给悬浮窗预留一大块空白。 */
+.travel-tag-grid{
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,170px),1fr));
+  padding-right:0;
+}
+@media (min-width:701px) and (max-width:950px){
+  .travel-tag-grid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr));}
+}
+@media (max-width:700px){
+  .travel-tag-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding-right:0;}
+}
+.travel-tag-inline-preview{display:none !important;} /* 预览独立浮动，绝不插进网格挤动标签 */
+/* 旅行悬浮窗随记录数量自适应宽度，全部记录同时展示，取消分页。 */
+#travelTagFloat{
+  pointer-events:auto; box-sizing:border-box; white-space:normal;
+  width:min(560px,calc(100vw - 16px));
+  min-width:0; max-width:calc(100vw - 16px);
+  max-height:min(75vh,670px); overflow-y:auto;
+  overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
+  border-radius:10px; padding:11px 13px;
+}
+#travelTagFloat.travel-preview-compact{width:min(330px,calc(100vw - 16px));}
+#travelTagFloat.travel-preview-medium{width:min(550px,calc(100vw - 16px));}
+#travelTagFloat.travel-preview-wide{width:min(980px,calc(100vw - 16px));}
+#travelTagFloat .travel-tip-title{margin-bottom:7px;}
+#travelTagFloat .travel-preview-list{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,212px),1fr));
+  column-gap:15px; row-gap:2px;
+}
+#travelTagFloat .travel-preview-trip{padding:7px 6px 6px;min-width:0;}
+#travelTagFloat .travel-preview-place{margin-bottom:2px;}
+#travelTagFloat .travel-tip-row{padding:2px 0;line-height:1.45;}
+@media(max-width:700px){
+  #travelTagFloat.travel-mobile-preview{
+    width:min(340px,calc(100vw - 16px)); max-width:calc(100vw - 16px);
+    max-height:min(65vh,480px); min-width:0;
+  }
+  #travelTagFloat .travel-preview-list{grid-template-columns:1fr;}
+}
+
+.travel-tip-title{font-size:13px; font-weight:700; margin-bottom:9px; color:#4a4530; padding-right:8px; overflow-wrap:anywhere;}
+.travel-tip-row{display:grid; grid-template-columns:64px minmax(0,1fr); gap:9px; padding:5px 0; line-height:1.6; border-top:1px solid rgba(138,116,32,.14);}
+.travel-tip-key{color:#857951; font-size:11px; flex:none;}
+.travel-tip-value{color:#4a4530; font-size:12px; overflow-wrap:anywhere; white-space:pre-wrap;}
+.travel-tip-value.is-empty{color:#ab9f83;}
+.travel-tip-hint{padding-top:8px; font-size:10px; color:#a89a5c;}
+#travelTagFloat .travel-tag-edit-form{min-width:0; gap:8px;}
+#travelTagFloat .travel-meta-field{display:flex; flex-direction:column; gap:3px; font-size:11px; color:#857951;}
+#travelTagFloat .travel-meta-field input{min-width:0; width:100%; padding:7px 8px; font-size:12px; background:#fffdf5; border:1px solid #e8ddb2; border-radius:6px; box-sizing:border-box; color:var(--text);}
+#travelTagFloat .travel-extra-fields{border-top:1px solid #e8ddb2; padding-top:7px; font-size:11px;}
+#travelTagFloat .travel-extra-fields summary{cursor:pointer; color:#867448; user-select:none;}
+#travelTagFloat .travel-tag-fields{margin-top:8px;}
+#travelTagFloat .travel-tag-field-row{flex-wrap:wrap;}
+#travelTagFloat .travel-tag-field-row input{flex:1 1 90px;}
+#travelTagFloat .travel-tag-edit-actions{flex-wrap:wrap; gap:6px; justify-content:flex-start;}
+.travel-record-action{position:absolute; right:26px; top:50%; transform:translateY(-50%); padding:3px 6px; border:1px solid var(--border); border-radius:5px; font-size:10px; font-weight:500; color:var(--text-dim); background:var(--surface); white-space:nowrap; cursor:pointer;}
+.travel-record-action:hover{color:var(--accent); border-color:var(--accent);}
+.travel-tag-leaf{padding-right:76px;}
+.travel-tag-leaf .travel-leaf-title{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.travel-record-card{width:100%; max-width:880px; margin-top:20px; padding:23px 25px 25px; background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent); border-radius:12px; box-shadow:var(--shadow); box-sizing:border-box;}
+.travel-record-card-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:18px;}
+.travel-record-kicker{font-size:10px; letter-spacing:.12em; font-family:'IBM Plex Mono',monospace; color:var(--text-dim); text-transform:uppercase;}
+.travel-record-card h3{font-family:'Fraunces',serif; margin:5px 0 0; font-size:21px; line-height:1.3; overflow-wrap:anywhere;}
+.travel-record-card .travel-record-meta{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:18px;}
+.travel-record-card label{display:flex; flex-direction:column; gap:6px; font-size:11.5px; font-weight:600; color:var(--text-dim);}
+.travel-record-card input,.travel-record-card textarea{width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); color:var(--text); font:inherit; font-weight:400; font-size:13px; padding:11px 12px;}
+.travel-record-card input:focus,.travel-record-card textarea:focus{outline:none; border-color:var(--accent); background:var(--surface);}
+.travel-record-card textarea{display:block; min-height:190px; max-width:100%; resize:vertical; line-height:1.85; white-space:pre-wrap;}
+.travel-record-help{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:9px; font-size:11px; color:var(--text-dim);}
+.travel-record-original{border-top:1px solid var(--border-soft); margin-top:16px; padding-top:11px; font-size:12px; color:var(--text-dim);}
+.travel-record-original summary{cursor:pointer;}
+.travel-record-original p{margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere;}
+.travel-record-card .travel-record-close{font-size:11.5px; padding:5px 10px;}
+@media (max-width:600px){.travel-record-card{padding:18px 15px 20px;}.travel-record-card .travel-record-meta{grid-template-columns:1fr;}.travel-record-action{right:22px;}}
+
+
+/* ===== 旅游：最内层直接展示可写卡片，上层纯只读汇总 ===== */
+.travel-tag-leaf{padding-right:27px;}
+.travel-record-action{display:none;}
+.travel-journal-zone{max-width:880px; margin-top:22px; display:flex; flex-direction:column; gap:23px;}
+.travel-journal-zone-head{display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:9px; padding-bottom:8px; border-bottom:1px solid var(--border);}
+.travel-journal-zone-head h3{font-size:14px; font-weight:700; margin:0;}
+.travel-journal-zone-head .sub{font-size:11px; color:var(--text-dim); font-weight:400;}
+.travel-journal-location{display:flex; flex-direction:column; gap:11px; min-width:0;}
+.travel-journal-location-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.travel-journal-location-title{font-size:14px; font-weight:700; margin:0;}
+.travel-journal-location-head .btn{margin-left:auto;}
+.travel-record-card{margin-top:0; width:100%; max-width:none; padding:18px 21px 20px; border-top:2px solid var(--accent);}
+.travel-record-card .travel-record-card-head{margin-bottom:14px; padding-right:26px; position:relative;}
+.travel-record-card .travel-record-kicker{letter-spacing:.045em; font-size:11px; text-transform:none;}
+.travel-record-card .travel-record-del{position:absolute; top:-4px; right:-3px; opacity:.65;}
+.travel-record-card .travel-record-del:hover{opacity:1;}
+.travel-journal-location .travel-record-original{margin-top:0; padding:8px 12px; border:1px solid var(--border-soft); border-radius:8px;}
+.travel-preview-trip{border-top:1px solid rgba(138,116,32,.17); padding:9px 0 6px;}
+.travel-preview-trip:first-of-type{border-top:none;}
+.travel-preview-place{font-weight:700; font-size:12px; margin-bottom:3px; overflow-wrap:anywhere;}
+.travel-preview-trip .travel-tip-row{border-top:none; padding:2px 0;}
+.travel-preview-empty{font-size:11.5px; color:#857951; line-height:1.8; padding:4px 0;}
+@media(max-width:600px){
+  .travel-record-card{padding:15px 13px 17px;}
+  .travel-journal-zone{gap:19px;}
+  .travel-journal-location-head .btn{margin-left:0;}
+}
+
+
+/* 国家/省份只有自身记录时，先选择添加城市或直接写旅行卡片；
+   不让空白国家强制变成一张大卡片，已有布局和下层记录样式不受影响。 */
+.travel-level-choice{display:flex; flex-direction:column; gap:13px; max-width:670px; margin-top:19px;
+  padding:23px 24px; border:1px solid var(--border); border-radius:12px; background:var(--surface);box-shadow:var(--shadow);}
+.travel-level-choice-title{font-size:15px; font-weight:700; color:var(--text);}
+.travel-level-choice-hint{font-size:12px; color:var(--text-dim); line-height:1.75;}
+.travel-level-actions{display:flex; flex-wrap:wrap; align-items:center; gap:9px;}
+.travel-level-actions .travel-add-inline{margin-left:0;max-width:100%;}
+.travel-level-actions .travel-add-inline input{min-width:145px;flex:1 1 180px;}
+.travel-region-toolbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px;margin:3px 0 15px;}
+.travel-region-toolbar .travel-add-inline{margin-left:0;}
+@media(max-width:600px){.travel-level-choice{padding:18px 15px;}.travel-level-actions .btn{max-width:100%;}}
+/* 旅游国家/省份页：操作入口紧邻地名，不再显示大块“选择记录方式”卡片。 */
+.travel-topregion-bar{flex-wrap:wrap; column-gap:10px; row-gap:6px;}
+.travel-topregion-bar .cat-back-label{flex:none; margin-right:2px;}
+.travel-topregion-actions{display:inline-flex; align-items:center; flex-wrap:wrap; gap:5px; min-width:0;}
+.travel-topregion-actions .travel-heading-link,
+.travel-topregion-actions .travel-add-inline .btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  color:var(--text-dim); background:transparent; border:0; box-shadow:none;
+  border-radius:5px; padding:5px 7px; font-size:11.5px; font-weight:600;
+  line-height:1.4; font-family:inherit; white-space:nowrap; cursor:pointer;
+}
+.travel-topregion-actions .travel-heading-link:hover,
+.travel-topregion-actions .travel-heading-link:focus-visible,
+.travel-topregion-actions .travel-add-inline .btn:hover{background:var(--surface-2);color:var(--accent);}
+.travel-topregion-actions .travel-add-inline{gap:5px; max-width:100%;}
+.travel-topregion-actions .travel-add-inline input{width:170px; max-width:min(44vw,200px);}
+@media(max-width:600px){
+  .travel-topregion-bar{gap:6px;}
+  .travel-topregion-actions{gap:2px;}
+  .travel-topregion-actions .travel-heading-link{font-size:11px; padding:5px 4px;}
+}
+/* 旅游地点的旅行记录单独作为下一级详情页，不混进地点列表 */
+.travel-detail-view{max-width:100%;}
+.travel-detail-view .cat-back-bar{margin-bottom:15px;}
+.travel-detail-view .travel-journal-zone{margin-top:0;}
+.travel-detail-view .travel-detail-title-input{font-size:13px;text-align:left;max-width:260px;}
+.travel-detail-view .travel-journal-location-head .btn{margin-left:auto;}
+
+/* ===== 文章 / 碎碎念：共用内容卡片操作规则（只调整这两类记录） =====
+   查看：正文可点击编辑；删除✕在卡片右上角。
+   编辑：右上角「发送」，左下角「📷」，按钮不遮挡文字。 */
+.book-chapter, .ssn-bubble, .ssn-tag-item{position:relative;}
+.entry-del-top{position:absolute; top:7px; right:8px; z-index:4;}
+.book-chapter .book-chapter-head{padding-right:24px; margin-bottom:4px;}
+.book-chapter-preview{font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word;
+  color:var(--text);cursor:text;min-height:32px;padding:8px 4px;border-radius:6px;}
+.book-chapter-preview:hover{background:var(--surface-2);}
+.book-chapter .entry-edit-surface{display:none;}
+.book-chapter.is-editing .book-chapter-preview,
+.book-chapter.is-editing > .entry-del-top{display:none;}
+.book-chapter.is-editing .entry-edit-surface{display:block;}
+.entry-edit-surface{position:relative;}
+.entry-edit-surface .ssn-bubble-edit,
+.entry-edit-surface .book-chapter-content{box-sizing:border-box;padding:12px 70px 38px 10px;}
+.book-chapter .entry-edit-surface .book-chapter-content{min-height:140px;}
+.ssn-bubble .ssn-bubble-content{padding-right:30px;}
+.ssn-bubble .entry-del-top{top:7px;right:8px;}
+.ssn-tag-item .entry-del-top{top:5px;right:5px;}
+.ssn-tag-item .entry-edit-surface .ssn-bubble-edit{min-height:145px;}
+/* 手机无 hover：删除保持可见，编辑控件在编辑状态可直接触摸。 */
+@media (hover:none){.entry-del-top.mini-del{opacity:.65;}}
 </style>
 </head>
 <body>
@@ -2346,7 +2517,7 @@ function destinationById(id){
    mouseleave，收起的计时器也就永远不会触发——悬浮框会一直飘在空中出不去。所以只要检测到"真的换了地方"
    （VIEW 或当前标签页变了，不是原地刷新），就强制把所有悬浮框都收起来一次，兜底修掉这个问题。 */
 function hideAllFloats(){
-  ["ssnRemarkFloat","travelTagFloat","bookPhotoFloat","tlTooltip","ssnTagContentFloat"].forEach(function(id){
+  ["ssnRemarkFloat","travelTagFloat","travelTagInlinePreview","bookPhotoFloat","tlTooltip","ssnTagContentFloat"].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.style.display = "none";
   });
@@ -4292,6 +4463,208 @@ function renderTimelineAxisVertical(yearGroups, yearOrder, periodItems, granular
 /* 旅游类别不用树状时间轴，改成一格一格的地点标签，一行最多6个；不再用弹窗编辑，
    鼠标悬浮标签直接弹出悬浮框看备注，点悬浮框本身进入编辑（跟碎碎念子主题备注那套一个思路）。
    新加的地点还是照常存进 lifeTimeline（category:"travel"），世界版图那边会按关键词自动定位点亮。 */
+
+/* 旧版把日期、同行人放在自定义字段里，新版只是读取/兼容，不搬迁、不删除原字段。 */
+function travelLegacyField(t, labels){
+  var fs=t.fields||[];
+  for(var i=0;i<fs.length;i++){
+    var label=(fs[i].label||"").trim();
+    if(labels.indexOf(label)!==-1 && String(fs[i].value||"").trim()) return String(fs[i].value).trim();
+  }
+  return "";
+}
+function travelHasOwn(t, key){return Object.prototype.hasOwnProperty.call(t,key);}
+function travelDisplayDate(t){
+  if(travelHasOwn(t,"travelDate")) return (t.travelDate||"").trim();
+  var legacy=travelLegacyField(t,["时间段","时间范围","旅行时间","旅游时间","出行时间","游玩时间","日期"]);
+  if(legacy) return legacy;
+  /* 自动生成的省/市/国家文件夹，t.date 是系统创建时间，不是真实旅行时间 */
+  if(t.folderPath) return "";
+  return t.dateEnd ? ((t.date||"")+" ~ "+t.dateEnd).trim() : (t.date||"").trim();
+}
+function travelDisplayPeople(t){
+  if(travelHasOwn(t,"travelCompanions")) return (t.travelCompanions||"").trim();
+  return travelLegacyField(t,["同行人","旅伴","同行","一起旅行","一起去的人","人物","同伴"]);
+}
+/* 一个地点可去很多次：保留原 travelDate/travelCompanions/travelStory 作为第一次旅行，
+   以后只往 travelVisits 数组追加，不删除/迁移旧字段；列表卡片不需要先点「记录」才出现。 */
+var travelDetailOpenId=null, travelDetailSaveTimer=null, travelDetailDirty=false, travelRegionRecordCollapsed=false;
+function travelRecordGet(id){return DATA.lifeTimeline.filter(function(t){return t.id===id && t.category==="travel";})[0];}
+function travelVisitHasContent(v){return !!(String(v.travelDate||"").trim() || String(v.travelCompanions||"").trim() || String(v.travelStory||"").trim());}
+function travelBaseHasContent(t){return !!(travelDisplayDate(t) || travelDisplayPeople(t) || String(t.travelStory||"").trim());}
+function travelActualVisits(t){
+  var visits=[];
+  if(travelBaseHasContent(t)) visits.push({key:"base",travelDate:travelDisplayDate(t),travelCompanions:travelDisplayPeople(t),travelStory:t.travelStory||""});
+  (t.travelVisits||[]).forEach(function(v){if(travelVisitHasContent(v)) visits.push(v);});
+  return visits;
+}
+/* 地图 / 分类只读辅助：区分真实填写的旅行资料和系统自动生成的行政区空白记录。
+   旧版 t.date 可能只是创建时月份，不能只凭它判断真的旅行过。 */
+function travelHasExplicitRecord(t){
+  return !!(String(t.travelDate||"").trim() || String(t.travelCompanions||"").trim() ||
+    String(t.travelStory||"").trim() ||
+    (t.travelVisits||[]).some(travelVisitHasContent) ||
+    (t.fields||[]).some(function(f){return String(f.value||"").trim();}));
+}
+function travelIsEmptyTopRegion(t){
+  // 自动创建的省/国家分类节点没有经纬度，只导航，不是旅行地点。
+  if(t.folderPath) return !travelHasExplicitRecord(t);
+  var p=travelPathForEntry(t);
+  if(!p || p.path.length!==1) return false;
+  if(p.isDomestic) return true; // 国内省份仍只作为分类，不打省中心点。
+  // 海外国家/城邦：如果用户亲自添加了一条真实地点、且地理编码已有坐标，
+  // 即使尚未填写时间/同行人，也允许点亮（新加坡常只有国家级路径）。
+  // 只有自动生成的空白 folderPath 才一律排除。
+  return !(t.geo && Number.isFinite(t.geo.lat) && Number.isFinite(t.geo.lon))
+    && !travelHasExplicitRecord(t);
+}
+function travelSameRegionName(a,b){
+  function norm(x){return String(x||"").trim().replace(/[\s　·・,，.。]/g,"")
+    .replace(/(特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区|省|市|県|县|国)$/g,"").toLowerCase();}
+  return !!(norm(a) && norm(a)===norm(b));
+}
+function travelRecordSaveNow(){
+  if(travelDetailSaveTimer){clearTimeout(travelDetailSaveTimer);travelDetailSaveTimer=null;}
+  if(!travelDetailDirty) return;
+  travelDetailDirty=false; save();
+  document.querySelectorAll(".travelRecordSaveHint").forEach(function(n){n.textContent="已保存至本机，云端将自动同步";});
+}
+window.travelRecordInput=function(id,visitKey,key,value){
+  var t=travelRecordGet(id);
+  if(!t || ["travelDate","travelCompanions","travelStory"].indexOf(key)===-1) return;
+  var v=visitKey==="base" ? t : (t.travelVisits||[]).filter(function(x){return x.id===visitKey;})[0];
+  if(!v || v[key]===value)return;
+  v[key]=value;
+  travelDetailDirty=true;
+  document.querySelectorAll(".travelRecordSaveHint").forEach(function(n){n.textContent="正在编辑…";});
+  if(travelDetailSaveTimer)clearTimeout(travelDetailSaveTimer);
+  travelDetailSaveTimer=setTimeout(travelRecordSaveNow,800);
+};
+window.travelRecordBlur=function(){travelRecordSaveNow();};
+function travelFocusCard(id,visitKey){
+  var group=[].slice.call(document.querySelectorAll(".travel-journal-location")).filter(function(x){return x.getAttribute("data-travel-card-for")===id;})[0];
+  var card=group && [].slice.call(group.querySelectorAll(".travel-record-card")).filter(function(x){return x.getAttribute("data-visit-key")===visitKey;})[0];
+  if(!card)return;
+  card.scrollIntoView({behavior:"smooth",block:"nearest"});
+  var input=card.querySelector('input[type="text"]');if(input)input.focus({preventScroll:true});
+}
+window.openTravelRecord=function(id){
+  // 进入地点独立页面；父级地点列表中不提前显示任何编辑卡片。
+  if(!travelRecordGet(id)) return;
+  travelRecordSaveNow(); travelDetailOpenId=id;
+  travelTagCloseEdit(); render();
+  requestAnimationFrame(function(){
+    var detail=document.querySelector(".travel-detail-view");
+    if(detail)detail.scrollIntoView({behavior:"auto",block:"start"});
+  });
+};
+window.closeTravelRecord=function(){travelRecordSaveNow();travelDetailOpenId=null;travelTagRenamingId=null;travelTagCloseEdit();render();};
+window.addTravelVisit=function(id){
+  var t=travelRecordGet(id);if(!t)return;
+  travelRecordSaveNow();
+  if(!travelBaseHasContent(t)){
+    travelDetailOpenId=id;
+    if(!document.querySelector('.travel-journal-location[data-travel-card-for="'+id+'"]'))render();
+    requestAnimationFrame(function(){travelFocusCard(id,"base");});
+    return;
+  }
+  t.travelVisits=t.travelVisits||[];
+  var v={id:uid(),travelDate:"",travelCompanions:"",travelStory:""};
+  t.travelVisits.push(v);save();
+  travelDetailOpenId=id;render();
+  requestAnimationFrame(function(){travelFocusCard(id,v.id);});
+};
+window.deleteTravelVisit=function(id,visitKey){
+  confirmDelete("确定删除这一次旅行记录吗？地点和其他旅行不会删除。",function(){
+    var t=travelRecordGet(id);if(!t)return;
+    travelRecordSaveNow();
+    if(visitKey==="base"){
+      // 明确写入空串，避免旧版日期/自定义字段作为默认值重新冒出来。
+      t.travelDate="";t.travelCompanions="";t.travelStory="";
+    }else{
+      t.travelVisits=(t.travelVisits||[]).filter(function(v){return v.id!==visitKey;});
+    }
+    save();render();toast("已删除这次旅行记录");
+  });
+};
+window.updateTravelMeta=function(id,key,value){
+  var t=travelRecordGet(id);if(!t || ["travelDate","travelCompanions"].indexOf(key)===-1)return;
+  value=(value||"").trim();if(t[key]===value)return;
+  t[key]=value;save();
+};
+function travelOtherFieldsHtml(t){
+  return (t.fields||[]).filter(function(f){return (f.label||"").trim() || (f.value||"").trim();}).map(function(f){
+    return '<p><b>'+esc(f.label||"备注")+'：</b>'+esc(f.value||"")+'</p>';
+  }).join("");
+}
+function travelRecordOneCard(t,key,v,num,total){
+  var date=key==="base"?travelDisplayDate(t):(v.travelDate||"");
+  var people=key==="base"?travelDisplayPeople(t):(v.travelCompanions||"");
+  var story=key==="base"?(t.travelStory||""):(v.travelStory||"");
+  var label=total>1?('第 '+num+' 次旅行'):'旅行记录';
+  return '<section class="travel-record-card" data-visit-key="'+esc(key)+'">'+
+    '<div class="travel-record-card-head"><span class="travel-record-kicker">'+label+'</span>'+
+    (travelVisitHasContent({travelDate:date,travelCompanions:people,travelStory:story}) ?
+      '<button type="button" class="mini-del travel-record-del" onclick="deleteTravelVisit(\''+t.id+'\',\''+key+'\')" title="删除这一次旅行记录">✕</button>' : '')+'</div>'+
+    '<div class="travel-record-meta">'+
+      '<label>旅行时间<input type="text" value="'+esc(date)+'" placeholder="如 2025.04.03 — 04.06" oninput="travelRecordInput(\''+t.id+'\',\''+key+'\',\'travelDate\',this.value)" onblur="travelRecordBlur()"></label>'+
+      '<label>同行人<input type="text" value="'+esc(people)+'" placeholder="如 独自旅行、朋友、家人" oninput="travelRecordInput(\''+t.id+'\',\''+key+'\',\'travelCompanions\',this.value)" onblur="travelRecordBlur()"></label>'+
+    '</div>'+
+    '<label>旅行经过 · 记忆与感想<textarea placeholder="想去哪里、去过哪里、当天发生的事，以及旅途中的心情……\n\n可以自由分段，Enter 正常换行。" oninput="travelRecordInput(\''+t.id+'\',\''+key+'\',\'travelStory\',this.value)" onblur="travelRecordBlur()">'+esc(story)+'</textarea></label>'+
+    '<div class="travel-record-help"><span>可自由分段 · 自动保存</span><span class="travelRecordSaveHint">修改后自动保存</span></div>'+
+  '</section>';
+}
+function renderTravelRecordCard(id){
+  var t=travelRecordGet(id);if(!t)return "";
+  var visits=t.travelVisits||[];
+  var total=visits.length+1;
+  var extra=travelOtherFieldsHtml(t);
+  var content=travelRecordOneCard(t,"base",t,1,total)+visits.map(function(v,i){return travelRecordOneCard(t,v.id,v,i+2,total);}).join("");
+  return '<div class="travel-journal-location" data-travel-card-for="'+esc(id)+'">'+
+    '<div class="travel-journal-location-head"><h3 class="travel-journal-location-title">'+esc(t.keyword||"未命名地点")+'</h3>'+
+      (!t.folderPath?'<button type="button" class="btn ghost small" onclick="startRenameTravelTag(\''+t.id+'\')" title="修改地点名称">✎ 地名</button>':'')+
+      '<button type="button" class="btn ghost small" onclick="addTravelVisit(\''+t.id+'\')">＋ 再记一次</button></div>'+
+    content+
+    (extra?'<details class="travel-record-original"><summary>以前的自定义备注（原样保留）</summary>'+extra+'</details>':'')+
+  '</div>';
+}
+/* 地点详情：必须点击进入具体地点后才出现；编辑入口、旧备注和多次记录照旧。 */
+function renderTravelDetailView(id, returnAction){
+  var t=travelRecordGet(id);if(!t)return "";
+  var title=(travelTagRenamingId===id)
+    ? '<input class="travel-tag-rename-input travel-detail-title-input" value="'+esc(t.keyword||"")+'" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+id+'\',this.value)">'
+    : '旅行记录';
+  return '<section class="travel-detail-view">'+
+    '<div class="cat-back-bar"><button type="button" class="btn ghost small" onclick="'+returnAction+'">‹ 返回地点列表</button>'+
+    '<span class="cat-back-label">'+title+'</span>'+
+    '<button type="button" class="btn ghost small" style="margin-left:auto" onclick="refreshTravelGeo(\''+id+'\')" title="仅手动修改地图坐标；取消或失败均保留原位置">📍 重新定位</button></div>'+
+    '<div class="travel-journal-zone">'+renderTravelRecordCard(id)+'</div>'+
+  '</section>';
+}
+function travelRegionJournalHtml(kind,path,leafItems,folderTiles){
+  // 有哪些地点已经在本层到底，就直接把它们的卡片列出来，无须逐个点击“记录”。
+  var direct=leafItems.slice().filter(function(t){return !t.folderPath;});
+  var self=DATA.lifeTimeline.filter(function(t){
+    if(t.category!=="travel")return false;
+    var p=travelPathForEntry(t);
+    return !!(p && p.isDomestic===(kind==="domestic") && p.path.length===path.length &&
+      p.path.every(function(x,i){return x===path[i];}) && t.folderPath);
+  })[0];
+  // 原来在“省/国家/地区”卡片里写过的东西照样可见；空白的文件夹记录不会混进地点列表。
+  if(self && (travelActualVisits(self).length || travelDetailOpenId===self.id)) direct.push(self);
+  if(!folderTiles.length && !direct.length){
+    var regionId=ensureFolderSelfEntry(kind,path);
+    var region=travelRecordGet(regionId);
+    if(region)direct.push(region);
+  }
+  if(!direct.length)return "";
+  var visited={};
+  direct=direct.filter(function(t){if(visited[t.id])return false;visited[t.id]=true;return true;});
+  return '<section class="travel-journal-zone">'+
+    '<div class="travel-journal-zone-head"><h3>旅行记录 <span class="sub">· 进入地点即可填写，也可记录多次</span></h3></div>'+
+    direct.map(function(t){return renderTravelRecordCard(t.id);}).join("")+
+  '</section>';
+}
 var travelTagRenamingId = null;
 window.startRenameTravelTag = function(id){
   travelTagRenamingId = id;
@@ -4305,34 +4678,45 @@ window.startRenameTravelTag = function(id){
    知道的信息重新打一遍——自动把当前钻到的路径拼到定位查询前面，用户只用打具体地名（比如"灵隐寺"）。
    标签上显示的还是用户实际打的短名字，只是定位查询用的是拼出来的完整地址，定位更准也不用重复输入。 */
 function travelContextualQuery(value){
-  var path = moduleCatView.travel_path;
-  if(path && path.length) return path.join("") + value;
-  return value;
+  // 查询以实际输入的地点为主体；上层省市只当作搜索范围，不会变成目标地点。
+  var path = moduleCatView.travel_path || [];
+  if(!path.length) return value;
+  var parts = path.filter(function(x){return travelGeoComparableName(x)!==travelGeoComparableName(value);});
+  return [value].concat(parts.reverse()).concat(moduleCatView.travel_path_kind==="domestic"?["中国"]:[]).join(", ");
 }
 /* 标签改名/新建后要跟旧的编辑浮窗一样，真的去 OpenStreetMap 定位一次，把坐标存进 t.geo，
    不然地图那边找不到坐标（世界版图只认 t.geo，不会现读关键词临时定位）。geocodeLocation/pickGeoFromList
    是世界版图那一节已有的函数，这里直接复用，不用重新实现一套。 */
-async function geocodeAndSetTravelGeo(id, locText){
+async function geocodeAndSetTravelGeo(id, locText, userRequested){
   locText = (locText||"").trim();
   if(!locText) return;
+  var before=DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!before || (before.geo && !userRequested)) return; // 已有坐标绝不自动覆盖
+  var oldKeyword=before.keyword;
   toast("正在定位「"+locText+"」…");
   var results = await geocodeLocation(locText);
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
-  if(!t) return;
+  if(!t || t.keyword!==oldKeyword || (t.geo && !userRequested)) return;
   if(results===null){
     toast("定位失败："+lastGeocodeError+"，这条经历暂时不会出现在地图上", 6000);
     return;
   }
-  if(results.length===0){
-    toast("没找到「"+locText+"」，这条经历暂时不会出现在地图上");
-    delete t.geo;
-    save(); render();
+  // “盐城市”只接受盐城市本身，不能拿搜索到的“亭湖区”冒充。
+  var matchingResults = travelGeoResultsForRequestedPlace(results, t.keyword);
+  if(!matchingResults.length){
+    toast(results.length ? "找到了附近地点，但没有匹配「"+t.keyword+"」本身的市级坐标；旧定位已保留" : "没有找到「"+locText+"」；旧定位已保留", 6000);
     return;
   }
   var geo;
-  if(results.length===1){ geo = results[0]; }
-  else { geo = await pickGeoFromList(results, locText); if(!geo){ toast("已跳过定位"); return; } }
-  t.geo = geo;
+  if(userRequested && t.geo){
+    // 已有地图标记：即使只找到一个候选，也先让用户确认，避免静默移动旧标记。
+    geo = await pickGeoFromList(matchingResults, locText);
+    if(!geo){toast("已取消，原地图坐标不变");return;}
+  }else if(matchingResults.length===1){geo=matchingResults[0];}
+  else {geo=await pickGeoFromList(matchingResults, locText);if(!geo){toast("已跳过定位");return;}}
+  var current=DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
+  if(!current || current.keyword!==oldKeyword || (current.geo && !userRequested))return;
+  current.geo=travelGeoNormalizeRequestedLevel(geo, current.keyword);
   save(); render();
   toast("「"+locText+"」已在地图上点亮");
 }
@@ -4340,10 +4724,15 @@ window.commitRenameTravelTag = function(id, value){
   value = (value||"").trim();
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
   var changed = !!(t && value && t.keyword!==value);
-  if(t && value) t.keyword = value;
+  if(t && value){
+    t.keyword=value;
+    if(Array.isArray(t.travelManualPath) && t.travelManualPath.length>=2){
+      t.travelManualPath[t.travelManualPath.length-1]=value;
+    }
+  }
   travelTagRenamingId = null;
   save(); render();
-  if(changed) geocodeAndSetTravelGeo(id, travelContextualQuery(value));
+  if(changed) toast("地点名称已修改；原地图坐标保留，如需更改位置请进入地点点击「重新定位」",5000);
 };
 /* 旅游标签：第一层是"国内/国际"两个标题分组（不是真的一层菜单），底下摆省份/国家的标签；
    点进去按 OpenStreetMap 给的地址层级继续往下钻——国内最多能到 省 → 市/区县 → 镇/乡，国外是 国家 → 城市，
@@ -4356,22 +4745,49 @@ function travelPathForEntry(t){
   /* 文件夹标签本身（比如"宿迁市"文件夹）如果底下没有一条用户自己打的记录对应它，就没法悬浮编辑——
      所以每一级文件夹第一次被看到时会自动悄悄补一条"代表这一级本身"的记录，靠 folderPath 直接记住
      自己的层级路径，不用再走一遍地理编码 */
-  if(t.folderPath) return {isDomestic: t.folderKind==="domestic", path: t.folderPath};
+  // 旧版定位或自动文件夹可能把国家/省份连续重复一次；只在展示路径中去重。
+  // 原始 t.geo、folderPath、旅行记录不改动，避免破坏旧数据。
+  function compactPath(parts){
+    var out=[];
+    (parts||[]).forEach(function(part){
+      part=String(part||"").trim(); if(!part)return;
+      function clean(x){return String(x).replace(/[\s　·・,，.。]/g,"").replace(/(省|市|県|县|国)$/g,"").toLowerCase();}
+      if(out.length && clean(out[out.length-1])===clean(part))return;
+      out.push(part);
+    });
+    return out;
+  }
+  if(t.folderPath) return {isDomestic:t.folderKind==="domestic",path:compactPath(t.folderPath)};
+  // 用户从国家/省份手动新增城市时，显式保留其所属层级；
+  // 地理编码成功与否只决定地图坐标，不再决定城市标签是否可见或跑去别的国家。
+  if(Array.isArray(t.travelManualPath) && t.travelManualPath.length>=2){
+    return {isDomestic:t.travelManualKind==="domestic",path:compactPath(t.travelManualPath)};
+  }
   if(!t.geo || !t.geo.countryCode) return null;
   var isDomestic = t.geo.countryCode==="cn";
   var path;
   if(isDomestic){
-    /* 省 → 市（地级市，从 display_name 里抠出来的）→ 区/县 → 镇/乡，每一段跟上一段重复就跳过
-       （比如直辖市没有单独的地级市这一层，区县直接跟在省后面） */
-    path = [t.geo.state || "其他省份"];
-    if(t.geo.prefectureCity && t.geo.prefectureCity!==path[path.length-1]) path.push(t.geo.prefectureCity);
-    if(t.geo.city && t.geo.city!==path[path.length-1]) path.push(t.geo.city);
-    if(t.geo.town && t.geo.town!==path[path.length-1]) path.push(t.geo.town);
+    /* 只修展示层：当记录名称明确是“盐城市”这样的城市时，不让旧的区县定位
+       把它归入“亭湖区”之下。保留原 t.geo 的经纬度及所有原始地址字段。 */
+    var requestedCity=String(t.keyword||"").trim();
+    var state=t.geo.state || "其他省份";
+    if(/市$/.test(requestedCity)){
+      path=[state];
+      var parentCity=String(t.geo.prefectureCity||"").trim();
+      if(parentCity && !travelSameRegionName(parentCity,requestedCity) &&
+          !travelSameRegionName(parentCity,state)) path.push(parentCity);
+      if(!travelSameRegionName(requestedCity,path[path.length-1]))path.push(requestedCity);
+    }else{
+      path=[state];
+      if(t.geo.prefectureCity && t.geo.prefectureCity!==path[path.length-1]) path.push(t.geo.prefectureCity);
+      if(t.geo.city && t.geo.city!==path[path.length-1]) path.push(t.geo.city);
+      if(t.geo.town && t.geo.town!==path[path.length-1]) path.push(t.geo.town);
+    }
   } else {
     path = [t.geo.country || "其他国家"];
     if(t.geo.city) path.push(t.geo.city);
   }
-  return {isDomestic:isDomestic, path:path};
+  return {isDomestic:isDomestic, path:compactPath(path)};
 }
 var travelAddingKind = null; /* 记着是在哪个网格里点的"+"，只在那一个网格里出现输入框 */
 window.startAddTravelTag = function(kind){
@@ -4386,10 +4802,19 @@ window.cancelAddTravelTag = function(){
 };
 window.commitAddTravelTag = function(value){
   value = (value||"").trim();
+  var addingMode=travelAddingKind;
   travelAddingKind = null;
   if(!value){ render(); return; }
   var id = uid();
-  DATA.lifeTimeline.push({id:id, date:new Date().toISOString().slice(0,7), keyword:value, category:"travel", fields:[]});
+  var entry={id:id, date:new Date().toISOString().slice(0,7), keyword:value, category:"travel", fields:[], travelDate:"", travelCompanions:""};
+  var currentPath=moduleCatView.travel_path||[];
+  if((addingMode==="city" || addingMode==="subplace") && currentPath.length>=1 && moduleCatView.travel_path_kind){
+    // 每一级都允许手动创建下一级；层级归属不依赖地图搜索是否成功。
+    // 已有坐标、地名和旅行记录保持不变，新的子地点单独首次定位。
+    entry.travelManualPath=currentPath.concat([value]);
+    entry.travelManualKind=moduleCatView.travel_path_kind;
+  }
+  DATA.lifeTimeline.push(entry);
   save(); render();
   geocodeAndSetTravelGeo(id, travelContextualQuery(value));
 };
@@ -4398,10 +4823,12 @@ window.commitAddTravelTag = function(value){
 function travelAddButtonHtml(kind){
   if(travelAddingKind===kind){
     return '<span class="travel-add-inline">'+
-      '<input type="text" id="travelAddInput" placeholder="地点名称，比如「杭州西湖」" onkeydown="if(event.key===\'Enter\'){this.blur();} if(event.key===\'Escape\'){cancelAddTravelTag();}" onblur="commitAddTravelTag(this.value)">'+
-      '<button type="button" class="btn small ghost" onclick="cancelAddTravelTag()">取消</button>'+
+      '<input type="text" id="travelAddInput" placeholder="'+(kind==="city"?'城市名称，例如「吉隆坡」':kind==="subplace"?'下级地点名称':'地点名称，比如「杭州西湖」')+'" onkeydown="if(event.key===\'Enter\'){this.blur();} if(event.key===\'Escape\'){cancelAddTravelTag();}" onblur="commitAddTravelTag(this.value)">'+
+      '<button type="button" class="btn small ghost" '+((kind==="city"||kind==="subplace")?'onpointerdown="event.preventDefault();cancelAddTravelTag()" ':'')+'onclick="cancelAddTravelTag()">取消</button>'+
     '</span>';
   }
+  if(kind==="subplace")return '<button type="button" class="travel-heading-link" onclick="startAddTravelTag(\'subplace\')" title="在当前地点下增加下一层">＋ 添加下级地点</button>';
+  if(kind==="city")return '<button type="button" class="travel-heading-link" onclick="startAddTravelTag(\'city\')" title="在当前国家或省份下增加城市">＋ 添加城市</button>';
   return '<button type="button" class="gear-btn" onclick="startAddTravelTag(\''+kind+'\')" title="添加地点">+</button>';
 }
 /* 文件夹标签（省/市/区县/镇，点了往下钻一级）右上角悬浮出现一个小叉，删掉这个文件夹连带里面所有地点 */
@@ -4444,7 +4871,8 @@ function ensureFolderSelfEntry(kind, fullPath){
   var id = uid();
   DATA.lifeTimeline.push({
     id:id, date:new Date().toISOString().slice(0,7), keyword:fullPath[fullPath.length-1],
-    category:"travel", fields:[], folderPath:fullPath.slice(), folderKind:kind
+    category:"travel", fields:[], folderPath:fullPath.slice(), folderKind:kind,
+    travelDate:"", travelCompanions:""
   });
   travelFolderEntryCreated = true;
   return id;
@@ -4474,13 +4902,14 @@ function sortTravelTiles(tiles){
 }
 /* 一个网格里混着"文件夹"标签（点了往下钻一级）和"具体地点"标签（悬浮看备注、双击改名），
    同一级下有的地方能再往下钻、有的地方已经到底了，两种标签自然混在一起，一起参与排序 */
-function renderTravelMixedGrid(folderTiles, leafItems){
+function renderTravelMixedGrid(folderTiles, leafItems, showSelected){
   var leafTiles = leafItems.map(function(t){
     var html;
     if(travelTagRenamingId===t.id){
       html = '<div class="travel-tag"><input type="text" class="travel-tag-rename-input" value="'+esc(t.keyword||"")+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameTravelTag(\''+t.id+'\', this.value)"></div>';
     } else {
-      html = '<div class="travel-tag" data-travel-id="'+t.id+'" ondblclick="startRenameTravelTag(\''+t.id+'\')" title="悬浮看备注，双击改地名">'+esc(t.keyword||"未命名地点")+
+      html = '<div class="travel-tag travel-tag-leaf" data-travel-id="'+t.id+'" onclick="openTravelRecord(\''+t.id+'\')" title="悬浮查看旅行时间和同行人，点击进入地点记录">'+
+        '<span class="travel-leaf-title">'+esc(t.keyword||"未命名地点")+'</span>'+
         '<button type="button" class="mini-del travel-tag-del" onclick="event.stopPropagation(); deleteTravelEntry(\''+t.id+'\')" title="删除">✕</button>'+
       '</div>';
     }
@@ -4493,11 +4922,15 @@ window.enterTravelTopRegion = function(segment, kind){
   moduleCatView.travel_path_kind = kind;
   moduleCatView.travel_path = [segment];
   travelAddingKind = null;
+  travelRecordSaveNow(); travelDetailOpenId=null; travelRegionRecordCollapsed=false;
+  travelTagCloseEdit();
   render();
 };
 window.enterTravelPathLevel = function(segment){
   moduleCatView.travel_path = (moduleCatView.travel_path||[]).concat([segment]);
   travelAddingKind = null;
+  travelRecordSaveNow(); travelDetailOpenId=null; travelRegionRecordCollapsed=false;
+  travelTagCloseEdit();
   render();
 };
 window.exitTravelPathLevel = function(){
@@ -4505,39 +4938,25 @@ window.exitTravelPathLevel = function(){
   if(p.length<=1){ moduleCatView.travel_path=null; moduleCatView.travel_path_kind=null; }
   else { moduleCatView.travel_path = p.slice(0,-1); }
   travelAddingKind = null;
+  travelRecordSaveNow(); travelDetailOpenId=null; travelRegionRecordCollapsed=false;
+  travelTagCloseEdit();
   render();
 };
-/* 老标签是旧版本代码定位的，geo 里压根没有 prefectureCity 这个字段（这个字段是后来才加的），
-   靠这个判断"缺不缺市这一层"，不用等用户一个个手动点「重新定位」——打开旅游板块自动在后台悄悄补全，
-   一次一个（照顾 Nominatim 一秒一次的用量限制），补完自动刷新画面，用户全程不用管。 */
-var travelGeoMigrationRunning = false;
-var travelGeoMigrationFailedIds = {}; /* 定位失败过的这次会话里不再重试，免得每次进旅游板块都重打一遍 API */
-function isStaleTravelGeo(t){
-  return t.geo && t.geo.countryCode==="cn" && !("prefectureCity" in t.geo) && !travelGeoMigrationFailedIds[t.id];
-}
-async function migrateStaleTravelGeoOnce(){
-  if(travelGeoMigrationRunning) return;
-  var stale = DATA.lifeTimeline.filter(function(t){ return t.category==="travel" && isStaleTravelGeo(t); });
-  if(!stale.length) return;
-  travelGeoMigrationRunning = true;
-  for(var i=0;i<stale.length;i++){
-    var t = stale[i];
-    var results = await geocodeLocation(t.keyword);
-    if(results && results.length){
-      t.geo = results[0];
-      save();
-      if(VIEW==="itemDetail" && timelineFilter==="travel") render();
-    } else {
-      travelGeoMigrationFailedIds[t.id] = true;
-    }
-    await new Promise(function(r){ setTimeout(r, 1100); });
-  }
-  travelGeoMigrationRunning = false;
-}
+/* 安全策略：不再后台自动重定位旧旅游地点，也不静默更新已保存的经纬度。
+   旧地址层级只在 travelPathForEntry 中计算显示结果；用户点击“重新定位”才会改坐标。 */
+function migrateStaleTravelGeoOnce(){ /* 已停用：保留函数名兼容旧调用 */ }
 function renderTravelSection(items){
-  migrateStaleTravelGeoOnce();
+  // 打开旅游板块只读取已有定位，不请求地理编码、不改旧坐标。
+  // 已经进入具体地点时，只展示该地点的旅行卡片和返回按钮，不展示兄弟地点的标签。
+  if(travelDetailOpenId){
+    if(travelRecordGet(travelDetailOpenId)) return renderTravelDetailView(travelDetailOpenId,"closeTravelRecord()");
+    travelDetailOpenId=null;
+  }
   var domesticItems=[], intlItems=[];
   items.forEach(function(t){
+    // 自动生成、尚无旅行内容的空白文件夹不当作真实旅行地点。
+    // 修正“盐城市 → 亭湖区”后，旧的空白亭湖区文件夹不会留在列表中。
+    if(t.folderPath && !travelHasExplicitRecord(t))return;
     var p = travelPathForEntry(t);
     if(!p) return; /* 没定位过的经历这里不显示，双击改名触发重新定位后会自动出现在分类里 */
     (p.isDomestic ? domesticItems : intlItems).push(t);
@@ -4552,39 +4971,42 @@ function renderTravelSection(items){
       for(var i=0;i<path.length;i++){ if(p[i]!==path[i]) return false; }
       return true;
     });
-    var leafHere = scoped.filter(function(t){ return travelPathForEntry(t).path.length===path.length; });
-    var deeper = scoped.filter(function(t){ return travelPathForEntry(t).path.length>path.length; });
-    /* 进到这一层文件夹里，如果有条记录名字正好跟这层文件夹同名（不管是自动补的，还是本来就有一条
-       真实记录叫这个名字），说明它就是这个文件夹本身，已经在上一层的文件夹标签上能悬浮编辑了，
-       这里就不要再当成跟"双沟镇"这种下级平级的独立标签摆一遍——不然删了它，下次打开又会被自动补回来，
-       看起来像删不掉 */
-    leafHere = leafHere.filter(function(t){ return t.keyword!==path[path.length-1]; });
-    var groups = {};
+    // 每层都是地点导航页；只有明确点击「记录旅行」才进入最后一层卡片。
+    // 因此不能再根据有没有子地点自动跳入卡片，否则最深的城市/区县看不到两个入口。
+    var deeper = scoped.filter(function(t){return travelPathForEntry(t).path.length>path.length;});
+    var groups={};
     deeper.forEach(function(t){
-      var seg = travelPathForEntry(t).path[path.length];
-      groups[seg] = groups[seg] || [];
-      groups[seg].push(t);
+      var p=travelPathForEntry(t).path;
+      var seg=p[path.length];
+      if(!seg)return;
+      (groups[seg]=groups[seg]||[]).push(t);
     });
-    /* 一个文件夹底下如果只有一条记录、而且这条记录自己已经到底了（没有比它更深的层级），
-       就不用再套一层同名文件夹逼人多点一次——比如"双沟镇"下面只有"双沟镇"自己这一条，
-       直接把它摆成叶子标签就好，点开"双沟镇"文件夹又看到一个"双沟镇"标签这种事不要发生。
-       国内最深到镇级，这条规则天然让镇级不会再往下多一层。 */
-    Object.keys(groups).forEach(function(seg){
-      var g = groups[seg];
-      if(g.length===1 && travelPathForEntry(g[0]).path.length===path.length+1){
-        leafHere.push(g[0]);
-        delete groups[seg];
-      }
+    // 单个子地点也继续展示为可进入的标签，而不是直接当成终点卡片。
+    var folderTiles=Object.keys(groups).sort().map(function(seg){
+      var g=groups[seg];
+      var selfId=ensureFolderSelfEntry(kind,path.concat([seg]));
+      var html=travelFolderTileHtml(seg,g.length,kind,
+        "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')",selfId);
+      var orderKey=Math.max.apply(null,g.map(travelEntryOrderIndex));
+      return {html:html,count:g.length,orderKey:orderKey};
     });
-    var folderTiles = Object.keys(groups).sort().map(function(seg){
-      var selfId = ensureFolderSelfEntry(kind, path.concat([seg]));
-      var html = travelFolderTileHtml(seg, groups[seg].length, kind, "enterTravelPathLevel('"+esc(seg).replace(/'/g,"\\'")+"')", selfId);
-      var orderKey = Math.max.apply(null, groups[seg].map(travelEntryOrderIndex));
-      return {html:html, count:groups[seg].length, orderKey:orderKey};
+    // 若当前层本身已经是一条真实地点，优先沿用原记录，不新建/覆盖卡片。
+    var own=scoped.filter(function(t){
+      var p=travelPathForEntry(t);
+      return p && p.path.length===path.length &&
+        p.path.every(function(seg,i){return seg===path[i];});
     });
-    if(travelFolderEntryCreated){ travelFolderEntryCreated=false; save(); }
-    var backBar = '<div class="cat-back-bar"><button class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button>'+travelAddButtonHtml("leaf")+'<span class="cat-back-label">'+esc(path[path.length-1])+'</span></div>';
-    return backBar + renderTravelMixedGrid(folderTiles, leafHere);
+    var ownRecord=own.filter(function(t){return !t.folderPath;})[0] ||
+      own.filter(travelHasExplicitRecord)[0] || own[0];
+    var recordId=ownRecord ? ownRecord.id : ensureFolderSelfEntry(kind,path);
+    var addKind=path.length===1 ? "city" : "subplace";
+    var recordBtn='<button type="button" class="travel-heading-link" onclick="openTravelRecord(\''+recordId+'\')" title="进入当前地点的旅行记录（最后一层）">记录旅行</button>';
+    var bar='<div class="cat-back-bar travel-topregion-bar">'+
+      '<button type="button" class="btn ghost small" onclick="exitTravelPathLevel()">‹ 返回</button>'+
+      '<span class="cat-back-label">'+esc(path[path.length-1])+'</span>'+
+      '<span class="travel-topregion-actions">'+travelAddButtonHtml(addKind)+recordBtn+'</span></div>';
+    if(travelFolderEntryCreated){travelFolderEntryCreated=false;save();}
+    return bar+(folderTiles.length ? renderTravelMixedGrid(folderTiles,[],false) : "");
   }
 
   function groupByFirstSegment(pool){
@@ -4594,12 +5016,8 @@ function renderTravelSection(items){
   }
   function topGridHtml(groups, k){
     var leaf = [];
-    /* 跟深层文件夹一个规则：省/国家底下如果只有一条记录、而且这条记录自己就是省/国家这一级（没有市/城市），
-       就直接摆成叶子标签，不用套一层同名文件夹 */
-    Object.keys(groups).forEach(function(seg){
-      var g2 = groups[seg];
-      if(g2.length===1 && travelPathForEntry(g2[0]).path.length===1){ leaf.push(g2[0]); delete groups[seg]; }
-    });
+    /* 第一层国家/省份必须先进入该地区再选择「添加城市」或「旅行卡片」。
+       不再把只有国家坐标的马来西亚、新加坡直接渲染成无法新增下级的叶子。 */
     var folderTiles = Object.keys(groups).sort().map(function(seg){
       var selfId = ensureFolderSelfEntry(k, [seg]);
       /* 省/国家这一层的计数只数省内的市/国内的城市有几个不重复的，不把市底下区县镇这些更深的条目也算进去 */
@@ -4613,7 +5031,7 @@ function renderTravelSection(items){
       var orderKey = Math.max.apply(null, groups[seg].map(travelEntryOrderIndex));
       return {html:html, count:displayCount, orderKey:orderKey};
     });
-    return renderTravelMixedGrid(folderTiles, leaf);
+    return renderTravelMixedGrid(folderTiles, leaf, true);
   }
   /* 国内数省份/市，国际数国家/城市：按第一段（省/国）、第二段（市/城市）去重数出有多少个不重复的 */
   function travelSummaryText(pool, l1, l2){
@@ -4639,14 +5057,26 @@ window.updateTravelKeyword = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
   value = (value||"").trim();
   var changed = !!(value && t.keyword!==value);
-  t.keyword = value; save(); render();
-  if(changed) geocodeAndSetTravelGeo(id, travelContextualQuery(value));
+  t.keyword = value;
+  if(changed && Array.isArray(t.travelManualPath) && t.travelManualPath.length>=2){
+    t.travelManualPath[t.travelManualPath.length-1]=value;
+  }
+  save(); render();
+  if(changed) toast("名称已修改；地图坐标未变。如需更正，请进入地点点击「重新定位」",5000);
 };
-/* 不用改名字也能手动触发一次重新定位：地名没变，但存量数据是老版本代码定位的，缺市/区县/镇这些字段，
-   补跑一次同样的定位逻辑就能把新字段（省市区镇）都补齐 */
+/* 只有点击这处“重新定位”，才允许修改已经存过的坐标；失败和取消均保留旧值。 */
 window.refreshTravelGeo = function(id){
-  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
-  geocodeAndSetTravelGeo(id, t.keyword);
+  var t=travelRecordGet(id);if(!t)return;
+  var hint=[];
+  var currentPath=moduleCatView.travel_path||[];
+  if(currentPath.length){
+    hint=currentPath.slice().reverse().filter(function(x){return !travelSameRegionName(x,t.keyword);});
+    if(moduleCatView.travel_path_kind==="domestic")hint.push("中国");
+  }else if(t.geo){
+    if(t.geo.state && !travelSameRegionName(t.geo.state,t.keyword))hint.push(t.geo.state);
+    if(t.geo.country && !travelSameRegionName(t.geo.country,t.keyword))hint.push(t.geo.country);
+  }
+  geocodeAndSetTravelGeo(id,[t.keyword].concat(hint).join(", "),true);
 };
 window.updateTravelDate = function(id, value){
   var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0]; if(!t) return;
@@ -4681,6 +5111,7 @@ window.deleteTravelEntry = function(id){
     markRecordsDeleted("lifeTimeline", id);
     DATA.lifeTimeline = DATA.lifeTimeline.filter(function(x){return x.id!==id;});
     if(travelTagEditingId===id) travelTagEditingId = null;
+    if(travelDetailOpenId===id) travelDetailOpenId=null;
     var box = document.getElementById("travelTagFloat");
     if(box) box.style.display = "none";
     save(); render(); toast("已删除");
@@ -4698,21 +5129,85 @@ function travelTagScheduleHide(){
   if(travelTagEditingId) return;
   var box = document.getElementById("travelTagFloat");
   clearTimeout(travelTagHideTimer);
-  travelTagHideTimer = setTimeout(function(){ if(box) box.style.display = "none"; }, 200);
+  travelTagHideTimer = setTimeout(function(){
+    if(box) box.style.display = "none";
+  }, 850);
 }
+/* 旅行预览：严格相对于当前标签定位，而非整个网格的右缘。
+   在当前标签的右/左/上/下寻找最近、且不遮住任何地点标签的位置。
+   预览不参与网格布局，因此标签永远不会因鼠标悬浮移动。 */
 function travelTagPositionNear(box, anchorEl){
-  var r = anchorEl.getBoundingClientRect();
-  var br = box.getBoundingClientRect();
-  var left = r.left;
-  if(left + br.width > window.innerWidth - 6) left = window.innerWidth - br.width - 6;
-  if(left < 6) left = 6;
-  var top = r.bottom + 6;
-  if(top + br.height > window.innerHeight - 6){
-    var above = r.top - br.height - 6;
-    top = above >= 6 ? above : Math.max(r.top, 6);
+  var grid=anchorEl.closest(".travel-tag-grid");
+  if(!grid)return;
+  if(box.parentElement!==document.body)document.body.appendChild(box);
+  var r=anchorEl.getBoundingClientRect();
+  var mobile=window.matchMedia && window.matchMedia("(max-width:700px)").matches;
+  var margin=8, gap=9;
+  box.classList.toggle("travel-mobile-preview",!!mobile);
+  box.style.position="fixed";
+  // 窄屏优先把预览放到标签上方的空白区域，不遮住正在点击的标签；
+  // 记录超过可用高度时允许手动滚动，但不再翻页。
+  box.style.maxHeight="";
+  if(window.innerWidth<=1024){
+    var spaceAbove=Math.max(0,r.top-gap-margin);
+    if(spaceAbove>=170){
+      var intendedMax=Math.min(window.innerHeight*0.75,mobile?480:670);
+      box.style.maxHeight=Math.floor(Math.min(intendedMax,spaceAbove))+"px";
+    }
+  }else if(window.innerWidth<=1400){
+    // 中等屏幕的网格通常占满整行，预览尽量利用最后一排下方的空间。
+    var freeBelow=Math.max(0,window.innerHeight-grid.getBoundingClientRect().bottom-gap-margin);
+    if(freeBelow>=170)box.style.maxHeight=Math.floor(Math.min(window.innerHeight*0.75,freeBelow))+"px";
   }
-  box.style.left = left+"px";
-  box.style.top = top+"px";
+  // 先清除旧位置，避免重新计算时被旧的屏幕边界影响。
+  box.style.left="0px";
+  box.style.top="0px";
+  var br=box.getBoundingClientRect();
+  var w=br.width,h=br.height;
+  var maxX=Math.max(margin,window.innerWidth-w-margin);
+  var maxY=Math.max(margin,window.innerHeight-h-margin);
+  var clamp=function(n,min,max){return Math.max(min,Math.min(max,n));};
+  var tags=Array.prototype.slice.call(document.querySelectorAll('.travel-tag-grid .travel-tag'));
+  var obstacles=tags.map(function(el){return el.getBoundingClientRect();});
+  var gr=grid.getBoundingClientRect();
+  var xs=[r.right+gap,r.left-w-gap,r.left,r.right-w,gr.right+gap];
+  var ys=[r.top,r.bottom+gap,r.top-h-gap,gr.top-h-gap,gr.bottom+gap];
+  var options=[];
+  function consider(x,y){
+    x=clamp(x,margin,maxX);y=clamp(y,margin,maxY);
+    if(options.some(function(q){return Math.abs(q.x-x)<1 && Math.abs(q.y-y)<1;}))return;
+    var a={left:x,right:x+w,top:y,bottom:y+h};
+    var collision=0;
+    for(var i=0;i<obstacles.length;i++){
+      var t=obstacles[i];
+      collision+=Math.max(0,Math.min(a.right,t.right)-Math.max(a.left,t.left))*
+                 Math.max(0,Math.min(a.bottom,t.bottom)-Math.max(a.top,t.top));
+    }
+    // 与真实悬浮标签之间的最短边界距离；不是与整个列表边缘的距离。
+    var dx=Math.max(0,a.left-r.right,r.left-a.right);
+    var dy=Math.max(0,a.top-r.bottom,r.top-a.bottom);
+    var distance=Math.hypot(dx,dy);
+    var overlapAnchor=Math.max(0,Math.min(a.right,r.right)-Math.max(a.left,r.left))*
+      Math.max(0,Math.min(a.bottom,r.bottom)-Math.max(a.top,r.top));
+    // 当前标签绝对不能被悬浮窗盖住；其他标签也尽量避开。
+    var sidePenalty=(a.right<=r.left ? 190 : (a.left>=r.right ? 0 : 45));
+    options.push({x:x,y:y,collision:collision,score:distance+sidePenalty+collision*50+overlapAnchor*1000});
+  }
+  xs.forEach(function(x){ys.forEach(function(y){consider(x,y);});});
+  // 沿着标签左右两侧探测：当右侧有兄弟标签时，优先上下错开，不直接盖住它们。
+  [r.right+gap,r.left-w-gap].forEach(function(x){
+    for(var y=margin;y<=maxY;y+=12)consider(x,y);
+    consider(x,maxY);
+  });
+  // 手机端优先保持第二次点击标签的空间，必要时才放到视口边缘。
+  if(mobile){
+    consider(r.left,r.bottom+gap);
+    consider(r.left,r.top-h-gap);
+  }
+  options.sort(function(a,b){return a.score-b.score || a.collision-b.collision;});
+  var best=options[0]||{x:clamp(r.right+gap,margin,maxX),y:clamp(r.top,margin,maxY)};
+  box.style.left=Math.round(best.x)+"px";
+  box.style.top=Math.round(best.y)+"px";
 }
 /* 编辑框已经钉住之后，内容变化（比如加了一个字段变高）只在快超出屏幕边缘时轻微挪一下，
    不整体按锚点重新摆放，避免手正对着输入框、框却挪到别处去了 */
@@ -4730,6 +5225,8 @@ function travelTagCloseEdit(){
   travelTagEditingId = null;
   var box = document.getElementById("travelTagFloat");
   if(box) box.style.display = "none";
+  var inline=document.getElementById("travelTagInlinePreview");
+  if(inline) inline.style.display="none";
 }
 function travelTagFieldsFormHtml(t, id){
   return (t.fields||[]).map(function(f){
@@ -4740,49 +5237,77 @@ function travelTagFieldsFormHtml(t, id){
     '</div>';
   }).join('');
 }
-window.travelTagRenderEdit = function(id){
-  var box = document.getElementById("travelTagFloat");
-  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
-  if(!box || !t) return;
-  var wasEditingSame = (travelTagEditingId===id);
-  travelTagEditingId = id;
-  travelTagClearHide();
-  box.innerHTML = '<div class="travel-tag-edit-form">'+
-    '<input type="text" class="asset-inline-input" value="'+esc(t.keyword||"")+'" placeholder="地名" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelKeyword(\''+id+'\',this.value)">'+
-    '<input type="text" class="asset-inline-input" value="'+esc(t.date||"")+'" placeholder="日期，比如 2023-05" onkeydown="if(event.key===\'Enter\')this.blur();" onchange="updateTravelDate(\''+id+'\',this.value)">'+
-    '<div class="travel-tag-fields">'+travelTagFieldsFormHtml(t,id)+'</div>'+
-    '<div class="travel-tag-edit-actions">'+
-      '<button type="button" class="btn small ghost" onclick="travelTagCloseEdit()" title="每项改完都已自动保存，这颗按钮只是收起编辑框">收起</button>'+
-      '<button type="button" class="btn small ghost" onclick="addTravelField(\''+id+'\');travelTagRenderEdit(\''+id+'\')">+ 备注</button>'+
-      '<button type="button" class="btn small ghost" onclick="refreshTravelGeo(\''+id+'\')" title="老数据可能定位信息不全（比如缺市/区县/镇这几级），点这个重新定位一次补全">🔄 重新定位</button>'+
-      '<button type="button" class="mini-del" onclick="deleteTravelEntry(\''+id+'\')" title="删除">✕</button>'+
-    '</div>'+
-  '</div>';
-  box.style.display = "block";
-  if(!wasEditingSame && travelTagAnchorEl) travelTagPositionNear(box, travelTagAnchorEl);
-  else travelTagClampToViewport(box);
-};
-window.travelTagShow = function(id, anchorEl){
-  if(travelTagEditingId) return; /* 编辑框钉住的时候，划过别的/同一个标签不再把它顶回只读预览 */
-  travelTagClearHide();
-  travelTagAnchorEl = anchorEl;
-  var box = document.getElementById("travelTagFloat");
-  var t = DATA.lifeTimeline.filter(function(x){return x.id===id;})[0];
-  if(!box || !t) return;
-  var dateLine = t.dateEnd ? (esc(t.date||"—")+" ~ "+esc(t.dateEnd)) : esc(t.date||"—");
-  var fieldsHtml = (t.fields||[]).map(function(f){ return '<div class="tl-tip-row"><b>'+esc(f.label||"—")+'：</b>'+esc(f.value||"—")+'</div>'; }).join('') || '<div class="tl-tip-row muted">点击编辑备注</div>';
-  box.innerHTML = '<div class="ssn-remark-view"><div class="tl-tip-row"><b>'+esc(t.keyword||"未命名地点")+'</b></div><div class="tl-tip-row">'+dateLine+'</div>'+fieldsHtml+'</div>';
-  box.style.display = "block";
-  travelTagPositionNear(box, anchorEl);
-  box.querySelector(".ssn-remark-view").onclick = function(){ travelTagRenderEdit(id); };
+/* 国家/省份等上层悬浮框永远只读，逐条聚合下级地点的实际旅行卡片信息。 */
+window.travelTagRenderEdit=function(id){openTravelRecord(id);}; // 兼容旧调用：只去内层卡片，不在悬浮窗里编辑
+window.travelTagShow=function(id,anchorEl){
+  if(travelTagEditingId)return;
+  travelTagClearHide();travelTagAnchorEl=anchorEl;
+  var box=document.getElementById("travelTagFloat"),t=travelRecordGet(id);
+  if(!box || !t)return;
+  var isFolder=anchorEl.classList.contains("travel-tag-folder");
+  var p=travelPathForEntry(t);
+  var matches=isFolder && p ? DATA.lifeTimeline.filter(function(x){
+    if(x.category!=="travel")return false;
+    var xp=travelPathForEntry(x);
+    return xp && xp.isDomestic===p.isDomestic && p.path.every(function(seg,i){return xp.path[i]===seg;});
+  }):[t];
+  var rows=[];
+  var topFolderPreview = isFolder && p && p.path.length===1;
+  matches.forEach(function(x){
+    var xp=travelPathForEntry(x);
+    if(topFolderPreview && (!xp || xp.path.length<2)) return;
+    travelActualVisits(x).forEach(function(v,idx){
+      rows.push({
+        // 第一层省/国家的预览始终归到第二层城市；区县/乡镇不单列。
+        place:topFolderPreview ? xp.path[1] : (x.keyword||"未命名地点"),
+        date:v.travelDate||"",people:v.travelCompanions||"",
+        order:DATA.lifeTimeline.indexOf(x),index:idx
+      });
+    });
+  });
+  // 同一次旅行分别写在城市、区县卡片时，最外层不要重复列出完全相同的摘要。
+  if(topFolderPreview){
+    var seenRows={};
+    rows=rows.filter(function(r){
+      var key=JSON.stringify([r.place,r.date,r.people]);
+      if(seenRows[key])return false;
+      seenRows[key]=true;
+      return true;
+    });
+  }
+  // 日期能识别时按日期从近到远；任意自定义日期依旧显示，不强制格式。
+  rows.sort(function(a,b){
+    var ka=dateSortKey(a.date),kb=dateSortKey(b.date);
+    if(ka==="99999999")ka="00000000";
+    if(kb==="99999999")kb="00000000";
+    return kb.localeCompare(ka) || b.order-a.order || b.index-a.index;
+  });
+  function valueRow(label,value){
+    return '<div class="travel-tip-row"><span class="travel-tip-key">'+label+'</span><span class="travel-tip-value'+(!value?' is-empty':'')+'">'+esc(value||"未填写")+'</span></div>';
+  }
+  // 只更新已有的独立悬浮窗。按内容量适度加宽，不分页也不修改标签位置。
+  var widthClass=rows.length<=2 ? "travel-preview-compact" : (rows.length<=5 ? "travel-preview-medium" : "travel-preview-wide");
+  box.classList.remove("travel-preview-compact","travel-preview-medium","travel-preview-wide");
+  box.classList.add(widthClass);
+  box.innerHTML='<div class="travel-tip-title">'+esc(t.keyword||"未命名地点")+'</div>'+
+    (rows.length ? '<div class="travel-preview-list">'+rows.map(function(r){return '<div class="travel-preview-trip">'+
+      '<div class="travel-preview-place">'+esc(r.place)+'</div>'+valueRow('旅行时间',r.date)+valueRow('同行人',r.people)+
+      '</div>';}).join('')+'</div>' : '<div class="travel-preview-empty">'+
+      (topFolderPreview ? '第二层城市还没有旅行时间或同行人的记录；可以进入具体地点填写。' : '还没有旅行记录。进入最里层，在旅行卡片里填写即可。')+
+      '</div>');
+  box.dataset.travelPreviewId=id;
+  box.style.display="block";
+  travelTagPositionNear(box,anchorEl);
 };
 document.addEventListener("mouseover", function(e){
-  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
-  if(el) travelTagShow(el.getAttribute("data-travel-id"), el);
+  var el=e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
+  if(el && !(e.relatedTarget && el.contains(e.relatedTarget))){
+    travelTagShow(el.getAttribute("data-travel-id"),el);
+  }
 });
 document.addEventListener("mouseout", function(e){
-  var el = e.target.closest ? e.target.closest(".travel-tag[data-travel-id]") : null;
-  if(el) travelTagScheduleHide();
+  var grid=e.target.closest ? e.target.closest(".travel-tag-grid") : null;
+  if(grid && !(e.relatedTarget && grid.contains(e.relatedTarget))) travelTagScheduleHide();
 });
 /* 编辑框钉住的时候，点框外面（不是这个标签本身、也不是框自己）就当作"点完了"，自动收起，
    不用非得记得去点"完成"按钮 */
@@ -5456,25 +5981,26 @@ window.saveTimelineDraft = async function(){
   var locText = d.keyword.trim();
 
   var geo = undefined; // undefined = don't touch existing geo; null = clear geo; object = set geo
-  if(d.category==="travel" && locText){
+  if(!d.id && d.category==="travel" && locText){
+    // 新建地点允许首次定位；编辑已有经历只保存文字，不触碰地图坐标。
     closeModal();
     toast("正在定位「"+locText+"」…");
     var results = await geocodeLocation(locText);
+    if(results!==null) results = travelGeoResultsForRequestedPlace(results, locText);
     if(results===null){
       toast("定位失败："+lastGeocodeError+"（如果是用双击直接打开的 html 文件，浏览器可能会拦截这个请求，试试用本地服务器打开）", 6000);
       geo = undefined;
     } else if(results.length===0){
-      toast("没找到「"+locText+"」，这条经历暂时不会出现在地图上");
-      geo = null;
+      toast("没有匹配「"+locText+"」本身的定位结果，原有坐标不变", 6000);
+      geo = undefined;
     } else if(results.length===1){
       geo = results[0];
     } else {
       geo = await pickGeoFromList(results, locText);
       if(geo===null){ toast("已跳过定位"); }
     }
-  } else {
-    geo = null;
-  }
+    if(geo) geo = travelGeoNormalizeRequestedLevel(geo, locText);
+  } // 编辑已有地点不重新定位；已有 t.geo 保持原样
 
   var normDate = normalizeDateInput(d.date.trim());
   var normDateEnd = (d.dateEnd&&d.dateEnd.trim()) ? normalizeDateInput(d.dateEnd.trim()) : "";
@@ -5484,7 +6010,7 @@ window.saveTimelineDraft = async function(){
     var item = DATA.lifeTimeline.filter(function(x){return x.id===d.id;})[0];
     if(item){
       item.date = normDate; item.dateEnd = normDateEnd; item.keyword = d.keyword.trim(); item.category = d.category||"other"; item.jobType = jobType; item.residenceType = residenceType; item.customColor = d.customColor||""; item.fields = cleanFields;
-      if(geo===null){ delete item.geo; } else if(geo){ item.geo = geo; }
+      if(geo){ item.geo = geo; } // 不在普通编辑时移除或覆盖原定位
     }
   } else {
     var newItem = {id:uid(), date:normDate, dateEnd:normDateEnd, keyword:d.keyword.trim(), category:d.category||"other", jobType:jobType, residenceType:residenceType, customColor:d.customColor||"", fields:cleanFields};
@@ -5526,9 +6052,50 @@ function extractPrefectureCity(displayName, state, city, town){
   var parts = displayName.split(",").map(function(s){ return s.trim(); });
   var stateIdx = parts.indexOf(state);
   if(stateIdx<=0) return "";
-  var candidate = parts[stateIdx-1];
-  if(!candidate || candidate===city || candidate===town || candidate===state) return "";
-  return candidate;
+  // 沿“省”之前的地址片段反向找真正的“市”，不把亭湖区等区县认作地级市。
+  for(var i=stateIdx-1;i>=0;i--){
+    var candidate=parts[i];
+    if(/市$/.test(candidate) && candidate!==city && candidate!==town && candidate!==state) return candidate;
+  }
+  return "";
+}
+/* 旅游地理编码：输入“盐城市”必须选盐城市本身，不因返回地址里有“亭湖区”就向下钻。
+   用地名 + 行政层级校验；对普通景点、国外地名仍保留原搜索方式。 */
+function travelGeoComparableName(name){
+  return String(name||"").trim().replace(/[\s　·・,，.。]/g, "").replace(/市$/, "").toLowerCase();
+}
+function travelGeoResultsForRequestedPlace(results, keyword){
+  if(!Array.isArray(results)) return [];
+  keyword=String(keyword||"").trim();
+  // 名称明确以“市”结尾时，只接受搜索结果中的同名城市，避免把区县当成城市。
+  // 海外也可能存在“京都市”等名称，因此不能硬性限定为 countryCode === "cn"。
+  if(!/市$/.test(keyword)) return results;
+  var key=travelGeoComparableName(keyword);
+  return results.filter(function(r){
+    var topName=String(r.name||"").split(/[,，]/)[0].trim();
+    return travelGeoComparableName(topName)===key;
+  });
+}
+function travelGeoNormalizeRequestedLevel(geo, keyword){
+  if(!geo || geo.countryCode!=="cn" || !/市$/.test(String(keyword||"").trim()))return geo;
+  var topName=String(geo.name||"").split(/[,，]/)[0].trim();
+  var key=travelGeoComparableName(keyword);
+  if(travelGeoComparableName(topName)!==key)return geo;
+  var fixed=Object.assign({},geo);
+  // “盐城市, 亭湖区, 江苏省”是地址的上下文，不是让「盐城市」归进「亭湖区」。
+  if(travelGeoComparableName(fixed.state)===key){
+    fixed.prefectureCity=""; fixed.city=""; fixed.town="";
+  }else if(travelGeoComparableName(fixed.prefectureCity)===key){
+    fixed.city=""; fixed.town="";
+  }else if(travelGeoComparableName(fixed.city)===key){
+    fixed.town="";
+  }else if(fixed.prefectureCity){
+    // 如县级市，放在其上级地级市下面，不插入任意“区”。
+    fixed.city=keyword; fixed.town="";
+  }else{
+    fixed.prefectureCity=keyword; fixed.city=""; fixed.town="";
+  }
+  return fixed;
 }
 async function geocodeLocation(query){
   try{
@@ -5600,7 +6167,11 @@ function entryTimeRange(t){
   return f && f.value ? f.value : (t.date||"");
 }
 function buildMapData(){
-  var travelEntries = DATA.lifeTimeline.filter(function(t){ return (t.category||"other")==="travel"; });
+  // 省份/国家的空白分类只用于导航；不在地图上画省中心点，也不列为“未定位”。
+  // 第二层城市及更深地点仍使用它们各自保存的精确坐标；真正写过记录的独立地点不丢失。
+  var travelEntries = DATA.lifeTimeline.filter(function(t){
+    return (t.category||"other")==="travel" && !travelIsEmptyTopRegion(t);
+  });
   var groups = {}, unresolved = [];
   travelEntries.forEach(function(t){
     if(t.geo && typeof t.geo.lat==="number" && typeof t.geo.lon==="number"){
@@ -5608,11 +6179,22 @@ function buildMapData(){
       groups[gk] = groups[gk] || {coords:[t.geo.lat,t.geo.lon], name:t.geo.name, list:[]};
       groups[gk].list.push(t);
     } else if(t.keyword){
-      unresolved.push(t.keyword);
+      unresolved.push({id:t.id,keyword:t.keyword});
     }
   });
   return {groups:groups, unresolved:unresolved};
 }
+// 地图上未定位标签可以主动重试；不自动覆盖任何已有坐标。
+window.retryUnlocatedTravelGeo=function(id){
+  var t=travelRecordGet(id);if(!t)return;
+  // 手动添加的二级城市在地图中重试时，继续带上国家/省份作为搜索范围。
+  var q=t.keyword;
+  if(Array.isArray(t.travelManualPath) && t.travelManualPath.length>=2){
+    var parents=t.travelManualPath.slice(0,-1).reverse();
+    q=[t.keyword].concat(parents).concat(t.travelManualKind==="domestic"?["中国"]:[]).join(", ");
+  }
+  geocodeAndSetTravelGeo(id,q,true);
+};
 function renderWorldMapPage(){
   var d = buildMapData();
   var legend = Object.keys(d.groups).map(function(gk){
@@ -5620,11 +6202,11 @@ function renderWorldMapPage(){
     var shortName = g.name.split("，")[0].split(",")[0];
     return '<span class="map-chip" onclick="focusMapGroup(\''+gk+'\')">'+esc(shortName)+' · '+g.list.length+'</span>';
   }).join('') + d.unresolved.map(function(u){
-    return '<span class="map-chip unmapped">'+esc(u)+' · 未定位</span>';
+    return '<button type="button" class="map-chip unmapped" onclick="retryUnlocatedTravelGeo(\''+u.id+'\')" title="点击重试；有多个匹配地点时可手动选择">'+esc(u.keyword)+' · 未定位 · 重试</button>';
   }).join('');
   var body = '<div class="map-wrap"><div id="leafletMap" class="leaflet-map-el"></div>'+
     (legend ? ('<div class="map-legend">'+legend+'</div>') : '<div class="map-note">还没有可点亮的地点，去「时间经历」里加一条旅游类别的经历，关键词填地名试试（需要联网才能定位）。</div>')+
-    '<div class="map-note">地图由 OpenStreetMap 提供，地点坐标来自 OpenStreetMap 的免费公共搜索，保存经历时自动定位；「未定位」的可能是网络问题或没搜到，重新编辑保存一次即可再试。以上均需要联网。</div>'+
+    '<div class="map-note">地图由 OpenStreetMap 提供，地点坐标来自 OpenStreetMap 的免费公共搜索，保存经历时自动定位；「未定位」可能是网络问题或没搜到；进入地点点击「重新定位」可手动重试。已有坐标不会自动更改。以上均需要联网。</div>'+
   '</div>';
   return moduleShell("worldmap","🗺️","worldmap","只读取「时间经历」里「旅游」类别下的经历——保存时会自动用 OpenStreetMap 全球搜索地点（需要联网），遇到同名地点会让你手动选择；点击地图上的标记可以进入这条经历的详情页。","",
     body);
@@ -6557,20 +7139,17 @@ function renderSuisuinianBubbleList(msgs){
        不再摆在文本框外面的那排小字图标旁边；光靠"点别处失焦"或者要记住 Ctrl/Cmd+回车
        都不够直观，"发送"点一下直接触发失焦，走已有的 onblur 保存逻辑 */
     var contentHtml = editingThisMsg
-      ? '<div class="ssn-editbox">'+
-          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
-          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+      ? '<div class="ssn-editbox entry-edit-surface">'+
+          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onfocus="window.__ssnPicking=false" onblur="if(!window.__ssnPicking)commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="commitEditSuisuinianMessage(\''+m.id+'\',document.getElementById(\''+taId+'\').value)" title="发送">发送</button>'+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
         '</div>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
     return '<div class="ssn-bubble">'+
+      (editingThisMsg ? '' : '<button type="button" class="mini-del entry-del-top" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>')+
       contentHtml+
       '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
       bookPhotoBadgeHtml("suisuinian", m.id, m.images)+
-      '</span>'+
-      '<span class="ssn-bubble-meta-actions">'+
-        '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-        (editingThisMsg ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
       '</span></div>'+
     '</div>';
   }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
@@ -6678,19 +7257,15 @@ function renderSuisuinianAxis(msgs, searchQ, allMsgs, flat){
     var editingThisMsg = suisuinianEditingMessage===m.id;
     var taId = "ssnBubbleEdit_"+m.id;
     var contentHtml = editingThisMsg
-      ? '<div class="ssn-editbox">'+
-          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
-          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+      ? '<div class="ssn-editbox entry-edit-surface">'+
+          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onfocus="window.__ssnPicking=false" onblur="if(!window.__ssnPicking)commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="commitEditSuisuinianMessage(\''+m.id+'\',document.getElementById(\''+taId+'\').value)" title="发送">发送</button>'+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
         '</div>'
       : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+(m.content ? esc(m.content) : '<span style="color:var(--text-faint)">点击写内容…</span>')+'</div>';
-    /* 加照片 📷 和删除 ✕ 一起放在气泡右上角（编辑时不显示，编辑框里自带 📷），鼠标移到气泡上才浮现 */
+    /* 查看时右上角只有删除；点击文字编辑后右上发送、左下相机。 */
     return '<div class="ssn-bubble">'+
-      (editingThisMsg ? '' :
-        '<div class="ssn-bubble-corner">'+
-          bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
-          '<button type="button" class="mini-del ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-        '</div>')+
+      (editingThisMsg ? '' : '<button type="button" class="mini-del entry-del-top" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>')+
       contentHtml+
       '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span></div>'+
     '</div>';
@@ -6750,7 +7325,7 @@ window.commitEditSuisuinianTagEntry = function(id, value){
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
   value = (value||"").trim();
   if(m){
-    if(!value && !(m.content||"").trim()){
+    if(!value && !(m.content||"").trim() && !(m.images||[]).length){
       /* 新建出来还没写内容就直接失焦，这条空气泡不用留着占地方 */
       DATA.suisuinianEntries = DATA.suisuinianEntries.filter(function(x){return x.id!==id;});
     } else {
@@ -6770,12 +7345,14 @@ window.commitEditSuisuinianTagEntry = function(id, value){
 document.addEventListener("touchstart", function(e){
   if(suisuinianTagEditingId===null) return;
   var ta = document.getElementById("ssnTagEdit_"+suisuinianTagEditingId);
-  if(ta && !ta.contains(e.target)) commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
+  if(ta && !(ta.closest(".entry-edit-surface")||ta).contains(e.target) && !window.__ssnPicking)
+    commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
 }, true);
 document.addEventListener("mousedown", function(e){
   if(suisuinianTagEditingId===null) return;
   var ta = document.getElementById("ssnTagEdit_"+suisuinianTagEditingId);
-  if(ta && !ta.contains(e.target)) commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
+  if(ta && !(ta.closest(".entry-edit-surface")||ta).contains(e.target) && !window.__ssnPicking)
+    commitEditSuisuinianTagEntry(suisuinianTagEditingId, ta.value);
 }, true);
 /* 果冻色系：每个标签固定分到一个颜色（新建时按当前已有标签数量顺位分配，存在 colorIdx 里，
    不会因为增删其他标签而跟着变）。列头用饱和一点的"果冻实心"，气泡用同色系的浅底 */
@@ -6879,8 +7456,10 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   var innerHtml;
   if(editingThis){
     /* 加照片按钮也跟"发送"一样嵌进卡片内部（左下角），不用再去下面那排小图标里找 */
-    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
-      bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner");
+    innerHtml = '<div class="ssn-editbox entry-edit-surface">'+
+      '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onfocus="window.__ssnPicking=false" onkeydown="finishEditOnEnter(event,this)" onblur="if(!window.__ssnPicking)commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+      '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="commitEditSuisuinianTagEntry(\''+m.id+'\',document.getElementById(\'ssnTagEdit_'+m.id+'\').value)" title="发送">发送</button>'+
+      bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+'</div>';
   } else {
     innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" data-entry-id="'+m.id+'" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑，悬停查看全部">'+esc(m.content||"（没有内容）")+'</div>'+
       '<div class="ssn-tag-item-date">'+esc(suisuinianShortTimeLabel(m.createdAt))+'</div>';
@@ -6890,9 +7469,8 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
      标签选项，保持跟别的展现形式一样干净。删除键嵌进气泡卡片右上角，不单独占一行；
      编辑的时候删除键换成"✓ 完成"，同一个位置，点一下手动触发失焦保存退出，不用非得记
      Ctrl/Cmd+回车或者去点卡片外面 */
-  var delBtn = editingThis
-    ? '<button type="button" class="ssn-edit-done ssn-tag-item-del" onclick="blurElementById(\'ssnTagEdit_'+m.id+'\')" title="发送">发送</button>'
-    : '<button type="button" class="mini-del ssn-tag-item-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
+  var delBtn = editingThis ? ''
+    : '<button type="button" class="mini-del entry-del-top" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>';
   /* 没打过标签的老内容（比如从留言板/时间轴切过来的），在"未标记"栏里给一个小下拉，
      直接选个标签把它归类过去，选完这条就自动搬进对应的标签列了 */
   var pickHtml = (suisuinianEntryIsUnfiled(topicId, m) && !editingThis) ? suisuinianUntaggedPickHtml(topicId, m.id) : '';
@@ -6903,7 +7481,6 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
     '</span>'+
     '<span class="ssn-bubble-meta-actions">'+
       pickHtml+
-      (editingThis ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
     '</span></div>'+
   '</div>';
 }
@@ -7131,7 +7708,7 @@ function resolveBookRecord(moduleId, id){
   return bookEntries(moduleId).filter(function(x){return x.id===id;})[0];
 }
 function bookImageAddButtonHtml(moduleId, id, extraClass){
-  return '<label class="book-img-add-icon'+(extraClass?(' '+extraClass):'')+'" title="添加照片">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>';
+  return '<label class="book-img-add-icon'+(extraClass?(' '+extraClass):'')+'" title="添加照片" onpointerdown="window.__ssnPicking=true" onclick="window.__ssnPicking=true">📷<input type="file" accept="image/*" onchange="uploadBookEntryImage(this,\''+moduleId+'\',\''+id+'\')"></label>';
 }
 /* 有图片的条目只显示一个小角标，不占地方；鼠标移上去悬浮展示缩略图，点缩略图看大图。
    跟碎碎念子主题备注、家庭关系那两处悬浮框同一个交互，只是内容换成图片。 */
@@ -7189,8 +7766,23 @@ document.addEventListener("mouseout", function(e){
   }
 })();
 window.uploadBookEntryImage = function(input, moduleId, id){
-  var file = input.files[0]; if(!file) return;
+  var file = input.files[0];
+  if(!file){ window.__ssnPicking=false; return; }
+  /* 上传图片时，不要因为整页刷新丢掉正在编辑、尚未发送的文字。 */
+  if(moduleId==="suisuinian"){
+    var txt=document.getElementById("ssnBubbleEdit_"+id)||document.getElementById("ssnTagEdit_"+id);
+    var rec=resolveBookRecord(moduleId,id);
+    if(txt && rec && rec.content!==txt.value){
+      rec.content=txt.value; rec.updatedAt=new Date().toISOString(); save();
+    }
+  } else if(moduleId==="journalChapter"){
+    var card=document.querySelector('.book-chapter.is-editing[data-chapter-id="'+id.split("::")[1]+'"]');
+    if(card){ var edit=card.querySelector(".book-chapter-content");
+      if(edit) updateJournalChapterContent(id.split("::")[0],id.split("::")[1],edit.value);
+    }
+  }
   readImageFileAsDataUrl(file, function(dataUrl){
+    window.__ssnPicking=false;
     var item = resolveBookRecord(moduleId, id); if(!item) return;
     item.images = item.images || [];
     item.images.push(dataUrl);
@@ -7329,6 +7921,38 @@ function journalComposerHtml(entryId){
     '</div>'+
   '</div>';
 }
+/* 文章板块：默认只读。点击正文就地编辑；完成后只替换这一张卡的文字，
+   不做全站 render()，避免整页重绘导致「发送」卡顿。 */
+window.startJournalChapterEdit = function(entryId, chapterId){
+  var card = document.getElementById("journalCard_"+entryId+"_"+chapterId);
+  if(!card || card.classList.contains("is-editing")) return;
+  card.classList.add("is-editing");
+  var ta = card.querySelector(".book-chapter-content");
+  if(ta){ autoGrowBookTextarea(ta); ta.focus(); }
+};
+window.finishJournalChapterEdit = function(entryId, chapterId){
+  var card = document.getElementById("journalCard_"+entryId+"_"+chapterId);
+  if(!card || !card.classList.contains("is-editing")) return;
+  var ta = card.querySelector(".book-chapter-content");
+  if(!ta) return;
+  updateJournalChapterContent(entryId, chapterId, ta.value);
+  var preview = card.querySelector(".book-chapter-preview");
+  if(preview){
+    preview.textContent=ta.value || "点击写这一段…";
+    preview.classList.toggle("placeholder",!ta.value);
+  }
+  card.classList.remove("is-editing");
+  ta.blur();
+};
+/* 点击卡片以外时同样完成；照片按钮在卡片内部，不会提前关掉文件选择。 */
+document.addEventListener("pointerdown",function(e){
+  document.querySelectorAll(".book-chapter.is-editing").forEach(function(card){
+    if(!card.contains(e.target)){
+      var id=card.getAttribute("data-entry-id"), chapter=card.getAttribute("data-chapter-id");
+      if(id && chapter) finishJournalChapterEdit(id,chapter);
+    }
+  });
+},true);
 window.updateJournalChapterContent = function(entryId, chapterId, value){
   var ch = resolveBookRecord("journalChapter", entryId+"::"+chapterId); if(!ch) return;
   if(ch.content===value) return; // 没改文字时不反复保存几 MB 的整份数据
@@ -7356,20 +7980,19 @@ function renderJournalChapters(entryId){
   if(bookFilterHasImage[sortKey]) chapters = chapters.filter(function(c){ return c.images && c.images.length; });
   var blocks = chapters.map(function(ch){
     var taId = "bookChapterEdit_"+entryId+"_"+ch.id;
-    /* 加照片、发送这两个按钮统一嵌进编辑框内部的角上（.ssn-editbox），跟碎碎念各个
-       展现形式的编辑态保持一致；删除键不受影响，还是摆在上面这行、悬浮才显示 */
-    return '<div class="book-chapter">'+
+    /* 文章也采用碎碎念的「点击正文进入编辑」模式：
+       浏览时右上角删除，编辑时右上角发送、左下角照片。 */
+    return '<div class="book-chapter" id="journalCard_'+entryId+'_'+ch.id+'" data-entry-id="'+entryId+'" data-chapter-id="'+ch.id+'">'+
+      '<button type="button" class="mini-del entry-del-top" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
       '<div class="book-chapter-head">'+
         '<span class="ssn-bubble-meta-actions"><span class="muted" style="font-size:11px">'+esc(suisuinianTimeLabel(ch.createdAt))+'</span>'+
         bookPhotoBadgeHtml("journalChapter", entryId+"::"+ch.id, ch.images)+
         '</span>'+
-        '<span class="ssn-bubble-meta-actions">'+
-          '<button type="button" class="mini-del" onclick="deleteJournalChapter(\''+entryId+'\',\''+ch.id+'\')" title="删除">✕</button>'+
-        '</span>'+
       '</div>'+
-      '<div class="ssn-editbox">'+
-        '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="finishEditOnEnter(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
-        '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+      '<div class="book-chapter-preview" onclick="startJournalChapterEdit(\''+entryId+'\',\''+ch.id+'\')" title="点击编辑">'+(ch.content?esc(ch.content):'<span class="muted">点击写这一段…</span>')+'</div>'+
+      '<div class="ssn-editbox entry-edit-surface">'+
+        '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="sendOnEnter(event,function(){finishJournalChapterEdit(\''+entryId+'\',\''+ch.id+'\');})" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+        '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="finishJournalChapterEdit(\''+entryId+'\',\''+ch.id+'\')" title="发送">发送</button>'+
         bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id, "ssn-addimg-corner")+
       '</div>'+
     '</div>';
@@ -9035,7 +9658,8 @@ boot();
     }
     var box=getBox(choice.kind);
     if(!box || box.style.display==="none") return false;
-    keepWithinScreen(box);
+    // 旅游预览由专用定位器负责，始终以正在点击的地点标签为锚点。
+    if(choice.kind!=="travel") keepWithinScreen(box);
     return true;
   }
   // 触屏点开以后不再被浏览器模拟的 mouseout/leave 误关；电脑维持原样。
@@ -9064,17 +9688,17 @@ boot();
     );
     if(insideFloat){
       // 允许原悬浮框里直接点图、编辑、删除、滚动等，绝不拦截。
-      if(current && current.kind==="travel" && insideFloat.id==="travelTagFloat") current=null;
+      // 旅行预览只是只读信息，在手机上滚动查看时保持当前选中状态。
       return;
     }
     var choice=targetPreview(e.target);
     if(!choice){ dismiss(); return; }
     if(current && current.kind===choice.kind && current.anchor===choice.anchor){
       // 第二次点击：执行之前原本的单击操作（进入详情、编辑等）。
-      // 旅游“地点”原本靠点预览框编辑，这里顺便支持第二次点地点直接编辑。
+      // 旅游悬浮窗只读：第二次点地点定位至下方记录卡片，绝不打开悬浮编辑框。
       if(choice.kind==="travel" && !choice.anchor.classList.contains("travel-tag-folder")){
         current=null;
-        travelTagRenderEdit(choice.anchor.getAttribute("data-travel-id"));
+        openTravelRecord(choice.anchor.getAttribute("data-travel-id"));
         e.preventDefault(); e.stopImmediatePropagation();
         return;
       }
