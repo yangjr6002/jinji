@@ -524,10 +524,10 @@ th.col-resizable .mini-del{margin-top:6px;}
    - 新增的列表/卡片如果也想要这个效果，把它的外层 class 加进下面 :is(...) 这个清单就行。 */
 @media (hover:hover){
   .mini-del, .mini-del:disabled{opacity:0;}
-  :is(.ssn-bubble, .ssn-axis-item, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del,
+  :is(.ssn-bubble, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del,
   .modal:hover .modal-actions .mini-del,
   .mini-del:hover, .mini-del:focus-visible{opacity:1;}
-  :is(.ssn-bubble, .ssn-axis-item, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del:disabled,
+  :is(.ssn-bubble, .book-chapter, .ssn-tag-row, .travel-tag, .asset-th-row, .book-img-thumb, .cat-manage-row, .book-toc-item, .book-row, .declutter-row, .photo-card, .memorial-card, .contact-card, .book-board-col, .idph-variant-card, .idph-field-row, .tl-field-row, .travel-tag-field-row, .travel-tag-edit-actions, .fam-card, .hz-detail, .memo-modal, tr, th, .row-actions, :has(> .row-actions), :has(> .idph-foot)):hover .mini-del:disabled,
   .modal:hover .modal-actions .mini-del:disabled{opacity:.35;}
 }
 @media (hover:none){
@@ -856,8 +856,8 @@ th.col-resizable .mini-del{margin-top:6px;}
 /* 简洁泡泡/时间轴里留言的加照片按钮平时淡出、悬浮才显示；删除✕（.mini-del）的显隐已经并入全站统一规则
    （见 .mini-del 那一段的「统一约束」）；"发送"按钮用的是单独的 .ssn-edit-done 类，
    不受影响，编辑的时候还是一直看得见 */
-.ssn-bubble .ssn-bubble-addimg, .ssn-axis-item .ssn-bubble-addimg{opacity:0; transition:.12s;}
-.ssn-bubble:hover .ssn-bubble-addimg, .ssn-axis-item:hover .ssn-bubble-addimg{opacity:1;}
+.ssn-bubble .ssn-bubble-addimg{opacity:0; transition:.12s;}
+.ssn-bubble:hover .ssn-bubble-addimg{opacity:1;}
 .ssn-composer{display:flex; gap:8px; margin-top:10px; margin-bottom:14px; align-items:flex-end;}
 .ssn-composer textarea{flex:1; min-height:44px; max-height:160px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); font-size:13px; color:var(--text); font-family:inherit; resize:vertical;}
 /* 小标题和内容合成一个框：外层一个共用的边框/圆角，里面两个输入各自去掉自己的边框，中间一条细线分隔 */
@@ -900,6 +900,26 @@ th.col-resizable .mini-del{margin-top:6px;}
 .ssn-axis-time{font-size:10px; color:var(--text-faint); flex:none;}
 .ssn-axis-imgmark{font-size:10px; flex:none;}
 .ssn-axis-body{padding:4px 0 14px 0;}
+/* 分支：缩进在父条目内容下面，自己带一条竖线（位置数值跟顶层 .ssn-axis 那条线、圆点是同一套，所以会对齐） */
+.ssn-axis-branch{position:relative; padding:0 0 0 24px; margin-top:6px;}
+.ssn-axis-branch::before{content:""; position:absolute; left:9px; top:6px; bottom:14px; width:1px; background:var(--border);}
+.ssn-axis-branch-item .ssn-axis-body{padding:2px 0 8px;}
+/* 时间轴里的留言气泡：✕ 固定在右上角，内容右边留出位置不压字 */
+.ssn-axis .ssn-bubble{position:relative;}
+.ssn-axis .ssn-bubble-corner{position:absolute; top:5px; right:6px; z-index:2; display:flex; align-items:center; gap:0;}
+.ssn-axis .ssn-bubble-content{padding-right:48px;}
+.ssn-axis-branch-item .ssn-axis-dot{top:12px;}
+.ssn-axis-branch-addrow{padding:6px 0 0;}
+.ssn-axis-title-row .add-circle-btn{--add-btn-size:16px; font-size:12px;}
+/* 标题旁边的"+"平时不显示，鼠标移到这一行（靠近）才浮现，跟全站删除✕的"悬浮才显示"一个手感；触屏设备没有悬浮，保持淡淡可见 */
+@media (hover:hover){
+  .ssn-axis-title-row .add-circle-btn{opacity:0;}
+  .ssn-axis-title-row:hover .add-circle-btn, .ssn-axis-title-row .add-circle-btn:focus-visible{opacity:.85;}
+  .ssn-axis-title-row .add-circle-btn:hover{opacity:1;}
+}
+@media (hover:none){
+  .ssn-axis-title-row .add-circle-btn{opacity:.55;}
+}
 /* 留言/日志内容里的加图片：跟评论框那种小相机图标按钮同一个思路，缩略图一排，点开看大图，删除叉在角上 */
 .book-img-gallery{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
 .book-img-thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--border-soft); flex:none;}
@@ -2345,7 +2365,7 @@ function render(){
   var app=document.getElementById("app");
   /* 同一个页面里编辑一次东西不该把滚动位置弹回顶部/开头——只在视图没变（说明是编辑触发的刷新，不是主动跳转）时才保留 */
   var __sameView = (__lastRenderedView === VIEW);
-  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; journalComposerOpen = null; journalComposerImages = []; inlineAddOpen = null; bookRenamingEntry = null; suisuinianAddingTopic = false; }
+  if(__lastRenderedView!==VIEW || __lastRenderedTabKey!==activeTabKey){ hideAllFloats(); suisuinianComposerOpen = null; suisuinianComposerImages = []; journalComposerOpen = null; journalComposerImages = []; suisuinianBranchOpen = null; inlineAddOpen = null; bookRenamingEntry = null; suisuinianAddingTopic = false; }
   var __scrollState = [];
   if(__sameView){
     ["hzTimeline","tlMatrixScroll","assetTableScroll","ssnTagBoard"].forEach(function(id){
@@ -5948,8 +5968,9 @@ window.startEditSuisuinianMessage = function(id){
   render();
 };
 window.commitEditSuisuinianMessage = function(id, value){
+  if(suisuinianEditingMessage!==id) return;
   var m = (DATA.suisuinianEntries||[]).filter(function(x){return x.id===id;})[0];
-  if(m){ m.content = value; m.updatedAt = new Date().toISOString(); save(); }
+  if(m && m.content!==value){ m.content = value; m.updatedAt = new Date().toISOString(); save(); }
   suisuinianEditingMessage = null;
   render();
 };
@@ -6123,6 +6144,34 @@ window.openBookMemoEditor = function(kind, id){
 function enterSubmitKeydown(e, el){
   if(e.key==="Enter" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); el.blur(); }
 }
+/* 文章/碎碎念/留言的「发送」统一快捷键：Enter 发送，Shift+Enter 换行。
+   输入法正在选字/确认候选词时的 Enter 不能误发（兼容浏览器在 compositionend 前后的处理）。 */
+document.addEventListener("compositionstart", function(e){
+  if(e.target && e.target.tagName==="TEXTAREA") e.target.__sendIMEActive = true;
+}, true);
+document.addEventListener("compositionend", function(e){
+  if(e.target && e.target.tagName==="TEXTAREA"){
+    e.target.__sendIMEActive = false;
+    e.target.__sendIMEEndedAt = Date.now();
+  }
+}, true);
+function sendOnEnter(e, onSend){
+  if(e.key!=="Enter" || e.shiftKey || e.isComposing || e.keyCode===229 ||
+     (e.target && (e.target.__sendIMEActive ||
+       (e.target.__sendIMEEndedAt && Date.now()-e.target.__sendIMEEndedAt<120)))) return;
+  e.preventDefault();
+  if(e.repeat) return; // 长按 Enter 不要重复发送
+  onSend();
+}
+function finishEditOnEnter(e, el){
+  sendOnEnter(e, function(){ el.blur(); });
+}
+/* 桌面端先阻止点击发送时的默认失焦：否则浏览器会先执行 textarea 的 onchange/onblur，
+   触发重绘后旧按钮已经不存在，导致这次 click 被吞掉。真正提交仍由原 onclick 执行。 */
+document.addEventListener("mousedown", function(e){
+  var btn = e.target.closest && e.target.closest("button.ssn-send-corner");
+  if(btn) e.preventDefault();
+}, true);
 /* Ctrl/Cmd+回车这种快捷键没人会记得住，光靠它提交不够——给这几个"编辑到一半"的文本框
    都配一个看得见、点得到的"✓ 完成"按钮，点一下就手动触发失焦，走原来 onblur 里已经写好的
    保存逻辑，不用另外重复一遍保存代码 */
@@ -6336,6 +6385,28 @@ window.removeSuisuinianComposerImage = function(idx){
   var nd = document.getElementById("suisuinianComposer");
   if(nd) nd.value = v;
 };
+/* 时间轴模式顶部的写入框只写小标题：一行输入，回车或点"添加"创建一个新的小标题；
+   内容之后在这个标题的气泡里点一下再写，或者用标题旁边的"+"加分支（每次补的内容各带自己的时间） */
+function suisuinianAxisTitleComposerHtml(topicId){
+  return '<div class="ssn-composer"><div class="ssn-composer-col">'+
+    '<div class="ssn-composer-box" style="display:flex; align-items:center; gap:8px; padding-right:8px; width:20%; min-width:240px; max-width:100%;">'+
+      '<input type="text" id="suisuinianAxisNewTitle" class="ssn-composer-title" style="flex:1; border-bottom:none;" placeholder="写一个小标题，回车添加" onkeydown="if(event.key===\'Enter\'&&!event.isComposing){event.preventDefault();addSuisuinianAxisTitle(\''+topicId+'\');}">'+
+      '<button type="button" class="btn small solid" onclick="addSuisuinianAxisTitle(\''+topicId+'\')">添加</button>'+
+    '</div>'+
+  '</div></div>';
+}
+window.addSuisuinianAxisTitle = function(topicId){
+  var input = document.getElementById("suisuinianAxisNewTitle");
+  var title = input ? (input.value||"").trim() : "";
+  if(!title) return;
+  var id = uid();
+  var now = new Date().toISOString();
+  DATA.suisuinianEntries = DATA.suisuinianEntries || [];
+  DATA.suisuinianEntries.push({id:id, topic:topicId, createdAt:now, updatedAt:now, title:title, content:"", images:[], fields:[]});
+  suisuinianAxisExpanded[id] = true;
+  save(); render();
+  setTimeout(function(){ var ni = document.getElementById("suisuinianAxisNewTitle"); if(ni) ni.focus(); }, 30); /* 方便接着连续写下一个标题 */
+};
 window.addSuisuinianMessage = function(topicId){
   var input = document.getElementById("suisuinianComposer");
   var titleInput = document.getElementById("suisuinianComposerTitle");
@@ -6381,13 +6452,6 @@ window.startRenameSuisuinianMessageTitle = function(id){
   suisuinianRenamingMessageTitle = id;
   suisuinianAxisExpanded[id] = true;
   render();
-};
-window.deleteSuisuinianMessage = function(id){
-  confirmDelete("确定删除这条留言吗？", function(){
-    DATA.suisuinianDeletedIds = (DATA.suisuinianDeletedIds||[]).concat([id]);
-    DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(x){return x.id!==id;});
-    save(); render();
-  });
 };
 function suisuinianTimeLabel(iso){
   if(!iso) return "—";
@@ -6494,7 +6558,7 @@ function renderSuisuinianBubbleList(msgs){
        都不够直观，"发送"点一下直接触发失焦，走已有的 onblur 保存逻辑 */
     var contentHtml = editingThisMsg
       ? '<div class="ssn-editbox">'+
-          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
           '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
           bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
         '</div>'
@@ -6512,39 +6576,159 @@ function renderSuisuinianBubbleList(msgs){
   }).join('') || '<div class="sub" style="padding:8px 2px">还没有留言，在下面写第一条吧</div>';
   return '<div class="card-panel ssn-feed">'+bubbles+'</div>';
 }
-function renderSuisuinianAxis(msgs, searchQ){
-  var axisItems = msgs.map(function(m){
+/* ===== 时间轴的"分支" =====
+   一条留言（小标题）下面可以挂几条"分支"，分支就是归在这个小标题名下的补充内容，自己没有小标题，
+   也不能再往下接分支（全部都归最上层的那个标题）。存的时候只是多一个 parent 字段指向它所属的小标题的 id，
+   没有 parent 的就是原来的顶层小标题。显示：缩进在所属小标题的内容下面，自己带一条竖线，
+   跟着所属小标题一起展开/收起。搜索小标题、"只看有图"这两种筛选开着的时候，为了看得全，分支和顶层混在一起
+   平铺显示（分支前面带 ↳）。删除一个小标题会连它名下的分支一起删（弹窗会写明有几条）。 */
+var suisuinianBranchOpen = null; /* 正在写分支的那个小标题 id，没有就是 null */
+window.openSuisuinianBranch = function(parentId){
+  suisuinianBranchOpen = parentId;
+  suisuinianAxisExpanded[parentId] = true;
+  render();
+  setTimeout(function(){ var t = document.getElementById("suisuinianBranchText"); if(t) t.focus(); }, 30);
+};
+window.closeSuisuinianBranch = function(){
+  suisuinianBranchOpen = null;
+  render();
+};
+/* 点了"+"却没写内容就点到别处，多半是误触，编辑框自动收起，不留空框；写了内容的草稿会保留，不会被收掉 */
+window.suisuinianBranchBlur = function(){
+  setTimeout(function(){
+    var t = document.getElementById("suisuinianBranchText");
+    if(!t || document.activeElement===t) return;
+    if((t.value||"").trim()===""){
+      suisuinianBranchOpen = null;
+      render();
+    }
+  }, 250);
+};
+window.addSuisuinianBranch = function(parentId){
+  var all = DATA.suisuinianEntries||[];
+  var parent = all.filter(function(x){return x.id===parentId;})[0];
+  if(!parent) return;
+  /* 分支只挂在最上层的小标题名下：万一传进来的本身是个分支，往上找到它所属的那个小标题 */
+  for(var guard=0; parent.parent && guard<50; guard++){
+    var up = all.filter(function(x){return x.id===parent.parent;})[0];
+    if(!up) break;
+    parent = up;
+  }
+  var textInput = document.getElementById("suisuinianBranchText");
+  var value = textInput ? (textInput.value||"").trim() : "";
+  if(!value) return;
+  var id = uid();
+  var now = new Date().toISOString();
+  all.push({id:id, topic:parent.topic, parent:parent.id, createdAt:now, updatedAt:now, title:"", content:value, images:[], fields:[]});
+  suisuinianBranchOpen = null;
+  suisuinianAxisExpanded[parent.id] = true;
+  save(); render();
+};
+function suisuinianBranchComposerHtml(parentId){
+  return '<div class="ssn-composer ssn-axis-branch-composer">'+
+    '<div class="ssn-composer-col"><div class="ssn-composer-box">'+
+      '<div class="ssn-editbox">'+
+        '<textarea id="suisuinianBranchText" placeholder="写这个标题下的分支内容，Enter发送，Shift+Enter换行…" onblur="suisuinianBranchBlur()" onkeydown="if(event.key===\'Escape\'){closeSuisuinianBranch();}else{sendOnEnter(event,function(){addSuisuinianBranch(\''+parentId+'\');})}"></textarea>'+
+        '<button type="button" class="ssn-edit-done ssn-cancel-corner" onclick="closeSuisuinianBranch()">取消</button>'+
+        '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addSuisuinianBranch(\''+parentId+'\')">发送</button>'+
+      '</div>'+
+    '</div></div>'+
+  '</div>';
+}
+function suisuinianDescendantIds(id){
+  var all = DATA.suisuinianEntries||[];
+  var out = [], stack = [id];
+  while(stack.length){
+    var p = stack.pop();
+    all.forEach(function(x){
+      if(x.parent===p && out.indexOf(x.id)===-1){ out.push(x.id); stack.push(x.id); }
+    });
+  }
+  return out;
+}
+window.deleteSuisuinianMessage = function(id){
+  var kids = suisuinianDescendantIds(id);
+  confirmDelete("确定删除这条留言吗？"+(kids.length?("它名下的 "+kids.length+" 条分支会一起永久删除，不能撤销。"):""), function(){
+    var gone = [id].concat(kids);
+    DATA.suisuinianDeletedIds = (DATA.suisuinianDeletedIds||[]).concat(gone);
+    DATA.suisuinianEntries = (DATA.suisuinianEntries||[]).filter(function(x){return gone.indexOf(x.id)===-1;});
+    save(); render();
+  });
+};
+function renderSuisuinianAxis(msgs, searchQ, allMsgs, flat){
+  allMsgs = allMsgs || msgs;
+  var byId = {}, childrenOf = {};
+  allMsgs.forEach(function(m){ byId[m.id] = m; });
+  function topOf(m){ /* 分支所属的最上层小标题（老数据里如果有"分支的分支"，也一并归到最上层） */
+    for(var guard=0; m.parent && byId[m.parent] && guard<50; guard++){ m = byId[m.parent]; }
+    return m;
+  }
+  allMsgs.forEach(function(m){
+    if(m.parent && byId[m.parent]){
+      var t = topOf(m);
+      if(t.id!==m.id) (childrenOf[t.id] = childrenOf[t.id] || []).push(m);
+    }
+  });
+  Object.keys(childrenOf).forEach(function(k){ /* 分支按时间从早到晚，往下读 */
+    childrenOf[k].sort(function(a,b){ return (a.createdAt||"").localeCompare(b.createdAt||""); });
+  });
+  /* 气泡：顶层小标题的内容和分支共用。时间显示在气泡左下角——一个小标题在不同阶段会陆续补内容，
+     每一条要各自带着自己的添加时间；删除✕放在气泡右上角，跟别的板块一致 */
+  function bubbleHtml(m){
+    var editingThisMsg = suisuinianEditingMessage===m.id;
+    var taId = "ssnBubbleEdit_"+m.id;
+    var contentHtml = editingThisMsg
+      ? '<div class="ssn-editbox">'+
+          '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+          '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
+          bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
+        '</div>'
+      : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+(m.content ? esc(m.content) : '<span style="color:var(--text-faint)">点击写内容…</span>')+'</div>';
+    /* 加照片 📷 和删除 ✕ 一起放在气泡右上角（编辑时不显示，编辑框里自带 📷），鼠标移到气泡上才浮现 */
+    return '<div class="ssn-bubble">'+
+      (editingThisMsg ? '' :
+        '<div class="ssn-bubble-corner">'+
+          bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg")+
+          '<button type="button" class="mini-del ssn-bubble-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
+        '</div>')+
+      contentHtml+
+      '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions"><span>'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span></div>'+
+    '</div>';
+  }
+  /* 分支：只有内容气泡，没有小标题行、不能折叠（跟着所属小标题走） */
+  function branchItemHtml(m){
+    return '<div class="ssn-axis-item ssn-axis-branch-item"><div class="ssn-axis-dot"></div>'+
+      '<div class="ssn-axis-body">'+bubbleHtml(m)+'</div></div>';
+  }
+  function itemHtml(m){
+    var kids = flat ? [] : (childrenOf[m.id]||[]);
     var expanded = suisuinianAxisExpanded[m.id]!==false; /* 默认全部展开，点了才收起 */
     var titleHtml = suisuinianRenamingMessageTitle===m.id
       ? '<input type="text" class="ssn-axis-title-input" value="'+esc(m.title||"")+'" autofocus onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitSuisuinianMessageTitle(\''+m.id+'\', this.value)">'
       : '<span class="ssn-axis-title" ondblclick="event.stopPropagation();startRenameSuisuinianMessageTitle(\''+m.id+'\')" title="双击改小标题">'+esc(suisuinianAxisLabel(m))+'</span>';
     var head = '<div class="ssn-axis-dot'+(expanded?' expanded':'')+'"></div>'+
       '<div class="ssn-axis-title-row" onclick="toggleSuisuinianAxisExpand(\''+m.id+'\')">'+
+        (flat && m.parent && byId[m.parent] ? '<span class="ssn-axis-imgmark" title="这是某个小标题名下的分支">↳</span>' : '')+
         titleHtml+
-        '<span class="ssn-axis-time">'+esc(suisuinianTimeLabel(m.createdAt))+'</span>'+
+        (flat ? '' : '<button type="button" class="add-circle-btn" onclick="event.stopPropagation();openSuisuinianBranch(\''+m.id+'\')" title="在这个标题下面再补一段内容（分支）">+</button>')+
+        (flat ? '<span class="ssn-axis-time">'+esc(suisuinianTimeLabel(m.createdAt))+'</span>' : '')+
+        (kids.length ? '<span class="ssn-axis-time" title="名下有 '+kids.length+' 条分支">⑂ '+kids.length+'</span>' : '')+
         (m.images&&m.images.length ? '<span class="ssn-axis-imgmark" title="有图">📷</span>' : '')+
       '</div>';
     var body = '';
     if(expanded){
-      var editingThisMsg = suisuinianEditingMessage===m.id;
-      var taId = "ssnBubbleEdit_"+m.id;
-      var contentHtml = editingThisMsg
-        ? '<div class="ssn-editbox">'+
-            '<textarea class="ssn-bubble-edit" id="'+taId+'" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianMessage(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
-            '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
-            bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner")+
-          '</div>'
-        : '<div class="ssn-bubble-content" onclick="startEditSuisuinianMessage(\''+m.id+'\')" title="点击编辑">'+esc(m.content||"（没有内容）")+'</div>';
-      body = '<div class="ssn-axis-body"><div class="ssn-bubble">'+contentHtml+
-        '<div class="ssn-bubble-meta"><span class="ssn-bubble-meta-actions">'+bookPhotoBadgeHtml("suisuinian", m.id, m.images)+'</span>'+
-        '<span class="ssn-bubble-meta-actions">'+
-          (editingThisMsg ? '' : bookImageAddButtonHtml("suisuinian", m.id, "ssn-bubble-addimg"))+
-          '<button type="button" class="mini-del" onclick="deleteSuisuinianMessage(\''+m.id+'\')" title="删除">✕</button>'+
-        '</span></div>'+
-      '</div></div>';
+      var branchHtml = '';
+      if(!flat){
+        branchHtml =
+          (suisuinianBranchOpen===m.id ? '<div class="ssn-axis-branch-addrow">'+suisuinianBranchComposerHtml(m.id)+'</div>' : '')+
+          (kids.length ? '<div class="ssn-axis-branch">'+kids.map(branchItemHtml).join('')+'</div>' : '');
+      }
+      body = '<div class="ssn-axis-body">'+bubbleHtml(m)+branchHtml+'</div>';
     }
     return '<div class="ssn-axis-item">'+head+body+'</div>';
-  }).join('') || '<div class="sub" style="padding:8px 2px">'+(searchQ?"没找到匹配的标题":"还没有留言，在下面写第一条吧")+'</div>';
+  }
+  var tops = flat ? msgs : msgs.filter(function(m){ return !m.parent || !byId[m.parent]; });
+  var axisItems = tops.map(itemHtml).join('') || '<div class="sub" style="padding:8px 2px">'+(searchQ?"没找到匹配的标题":"还没有留言，在下面写第一条吧")+'</div>';
   var axisSearchHtml = '<div class="ssn-axis-item ssn-axis-search-item">'+
     '<div class="ssn-axis-dot"></div>'+
     '<input type="text" id="suisuinianAxisSearch" class="ssn-axis-search-input" placeholder="🔍 搜索小标题" value="'+esc(suisuinianTitleSearch)+'" oninput="setSuisuinianTitleSearch(this.value)">'+
@@ -6695,7 +6879,7 @@ function suisuinianTagEntryRowHtml(topicId, m, color){
   var innerHtml;
   if(editingThis){
     /* 加照片按钮也跟"发送"一样嵌进卡片内部（左下角），不用再去下面那排小图标里找 */
-    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();this.blur();}" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
+    innerHtml = '<textarea id="ssnTagEdit_'+m.id+'" class="ssn-bubble-edit" autofocus onkeydown="finishEditOnEnter(event,this)" onblur="commitEditSuisuinianTagEntry(\''+m.id+'\', this.value)">'+esc(m.content)+'</textarea>'+
       bookImageAddButtonHtml("suisuinian", m.id, "ssn-addimg-corner");
   } else {
     innerHtml = '<div class="ssn-bubble-content ssn-tag-clamp" data-entry-id="'+m.id+'" onclick="startEditSuisuinianTagEntry(\''+m.id+'\')" title="点击编辑，悬停查看全部">'+esc(m.content||"（没有内容）")+'</div>'+
@@ -6843,7 +7027,7 @@ function renderSuisuinianTopicBoard(topicId){
   var mode = suisuinianTopicDisplayMode(topicId);
   var bodyHtml = mode==="bubble" ? renderSuisuinianBubbleList(msgs)
     : mode==="tag" ? renderSuisuinianTagView(topicId, msgs)
-    : renderSuisuinianAxis(msgs, searchQ);
+    : renderSuisuinianAxis(msgs, searchQ, allMsgs, !!(searchQ || suisuinianFilterHasImage));
   var titleHtml = suisuinianRenamingTopic===topic.id
     ? '<input type="text" class="book-detail-title" style="font-size:20px" value="'+esc(topic.label)+'" autofocus onkeydown="if(event.key===\'Enter\')this.blur();" onblur="commitRenameSuisuinianTopic(\''+topic.id+'\', this.value)">'
     : '<h2 ondblclick="startRenameSuisuinianTopic(\''+topic.id+'\')" title="双击改名" style="cursor:pointer">'+esc(topic.label)+'</h2>';
@@ -6856,7 +7040,7 @@ function renderSuisuinianTopicBoard(topicId){
     '<button class="btn ghost small" onclick="toggleBookSort(\'suisuinian\')">'+(sortAsc?"↑ 升序":"↓ 降序")+'</button>'+
     suisuinianModeSwitchHtml(topicId)+
     '</div></div>'+
-    (mode==="tag" ? '' :
+    (mode==="tag" ? '' : mode==="axis" ? suisuinianAxisTitleComposerHtml(topic.id) :
     (mode==="bubble" && suisuinianComposerOpen!==topic.id)
       ? '<div style="margin:10px 0 14px; display:flex; justify-content:flex-end"><button type="button" class="ssn-tag-col-addbtn ssn-bubble-plus" style="background:var(--accent)" onclick="openSuisuinianComposer(\''+topic.id+'\')" title="新增一条留言">+</button></div>' :
     /* 发送、加照片这两个按钮以前一个在框左边、一个在框右边，跟编辑态的留言不是一个手感；
@@ -6866,12 +7050,9 @@ function renderSuisuinianTopicBoard(topicId){
         suisuinianComposerImageGalleryHtml()+
         '<div class="ssn-composer-box">'+
           (mode==="axis" ? '<input type="text" id="suisuinianComposerTitle" class="ssn-composer-title" placeholder="小标题（可选，不填就用内容前几个字）" onkeydown="if(event.key===\'Enter\'){event.preventDefault();document.getElementById(\'suisuinianComposer\').focus();}">' : '')+
-          /* 原来是"回车就发送"，跟聊天软件一个手感，但这里是写完整段内容再发的场景，
-             经常想按个回车换行、或者敲完回车确认一下有没有打错字，结果内容没写完就被整段
-             发出去了。改成回车就是正常换行，敲 Ctrl（Mac 是 Cmd）+回车才真的发送，
-             真要发还是点编辑框里那颗"发送"按钮最保险 */
+          /* 发送框统一 Enter 发送、Shift+Enter 换行；支持点「发送」按钮。 */
           '<div class="ssn-editbox">'+
-            '<textarea id="suisuinianComposer"'+(mode==="bubble" ? ' onblur="ssnComposerBlur()" onfocus="window.__ssnPicking=false"' : '')+' placeholder="写点什么，Ctrl/⌘+回车发送，或者点右上角「发送」…" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addSuisuinianMessage(\''+topic.id+'\');}"></textarea>'+
+            '<textarea id="suisuinianComposer"'+(mode==="bubble" ? ' onblur="ssnComposerBlur()" onfocus="window.__ssnPicking=false"' : '')+' placeholder="写点什么，Enter发送，Shift+Enter换行，或点右上角「发送」…" onkeydown="sendOnEnter(event,function(){addSuisuinianMessage(\''+topic.id+'\');})"></textarea>'+
             (mode==="bubble" ? '<button type="button" class="ssn-edit-done ssn-cancel-corner" onclick="closeSuisuinianComposer()">取消</button>' : '')+
             '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addSuisuinianMessage(\''+topic.id+'\')">发送</button>'+
             '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片" onmousedown="window.__ssnPicking=true" ontouchstart="window.__ssnPicking=true">📷<input type="file" accept="image/*" onchange="uploadSuisuinianComposerImage(this)"></label>'+
@@ -7139,7 +7320,7 @@ function journalComposerHtml(entryId){
       journalComposerGalleryHtml()+
       '<div class="ssn-composer-box">'+
         '<div class="ssn-editbox">'+
-          '<textarea id="journalComposer" placeholder="写这一段，Ctrl/⌘+回车发送，或者点右上角「发送」…" onblur="journalComposerBlur()" onfocus="window.__ssnPicking=false" onkeydown="if(event.key===\'Enter\'&&(event.ctrlKey||event.metaKey)){event.preventDefault();addJournalChapterFromComposer(\''+entryId+'\');}"></textarea>'+
+          '<textarea id="journalComposer" placeholder="写这一段，Enter发送，Shift+Enter换行，或点右上角「发送」…" onblur="journalComposerBlur()" onfocus="window.__ssnPicking=false" onkeydown="sendOnEnter(event,function(){addJournalChapterFromComposer(\''+entryId+'\');})"></textarea>'+
           '<button type="button" class="ssn-edit-done ssn-cancel-corner" onclick="closeJournalComposer()">取消</button>'+
           '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="addJournalChapterFromComposer(\''+entryId+'\')">发送</button>'+
           '<label class="book-img-add-icon ssn-addimg-corner" title="添加照片" onmousedown="window.__ssnPicking=true" ontouchstart="window.__ssnPicking=true">📷<input type="file" accept="image/*" onchange="uploadJournalComposerImage(this)"></label>'+
@@ -7150,7 +7331,9 @@ function journalComposerHtml(entryId){
 }
 window.updateJournalChapterContent = function(entryId, chapterId, value){
   var ch = resolveBookRecord("journalChapter", entryId+"::"+chapterId); if(!ch) return;
-  ch.content = value; save(); render();
+  if(ch.content===value) return; // 没改文字时不反复保存几 MB 的整份数据
+  ch.content = value;
+  save(); // 该 textarea 已显示最新内容，不必为保存重绘整个页面
 };
 window.deleteJournalChapter = function(entryId, chapterId){
   confirmDelete("确定删除这个板块吗？", function(){
@@ -7185,7 +7368,7 @@ function renderJournalChapters(entryId){
         '</span>'+
       '</div>'+
       '<div class="ssn-editbox">'+
-        '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="enterSubmitKeydown(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
+        '<textarea id="'+taId+'" class="book-chapter-content" placeholder="写这一段…" onkeydown="finishEditOnEnter(event,this)" onchange="updateJournalChapterContent(\''+entryId+'\',\''+ch.id+'\',this.value)">'+esc(ch.content||"")+'</textarea>'+
         '<button type="button" class="ssn-edit-done ssn-send-corner" onclick="blurElementById(\''+taId+'\')" title="发送">发送</button>'+
         bookImageAddButtonHtml("journalChapter", entryId+"::"+ch.id, "ssn-addimg-corner")+
       '</div>'+
@@ -8763,6 +8946,150 @@ async function boot(){
   await bootAfterAuth();
 }
 boot();
+</script>
+<script>
+/* 手机/触屏悬浮预览兼容补丁：不改电脑 hover、不改原有编辑/数据逻辑 */
+(function(){
+  "use strict";
+  function touchOnly(){
+    return !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
+  }
+  var current = null;
+  var floatIds = {
+    tip: "tlTooltip", travel: "travelTagFloat", remark: "ssnRemarkFloat",
+    content: "ssnTagContentFloat", photo: "bookPhotoFloat", map: "travelMapPreviewFloat"
+  };
+  function getBox(kind){ return document.getElementById(floatIds[kind]); }
+  function hideBox(kind){
+    var box = getBox(kind);
+    if(box) box.style.display = "none";
+  }
+  function dismiss(){
+    if(!current) return;
+    var kind = current.kind;
+    current = null;
+    // 旅游地点原来的编辑框可以钉住；不让预览机制误关正在编辑的表单。
+    if(kind==="travel" && typeof travelTagEditingId!=="undefined" && travelTagEditingId) return;
+    hideBox(kind);
+  }
+  function keepWithinScreen(box){
+    if(!box || box.style.display==="none") return;
+    var margin = 6;
+    box.style.maxHeight = Math.max(80, window.innerHeight-2*margin)+"px";
+    box.style.overflowY = "auto";
+    box.style.webkitOverflowScrolling = "touch";
+    var r = box.getBoundingClientRect();
+    box.style.left = Math.max(margin, Math.min(r.left, Math.max(margin,window.innerWidth-r.width-margin)))+"px";
+    box.style.top = Math.max(margin, Math.min(r.top, Math.max(margin,window.innerHeight-r.height-margin)))+"px";
+  }
+  function showMobileTip(el){
+    var tip = getBox("tip");
+    if(!tip) return false;
+    if(typeof tlTooltipHideTimer!=="undefined") clearTimeout(tlTooltipHideTimer);
+    tip.innerHTML = el.getAttribute("data-tip") || "";
+    if(!tip.innerHTML) return false;
+    tip.style.display = "block";
+    var r = el.getBoundingClientRect(), tr = tip.getBoundingClientRect();
+    var left = Math.max(4, Math.min(r.left+r.width/2-tr.width/2,window.innerWidth-tr.width-4));
+    var top = r.top-tr.height-8;
+    if(top < 4) top = r.bottom+8;
+    tip.style.left = left+"px";
+    tip.style.top = top+"px";
+    return true;
+  }
+  function targetPreview(el){
+    // 不碰删除按钮、输入框、链接等已有功能；地图预览按钮是唯一例外。
+    var mapButton = el.closest(".tl-map-cta button[onmouseenter]");
+    if(el.closest("button,a,input,textarea,select,label,[contenteditable='true']") && !mapButton) return null;
+    var node = el.closest(".travel-tag[data-travel-id]");
+    if(node) return {kind:"travel", anchor:node};
+    node = el.closest(".tl-tip-wrap.has-tip[data-tip]");
+    if(node) return {kind:"tip", anchor:node};
+    node = el.closest(".ssn-remark-wrap.has-remark[data-remark-id]");
+    if(node) return {kind:"remark", anchor:node};
+    node = el.closest(".ssn-tag-clamp[data-entry-id]");
+    // 内容没有被截断时不改变“点一下就编辑”的原有行为。
+    if(node && node.scrollHeight > node.clientHeight+1) return {kind:"content", anchor:node};
+    node = el.closest(".book-photo-badge[data-id]");
+    if(node) return {kind:"photo", anchor:node};
+    if(mapButton) return {kind:"map", anchor:mapButton};
+    return null;
+  }
+  function showPreview(choice){
+    var a=choice.anchor;
+    if(choice.kind==="tip"){
+      if(!showMobileTip(a)) return false;
+    } else if(choice.kind==="travel"){
+      if(typeof travelTagEditingId!=="undefined" && travelTagEditingId) return false;
+      travelTagShow(a.getAttribute("data-travel-id"),a);
+    } else if(choice.kind==="remark"){
+      ssnRemarkShow(a.getAttribute("data-remark-kind"),a.getAttribute("data-remark-id"),a);
+    } else if(choice.kind==="content"){
+      ssnTagContentShow(a.getAttribute("data-entry-id"),a);
+      var c=getBox("content");
+      if(c) c.style.pointerEvents = "auto"; // 手机上允许滚动/选中文本
+    } else if(choice.kind==="photo"){
+      bookPhotoBadgeShow(a.getAttribute("data-module"),a.getAttribute("data-id"),a);
+    } else if(choice.kind==="map"){
+      travelMapPreviewShow(a);
+    }
+    var box=getBox(choice.kind);
+    if(!box || box.style.display==="none") return false;
+    keepWithinScreen(box);
+    return true;
+  }
+  // 触屏点开以后不再被浏览器模拟的 mouseout/leave 误关；电脑维持原样。
+  [
+    ["scheduleTlTooltipHide","tip"], ["travelTagScheduleHide","travel"],
+    ["ssnRemarkScheduleHide","remark"], ["ssnTagContentScheduleHide","content"],
+    ["bookPhotoScheduleHide","photo"], ["travelMapPreviewScheduleHide","map"]
+  ].forEach(function(pair){
+    var name=pair[0], kind=pair[1], original=window[name];
+    if(typeof original!=="function") return;
+    window[name]=function(){
+      if(touchOnly() && current && current.kind===kind) return;
+      return original.apply(this,arguments);
+    };
+    if(name==="travelMapPreviewScheduleHide") window.travelMapPreviewHide=window[name];
+  });
+  var oldHideAllFloats = window.hideAllFloats;
+  if(typeof oldHideAllFloats==="function"){
+    window.hideAllFloats=function(){ current=null; return oldHideAllFloats.apply(this,arguments); };
+  }
+  document.addEventListener("click",function(e){
+    if(!touchOnly()) return;
+    if(current && !document.contains(current.anchor)) current=null;
+    var insideFloat = e.target.closest && e.target.closest(
+      "#tlTooltip,#travelTagFloat,#ssnRemarkFloat,#ssnTagContentFloat,#bookPhotoFloat,#travelMapPreviewFloat"
+    );
+    if(insideFloat){
+      // 允许原悬浮框里直接点图、编辑、删除、滚动等，绝不拦截。
+      if(current && current.kind==="travel" && insideFloat.id==="travelTagFloat") current=null;
+      return;
+    }
+    var choice=targetPreview(e.target);
+    if(!choice){ dismiss(); return; }
+    if(current && current.kind===choice.kind && current.anchor===choice.anchor){
+      // 第二次点击：执行之前原本的单击操作（进入详情、编辑等）。
+      // 旅游“地点”原本靠点预览框编辑，这里顺便支持第二次点地点直接编辑。
+      if(choice.kind==="travel" && !choice.anchor.classList.contains("travel-tag-folder")){
+        current=null;
+        travelTagRenderEdit(choice.anchor.getAttribute("data-travel-id"));
+        e.preventDefault(); e.stopImmediatePropagation();
+        return;
+      }
+      // 图片小徽标没有原来的点击动作，再点一次就是收起预览。
+      dismiss();
+      return;
+    }
+    dismiss();
+    if(!showPreview(choice)) return;
+    current=choice;
+    // 第一次点击只预览，防止它同时触发原本的编辑/进入详情逻辑。
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  },true);
+})();
 </script>
 </body>
 </html>
